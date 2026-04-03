@@ -409,6 +409,21 @@ h2 {
   word-break: break-word;
 }
 
+.contact-subtle-link {
+  display: inline-block;
+  color: var(--heading);
+  text-decoration: underline;
+  text-decoration-color: rgba(61, 42, 47, 0.2);
+  text-underline-offset: 0.2rem;
+  transition: color 180ms ease, text-decoration-color 180ms ease;
+}
+
+.contact-subtle-link:hover,
+.contact-subtle-link:focus-visible {
+  color: var(--accent-strong);
+  text-decoration-color: rgba(217, 137, 155, 0.45);
+}
+
 .contact-actions {
   display: flex;
   flex-direction: column;
