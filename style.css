@@ -346,35 +346,146 @@ h2 {
   font-weight: 700;
 }
 
-.portfolio-grid {
-  display: grid;
-  gap: 1rem;
+.portfolio-slider {
+  position: relative;
+  width: min(100%, 42rem);
+  margin: 0 auto;
+  padding-bottom: 3.25rem;
+  touch-action: pan-y;
 }
 
-.portfolio-item {
+.portfolio .portfolio-grid {
+  position: relative;
+  display: block;
+  aspect-ratio: 4 / 5;
+  min-height: 21rem;
+}
+
+.portfolio .portfolio-grid::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: 24px;
+  background: rgba(61, 42, 47, 0);
+  pointer-events: none;
+  transition: background 220ms ease;
+}
+
+.portfolio-slider.is-pressing .portfolio-grid::after {
+  background: rgba(61, 42, 47, 0.07);
+}
+
+.portfolio .portfolio-item {
+  position: absolute;
+  inset: 0;
   margin: 0;
   overflow: hidden;
   border-radius: 24px;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: scale(0.985);
+  transition: opacity 380ms ease, transform 380ms ease, visibility 380ms ease;
 }
 
-.portfolio-item img {
+.portfolio .portfolio-item.is-active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: scale(1);
+}
+
+.portfolio .portfolio-item img {
   width: 100%;
   height: 100%;
-  min-height: 16rem;
   object-fit: cover;
-  transition: transform 320ms ease;
+  transition: transform 380ms ease;
 }
 
-.portfolio-item:hover img,
-.portfolio-item:focus-within img {
+.portfolio .portfolio-item.is-active:hover img,
+.portfolio .portfolio-item.is-active:focus-within img {
+  transform: scale(1.03);
+}
+
+.portfolio-arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  width: 3rem;
+  height: 3rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--heading);
+  font-size: 1.9rem;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition: transform 180ms ease, opacity 300ms ease;
+}
+
+.portfolio-slider.is-touch-active .portfolio-arrow,
+.portfolio-slider:focus-within .portfolio-arrow {
+  opacity: 0.72;
+  pointer-events: auto;
+}
+
+@media (hover: hover) {
+  .portfolio-slider:hover .portfolio-arrow {
+    opacity: 0.72;
+    pointer-events: auto;
+  }
+}
+
+.portfolio-arrow:hover,
+.portfolio-arrow:focus-visible {
+  transform: translateY(-50%) scale(1.06);
+  opacity: 0.94;
+}
+
+.portfolio-arrow-prev {
+  left: 0.9rem;
+}
+
+.portfolio-arrow-next {
+  right: 0.9rem;
+}
+
+.portfolio-dots {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.portfolio-dot {
+  width: 0.65rem;
+  height: 0.65rem;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(125, 86, 92, 0.18);
+  cursor: pointer;
+  transition: transform 180ms ease, background 180ms ease;
+}
+
+.portfolio-dot:hover,
+.portfolio-dot:focus-visible {
   transform: scale(1.08);
 }
 
-.portfolio-item figcaption {
-  padding: 0.95rem 1rem 1.15rem;
-  font-weight: 700;
-  color: var(--heading);
-  background: rgba(255, 255, 255, 0.84);
+.portfolio-dot.is-active {
+  background: rgba(125, 86, 92, 0.55);
 }
 
 .custom-card,
@@ -385,24 +496,30 @@ h2 {
 
 .contact-card {
   display: grid;
-  gap: 1rem;
+  gap: 1.4rem;
   grid-template-columns: minmax(0, 1fr);
+}
+
+.contact-column {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .contact-item {
   min-width: 0;
-  padding-bottom: 1rem;
+  padding-bottom: 1.35rem;
   border-bottom: 1px solid var(--line);
 }
 
-.contact-item:last-of-type {
+.contact-column .contact-item:last-child {
   border-bottom: 0;
   padding-bottom: 0;
 }
 
 .contact-item a,
 .contact-item p {
-  margin: 0.35rem 0 0;
+  margin: 0.5rem 0 0;
   font-weight: 600;
   min-width: 0;
   overflow-wrap: anywhere;
@@ -502,10 +619,6 @@ h2 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .portfolio-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .instructions-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -520,7 +633,6 @@ h2 {
 @media (min-width: 768px) {
   .contact-card {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-items: start;
   }
 }
 
@@ -533,12 +645,35 @@ h2 {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .portfolio-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
   .contact-actions {
     grid-column: span 2;
     flex-direction: row;
+  }
+}
+
+@media (max-width: 767px) {
+  .portfolio-slider {
+    width: 100%;
+    padding-bottom: 2.85rem;
+  }
+
+  .portfolio .portfolio-grid {
+    aspect-ratio: 4 / 5;
+    min-height: 18.5rem;
+  }
+
+  .portfolio-arrow {
+    width: 2.75rem;
+    height: 2.75rem;
+    font-size: 1.75rem;
+  }
+
+  .portfolio-arrow-prev {
+    left: 0.6rem;
+  }
+
+  .portfolio-arrow-next {
+    right: 0.6rem;
   }
 }
 
