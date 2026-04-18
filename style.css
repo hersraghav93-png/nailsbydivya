@@ -821,3 +821,85 @@ h2 {
 #about .about-text {
   margin: 0;
 }
+
+@media (max-width: 768px) {
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .section,
+  .contact-card,
+  .custom-card,
+  .review-card,
+  .why-card,
+  .hero-visual,
+  .portfolio-slider {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .hero-visual {
+    min-height: 20rem;
+    overflow: hidden;
+    padding-right: 0;
+  }
+
+  .hero-img-main {
+    width: min(100%, 19rem);
+  }
+
+  .hero-img-small {
+    width: min(42vw, 8.75rem);
+    right: 0;
+    bottom: 0;
+  }
+
+  .contact-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+    padding: 1.5rem;
+  }
+
+  .contact-column {
+    display: contents;
+  }
+
+  .contact-item {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  .contact-column .contact-item:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  .contact-item a,
+  .contact-item p {
+    margin: 0.4rem 0 0;
+  }
+
+  .contact-item-whatsapp {
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .contact-column + .contact-column .contact-item:first-child {
+    margin-top: 0.35rem;
+  }
+
+  .why-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .why-card {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+}
