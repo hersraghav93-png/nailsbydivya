@@ -1082,6 +1082,196 @@ h4 {
   color: var(--text);
 }
 
+/* --------------------------------------------------------------------------
+   06B. WHY CHOOSE OUR SERVICE — 05 INTERACTIVE FAQ ACCORDION CARD
+   -------------------------------------------------------------------------- */
+.trust-card.trust-card-faq {
+  grid-column: 1 / -1;
+  transition: transform 300ms ease, box-shadow 300ms ease, background-color 300ms ease;
+  cursor: default;
+}
+
+.trust-faq-header {
+  cursor: pointer;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.trust-faq-header:focus-visible {
+  border-radius: var(--radius-md);
+  box-shadow: 0 0 0 2px var(--accent-strong);
+}
+
+.trust-faq-indicator {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px dashed rgba(125, 86, 92, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--accent-strong);
+  transition: color 200ms ease;
+}
+
+.trust-card-faq:hover .trust-faq-indicator {
+  color: var(--heading);
+}
+
+.indicator-arrow {
+  display: inline-block;
+  transition: transform 400ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.trust-card-faq.is-expanded .indicator-arrow {
+  transform: rotate(180deg);
+}
+
+.trust-faq-accordion-wrapper {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 550ms cubic-bezier(0.16, 1, 0.3, 1), opacity 450ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: max-height, opacity;
+}
+
+.trust-card-faq.is-expanded .trust-faq-accordion-wrapper {
+  opacity: 1;
+}
+
+.trust-faq-accordion-content {
+  padding-top: 2rem;
+  margin-top: 1.5rem;
+  border-top: 1px solid rgba(125, 86, 92, 0.16);
+}
+
+/* FAQ List & Items */
+.faq-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.faq-item {
+  border-bottom: 1px solid rgba(125, 86, 92, 0.15);
+}
+
+.faq-item:last-child {
+  border-bottom: none;
+}
+
+.faq-item-button {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 1.25rem 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  font-family: inherit;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--heading);
+  cursor: pointer;
+  outline: none;
+  transition: color 200ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.faq-item-button:hover,
+.faq-item.is-active .faq-item-button {
+  color: var(--accent-strong);
+}
+
+.faq-item-button:focus-visible {
+  border-radius: var(--radius-sm);
+  box-shadow: 0 0 0 2px var(--accent-strong);
+}
+
+.faq-question-text {
+  flex: 1;
+  line-height: 1.4;
+}
+
+.faq-icon-plus {
+  position: relative;
+  width: 14px;
+  height: 14px;
+  display: inline-block;
+  flex-shrink: 0;
+  transition: transform 380ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.faq-icon-plus::before,
+.faq-icon-plus::after {
+  content: '';
+  position: absolute;
+  background-color: var(--heading);
+  border-radius: 2px;
+  transition: transform 380ms cubic-bezier(0.16, 1, 0.3, 1), background-color 200ms ease;
+}
+
+.faq-icon-plus::before {
+  top: 6px;
+  left: 0;
+  width: 14px;
+  height: 2px;
+}
+
+.faq-icon-plus::after {
+  top: 0;
+  left: 6px;
+  width: 2px;
+  height: 14px;
+}
+
+.faq-item.is-active .faq-icon-plus {
+  transform: rotate(45deg);
+}
+
+.faq-item.is-active .faq-icon-plus::before,
+.faq-item.is-active .faq-icon-plus::after {
+  background-color: var(--accent-strong);
+}
+
+.faq-item-answer {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 420ms cubic-bezier(0.16, 1, 0.3, 1), opacity 350ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: max-height, opacity;
+}
+
+.faq-item.is-active .faq-item-answer {
+  opacity: 1;
+}
+
+.faq-item-answer p {
+  margin: 0;
+  padding-bottom: 1.35rem;
+  font-size: 0.98rem;
+  line-height: 1.65;
+  color: var(--body-text);
+}
+
+.faq-final-body p {
+  padding-bottom: 0.85rem;
+}
+
+.faq-cta-wrapper {
+  margin-top: 1rem;
+  padding-bottom: 1.5rem;
+}
+
+.faq-chat-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+}
+
 /* ==========================================================================
    08. REVIEWS — AUTHENTIC 5-STAR CLIENT LOVE
    ========================================================================== */
@@ -1842,5 +2032,27 @@ h4 {
   .footer-icons {
     flex-wrap: wrap;
     gap: 1.5rem;
+  }
+
+  .faq-item-button {
+    font-size: 1.02rem;
+    padding: 1.1rem 0;
+    gap: 1rem;
+  }
+
+  .faq-item-answer p {
+    font-size: 0.94rem;
+    padding-bottom: 1.15rem;
+  }
+
+  .trust-faq-indicator {
+    font-size: 0.9rem;
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+  }
+
+  .faq-cta-wrapper .faq-chat-btn {
+    width: 100%;
+    justify-content: center;
   }
 }

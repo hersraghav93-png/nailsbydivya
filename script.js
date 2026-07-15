@@ -84,6 +84,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initShopFilters();
   initModals();
   initScrollAnimations();
+  initTrustFaq();
 });
 
 /**
@@ -643,4 +644,124 @@ function initScrollAnimations() {
   } else {
     elements.forEach((el) => el.classList.add("is-visible"));
   }
+}
+
+// ---------------------------------------------------------------------------
+// 10. WHY CHOOSE OUR SERVICE - FAQ ACCORDION (`#trust-faq-card`)
+// ---------------------------------------------------------------------------
+function initTrustFaq() {
+  const faqCard = document.getElementById("trust-faq-card");
+  const faqTrigger = document.getElementById("trust-faq-trigger");
+  const faqAccordion = document.getElementById("trust-faq-accordion");
+  if (!faqCard || !faqTrigger || !faqAccordion) return;
+
+  const indicatorText = faqTrigger.querySelector(".indicator-text");
+  let isExpanded = false;
+  let expandTimeout = null;
+
+  const updateCardMaxHeight = () => {
+    if (!isExpanded) return;
+    if (faqAccordion.style.maxHeight === "none") return;
+    faqAccordion.style.maxHeight = faqAccordion.scrollHeight + "px";
+  };
+
+  const toggleCard = (open) => {
+    const targetState = open !== undefined ? open : !isExpanded;
+    if (targetState === isExpanded) return;
+
+    isExpanded = targetState;
+    faqTrigger.setAttribute("aria-expanded", isExpanded ? "true" : "false");
+    faqAccordion.setAttribute("aria-hidden", isExpanded ? "false" : "true");
+    faqCard.classList.toggle("is-expanded", isExpanded);
+
+    if (indicatorText) {
+      indicatorText.textContent = isExpanded ? "Close Questions" : "Explore Questions";
+    }
+
+    if (expandTimeout) clearTimeout(expandTimeout);
+
+    if (isExpanded) {
+      faqAccordion.style.maxHeight = faqAccordion.scrollHeight + "px";
+      expandTimeout = setTimeout(() => {
+        if (isExpanded) {
+          faqAccordion.style.maxHeight = "none";
+        }
+      }, 580);
+    } else {
+      if (faqAccordion.style.maxHeight === "none") {
+        faqAccordion.style.maxHeight = faqAccordion.scrollHeight + "px";
+        // Force reflow before collapsing
+        faqAccordion.offsetHeight;
+      }
+      requestAnimationFrame(() => {
+        faqAccordion.style.maxHeight = "0px";
+      });
+    }
+  };
+
+  faqTrigger.addEventListener("click", () => {
+    toggleCard();
+  });
+
+  faqTrigger.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      toggleCard();
+    }
+  });
+
+  // Exclusive Accordion Logic for Inner Questions
+  const faqItems = faqCard.querySelectorAll(".faq-item");
+  faqItems.forEach((item) => {
+    const btn = item.querySelector(".faq-item-button");
+    const answer = item.querySelector(".faq-item-answer");
+    if (!btn || !answer) return;
+
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const isActive = item.classList.contains("is-active");
+
+      // Close all other currently active questions (exclusive accordion)
+      faqItems.forEach((otherItem) => {
+        if (otherItem !== item && otherItem.classList.contains("is-active")) {
+          const otherBtn = otherItem.querySelector(".faq-item-button");
+          const otherAnswer = otherItem.querySelector(".faq-item-answer");
+          otherItem.classList.remove("is-active");
+          if (otherBtn) otherBtn.setAttribute("aria-expanded", "false");
+          if (otherAnswer) {
+            otherAnswer.style.maxHeight = otherAnswer.scrollHeight + "px";
+            otherAnswer.offsetHeight; // reflow
+            requestAnimationFrame(() => {
+              otherAnswer.style.maxHeight = "0px";
+            });
+          }
+        }
+      });
+
+      // Toggle current question
+      if (isActive) {
+        item.classList.remove("is-active");
+        btn.setAttribute("aria-expanded", "false");
+        answer.style.maxHeight = answer.scrollHeight + "px";
+        answer.offsetHeight; // reflow
+        requestAnimationFrame(() => {
+          answer.style.maxHeight = "0px";
+          if (faqAccordion.style.maxHeight !== "none") updateCardMaxHeight();
+        });
+      } else {
+        item.classList.add("is-active");
+        btn.setAttribute("aria-expanded", "true");
+        answer.style.maxHeight = answer.scrollHeight + "px";
+        if (faqAccordion.style.maxHeight !== "none") {
+          setTimeout(updateCardMaxHeight, 20);
+        }
+      }
+    });
+  });
+
+  window.addEventListener("resize", () => {
+    if (isExpanded && faqAccordion.style.maxHeight !== "none") {
+      updateCardMaxHeight();
+    }
+  }, { passive: true });
 }
