@@ -988,7 +988,7 @@ function initDivvStylist() {
     showTyping();
 
     try {
-      const apiUrl = window.DIVV_API_URL || "http://localhost:3000/chat";
+      const apiUrl = window.DIVV_API_URL || "https://nails-ai-backend.onrender.com/chat";
       const payload = {
         message: text,
         productContext: window.DivvCurrentProductContext || null,
