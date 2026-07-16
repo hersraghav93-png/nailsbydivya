@@ -85,6 +85,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initModals();
   initScrollAnimations();
   initTrustFaq();
+  initDivvStylist();
 });
 
 /**
@@ -585,6 +586,9 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
     };
   }
 
+  window.DivvCurrentProductContext = `${title}${sku ? ` [SKU: ${sku}]` : ""}${price ? ` (${price})` : ""}`;
+  if (typeof window.updateDivvProductBanner === "function") window.updateDivvProductBanner();
+
   modal.classList.add("is-open");
   document.body.style.overflow = "hidden";
 }
@@ -765,3 +769,275 @@ function initTrustFaq() {
     }
   }, { passive: true });
 }
+
+// ---------------------------------------------------------------------------
+// 11. DIVV — THE OFFICIAL AI NAIL STYLIST (FLAGSHIP LUXURY WIDGET)
+// ---------------------------------------------------------------------------
+function initDivvStylist() {
+  const triggerBtn = document.getElementById("divv-floating-trigger");
+  const navBtn = document.getElementById("nav-divv-btn");
+  const modal = document.getElementById("divv-widget-modal");
+  const overlay = document.getElementById("divv-widget-overlay");
+  const closeBtn = document.getElementById("divv-close-btn");
+  const resetBtn = document.getElementById("divv-reset-btn");
+  const bodyEl = document.getElementById("divv-widget-body");
+  const formEl = document.getElementById("divv-input-form");
+  const inputEl = document.getElementById("divv-input-field");
+  const unreadBadge = document.getElementById("divv-unread-badge");
+  const bannerEl = document.getElementById("divv-product-banner");
+  const bannerText = document.getElementById("divv-banner-text");
+  const bannerClear = document.getElementById("divv-banner-clear");
+
+  if (!triggerBtn || !modal || !bodyEl || !formEl) return;
+
+  let isOpen = false;
+  let isTyping = false;
+  let unreadCount = 0;
+  let sessionHistory = [];
+
+  // Load session from storage if present
+  try {
+    const saved = sessionStorage.getItem("DIVV_SESSION_HISTORY");
+    if (saved) sessionHistory = JSON.parse(saved);
+  } catch (e) {
+    console.warn("Could not load Divv session history:", e);
+  }
+
+  const saveSession = () => {
+    try {
+      sessionStorage.setItem("DIVV_SESSION_HISTORY", JSON.stringify(sessionHistory));
+    } catch (e) {}
+  };
+
+  const getTimestamp = () => {
+    const now = new Date();
+    return now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  };
+
+  const formatTextWithBreaks = (text) => {
+    if (!text) return "";
+    return text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/\n\n+/g, "<br><br>")
+      .replace(/\n/g, "<br>");
+  };
+
+  const updateProductBanner = () => {
+    if (window.DivvCurrentProductContext && bannerEl && bannerText) {
+      bannerText.textContent = `Current Context: ${window.DivvCurrentProductContext}`;
+      bannerEl.style.display = "flex";
+    } else if (bannerEl) {
+      bannerEl.style.display = "none";
+    }
+  };
+  window.updateDivvProductBanner = updateProductBanner;
+
+  if (bannerClear) {
+    bannerClear.addEventListener("click", () => {
+      window.DivvCurrentProductContext = null;
+      updateProductBanner();
+    });
+  }
+
+  const openDivv = () => {
+    isOpen = true;
+    modal.classList.add("is-open");
+    overlay.classList.add("is-open");
+    modal.setAttribute("aria-hidden", "false");
+    overlay.setAttribute("aria-hidden", "false");
+
+    // Close other modals if active
+    if (typeof closeAllModals === "function") {
+      document.querySelectorAll(".modal-overlay").forEach((m) => m.classList.remove("is-open"));
+      document.body.style.overflow = "hidden";
+    }
+
+    unreadCount = 0;
+    if (unreadBadge) unreadBadge.style.display = "none";
+
+    updateProductBanner();
+
+    if (sessionHistory.length === 0) {
+      renderWelcomeScreen();
+    } else {
+      renderMessages();
+    }
+
+    setTimeout(() => {
+      if (inputEl) inputEl.focus();
+    }, 320);
+  };
+
+  const closeDivv = () => {
+    isOpen = false;
+    modal.classList.remove("is-open");
+    overlay.classList.remove("is-open");
+    modal.setAttribute("aria-hidden", "true");
+    overlay.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = "";
+  };
+
+  triggerBtn.addEventListener("click", openDivv);
+  if (navBtn) {
+    navBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      openDivv();
+    });
+  }
+  if (closeBtn) closeBtn.addEventListener("click", closeDivv);
+  if (overlay) overlay.addEventListener("click", closeDivv);
+
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && isOpen) closeDivv();
+  });
+
+  if (resetBtn) {
+    resetBtn.addEventListener("click", () => {
+      sessionHistory = [];
+      sessionStorage.removeItem("DIVV_SESSION_HISTORY");
+      window.DivvCurrentProductContext = null;
+      updateProductBanner();
+      renderWelcomeScreen();
+    });
+  }
+
+  const renderWelcomeScreen = () => {
+    bodyEl.innerHTML = `
+      <div class="divv-welcome-screen">
+        <span class="divv-welcome-badge">✨ Luxury AI Consultation</span>
+        <h4 class="divv-welcome-title">Welcome to Nails by Divya</h4>
+        <p class="divv-welcome-text">Hi! I'm Divv 💅🏻 — Your Nail Stylist. I'm here to help you discover the perfect press-on set, explain customisations, or guide you through our at-home services.</p>
+        <div class="divv-chips-grid">
+          <button type="button" class="divv-chip" data-chip="How do I choose my perfect press-on nails?">💅 Find my perfect nails</button>
+          <button type="button" class="divv-chip" data-chip="What press-on nail sets do you offer?">✨ Browse Press-On Nails</button>
+          <button type="button" class="divv-chip" data-chip="Can I customize lengths, shapes, or chrome art?">🎨 Custom Designs</button>
+          <button type="button" class="divv-chip" data-chip="How does delivery and the 10-minute prep kit work?">📦 Delivery Questions</button>
+          <button type="button" class="divv-chip" data-chip="How do at-home nail appointments work across Delhi NCR?">📅 Book an Appointment</button>
+        </div>
+      </div>
+    `;
+    bodyEl.querySelectorAll(".divv-chip").forEach((chip) => {
+      chip.addEventListener("click", () => {
+        const text = chip.getAttribute("data-chip");
+        if (text) sendUserMessage(text);
+      });
+    });
+  };
+
+  const renderMessages = () => {
+    bodyEl.innerHTML = sessionHistory.map((turn) => {
+      const isUser = turn.role === "user";
+      const formattedContent = formatTextWithBreaks(turn.content);
+      const handoffKeywordRegex = /(chat directly with divya|please chat directly|chat with the artist|personal guidance|divya will personally assist)/i;
+      const showHandoff = !isUser && (turn.hasHandoff || handoffKeywordRegex.test(turn.content));
+
+      let handoffMarkup = "";
+      if (showHandoff) {
+        handoffMarkup = `
+          <a href="https://wa.me/917827437985?text=Hi%20Divya!%20I%20was%20chatting%20with%20Divv%20and%20I'd%20love%20some%20help%20with%20my%20nails." target="_blank" rel="noopener noreferrer" class="divv-handoff-btn">
+            <span>💬 Chat with the Artist</span>
+          </a>
+        `;
+      }
+
+      return `
+        <div class="divv-message ${isUser ? "is-user" : "is-ai"}">
+          <div class="divv-bubble">
+            <div>${formattedContent}</div>
+            ${handoffMarkup}
+          </div>
+          <span class="divv-timestamp">${turn.timestamp || ""}</span>
+        </div>
+      `;
+    }).join("");
+
+    bodyEl.scrollTo({ top: bodyEl.scrollHeight, behavior: "smooth" });
+  };
+
+  const showTyping = () => {
+    if (document.getElementById("divv-typing-indicator")) return;
+    const typingDiv = document.createElement("div");
+    typingDiv.id = "divv-typing-indicator";
+    typingDiv.className = "divv-typing";
+    typingDiv.innerHTML = `<span></span><span></span><span></span>`;
+    bodyEl.appendChild(typingDiv);
+    bodyEl.scrollTo({ top: bodyEl.scrollHeight, behavior: "smooth" });
+  };
+
+  const hideTyping = () => {
+    const el = document.getElementById("divv-typing-indicator");
+    if (el) el.remove();
+  };
+
+  const sendUserMessage = async (text) => {
+    if (!text || isTyping) return;
+
+    if (sessionHistory.length === 0) {
+      bodyEl.innerHTML = "";
+    }
+
+    const userTurn = { role: "user", content: text, timestamp: getTimestamp() };
+    sessionHistory.push(userTurn);
+    saveSession();
+    renderMessages();
+
+    if (inputEl) inputEl.value = "";
+    isTyping = true;
+    showTyping();
+
+    try {
+      const apiUrl = window.DIVV_API_URL || "http://localhost:3000/chat";
+      const payload = {
+        message: text,
+        productContext: window.DivvCurrentProductContext || null,
+        history: sessionHistory.slice(0, -1)
+      };
+
+      const res = await fetch(apiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+      hideTyping();
+      isTyping = false;
+
+      const replyText = data.reply || "I couldn't find that exact detail. I'd love to help with that—since this needs personal guidance, please chat directly with Divya.";
+      const aiTurn = { role: "assistant", content: replyText, timestamp: getTimestamp() };
+      sessionHistory.push(aiTurn);
+      saveSession();
+      renderMessages();
+
+      if (!isOpen) {
+        unreadCount++;
+        if (unreadBadge) {
+          unreadBadge.textContent = unreadCount;
+          unreadBadge.style.display = "inline-block";
+        }
+      }
+    } catch (err) {
+      console.error("Divv API error:", err);
+      hideTyping();
+      isTyping = false;
+      const errorTurn = {
+        role: "assistant",
+        content: "I'm having trouble connecting right now. Please click the button below to chat directly with Divya via WhatsApp!",
+        timestamp: getTimestamp(),
+        hasHandoff: true
+      };
+      sessionHistory.push(errorTurn);
+      saveSession();
+      renderMessages();
+    }
+  };
+
+  formEl.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const text = inputEl ? inputEl.value.trim() : "";
+    if (text) sendUserMessage(text);
+  });
+}
+

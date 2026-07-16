@@ -37,6 +37,7 @@
         <a href="#services">Our Services</a>
         <a href="#trust">Why Us</a>
         <a href="#reviews">Reviews</a>
+        <a href="#divv" class="nav-divv-btn" id="nav-divv-btn" aria-label="Open Ask Divv AI Stylist">Ask Divv 💅🏻✨</a>
         <a href="#contact" class="nav-cta-link">Enquire Now</a>
       </div>
     </nav>
@@ -1367,6 +1368,47 @@
       </div>
     </div>
   </div>
+
+  <!-- =========================================================================
+       12. DIVV — THE OFFICIAL AI NAIL STYLIST (FLAGSHIP LUXURY FEATURE)
+       ========================================================================= -->
+  <button class="divv-floating-trigger" id="divv-floating-trigger" aria-label="Open Ask Divv AI Nail Stylist">
+    <span class="divv-trigger-text">Ask Divv 💅🏻✨</span>
+    <span class="divv-unread-badge" id="divv-unread-badge" style="display: none;">1</span>
+  </button>
+
+  <div class="divv-widget-overlay" id="divv-widget-overlay" aria-hidden="true"></div>
+  <section class="divv-widget-modal" id="divv-widget-modal" aria-hidden="true" role="dialog" aria-label="Divv AI Nail Stylist Chat">
+    <header class="divv-widget-header">
+      <div class="divv-header-info">
+        <div class="divv-header-avatar">✨</div>
+        <div>
+          <h3 class="divv-header-title">Divv 💅🏻</h3>
+          <p class="divv-header-subtitle">Your Nail Stylist</p>
+        </div>
+      </div>
+      <div class="divv-header-actions">
+        <button class="divv-action-btn" id="divv-reset-btn" aria-label="Restart conversation" title="Restart conversation">↻</button>
+        <button class="divv-action-btn" id="divv-close-btn" aria-label="Close Divv stylist">&times;</button>
+      </div>
+    </header>
+
+    <div class="divv-widget-body" id="divv-widget-body">
+      <!-- Welcome Screen or Message List injected dynamically by JS -->
+    </div>
+
+    <footer class="divv-widget-footer">
+      <div class="divv-product-banner" id="divv-product-banner" style="display: none;">
+        <span class="divv-banner-text" id="divv-banner-text"></span>
+        <button class="divv-banner-clear" id="divv-banner-clear" aria-label="Clear current product context">&times;</button>
+      </div>
+      <form class="divv-input-form" id="divv-input-form">
+        <input type="text" class="divv-input-field" id="divv-input-field" placeholder="Ask about nails, sizing, delivery..." aria-label="Chat input to ask Divv about nails" autocomplete="off">
+        <button type="submit" class="divv-send-btn" id="divv-send-btn" aria-label="Send message">&uarr;</button>
+      </form>
+      <p class="divv-footer-note">Divv helps you discover sets &amp; services &bull; Official AI Stylist</p>
+    </footer>
+  </section>
 
   <script src="script.js"></script>
 </body>
