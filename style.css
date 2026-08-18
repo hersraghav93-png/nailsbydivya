@@ -2636,3 +2636,137 @@ h4 {
   }
 }
 
+/* ==========================================================================
+   14. ANNOUNCEMENT BAR — RAKSHA BANDHAN MARQUEE
+   ========================================================================== */
+:root {
+  --announcement-height: 34px;
+}
+
+.announcement-bar {
+  position: sticky;
+  top: 0;
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  height: var(--announcement-height);
+  overflow: hidden;
+  background: var(--accent-soft);
+  border-bottom: 1px solid var(--line);
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 44px, #000 calc(100% - 44px), transparent 100%);
+          mask-image: linear-gradient(to right, transparent 0, #000 44px, #000 calc(100% - 44px), transparent 100%);
+}
+
+.announcement-track {
+  display: flex;
+  flex: 0 0 auto;
+  width: max-content;
+  animation: announcementMarquee 101s linear infinite;
+  will-change: transform;
+}
+
+.announcement-group {
+  display: flex;
+  flex: 0 0 auto;
+}
+
+.announcement-item {
+  flex: 0 0 auto;
+  padding: 0 1.9rem;
+  font-family: "Manrope", sans-serif;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  line-height: 1.5;
+  white-space: nowrap;
+  color: var(--heading);
+}
+
+/* The existing sticky header keeps its own behaviour and simply parks beneath
+   the pinned strip. */
+.site-header {
+  top: var(--announcement-height);
+}
+
+@keyframes announcementMarquee {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(-50%, 0, 0); }
+}
+
+/* Static copy: read by screen readers at all times, and shown in place of the
+   marquee when the visitor prefers reduced motion. */
+.announcement-static {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+}
+
+@media (max-width: 768px) {
+  :root {
+    --announcement-height: 30px;
+  }
+
+  /* Anchor jumps stop below the pinned strip + header instead of under them. */
+  html {
+    scroll-padding-top: calc(var(--announcement-height) + var(--nav-height));
+  }
+
+  .announcement-bar {
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 22px, #000 calc(100% - 22px), transparent 100%);
+            mask-image: linear-gradient(to right, transparent 0, #000 22px, #000 calc(100% - 22px), transparent 100%);
+  }
+
+  .announcement-item {
+    font-size: 0.65rem;
+    letter-spacing: 0.11em;
+    padding: 0 1.15rem;
+  }
+
+  .announcement-track {
+    animation-duration: 86s;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .announcement-track {
+    display: none;
+  }
+
+  .announcement-bar {
+    position: static;
+    display: block;
+    height: auto;
+    padding: 0.5rem 1.25rem;
+    -webkit-mask-image: none;
+            mask-image: none;
+  }
+
+  .site-header {
+    top: 0;
+  }
+
+  .announcement-static {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    overflow: visible;
+    white-space: normal;
+    clip: auto;
+    clip-path: none;
+    text-align: center;
+    font-family: "Manrope", sans-serif;
+    font-size: 0.66rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    line-height: 1.5;
+    color: var(--heading);
+  }
+}
