@@ -21,6 +21,7 @@ const PRODUCT_PRICES = {
   "PAR-008": "₹999",
   "PAR-009": "₹1199",
   "PAR-0010": "₹1299",
+  "PAR-0011": "₹799",
 
   // Wedding & Bridal Collection
   "WED-001": "₹999",
@@ -85,6 +86,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initModals();
   initScrollAnimations();
   initTrustFaq();
+  initMomentCarousel();
   initDivvStylist();
 });
 
@@ -768,6 +770,78 @@ function initTrustFaq() {
       updateCardMaxHeight();
     }
   }, { passive: true });
+}
+
+// ---------------------------------------------------------------------------
+// 10B. THE MOMENT EDIT — CLIENT STORY CAROUSEL (`#moment-carousel`)
+// ---------------------------------------------------------------------------
+// Native scroll-snap does the swiping; this only wires the minimal controls and
+// keeps them in sync. Slides are authored in index.html — add one <article
+// class="moment-slide"> and everything below adapts on its own.
+function initMomentCarousel() {
+  const carousel = document.getElementById("moment-carousel");
+  const track = document.getElementById("moment-track");
+  const dotsWrap = document.getElementById("moment-dots");
+  if (!carousel || !track) return;
+
+  const slides = Array.from(track.querySelectorAll(".moment-slide"));
+  if (slides.length < 2) return; // a single story needs no controls or peek
+
+  carousel.classList.add("is-multi");
+
+  const prevBtn = carousel.querySelector(".moment-prev");
+  const nextBtn = carousel.querySelector(".moment-next");
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const stepSize = () => slides[1].offsetLeft - slides[0].offsetLeft || track.clientWidth;
+  const currentIndex = () =>
+    Math.max(0, Math.min(slides.length - 1, Math.round(track.scrollLeft / stepSize())));
+
+  const goTo = (index) => {
+    const target = Math.max(0, Math.min(slides.length - 1, index));
+    track.scrollTo({
+      left: slides[target].offsetLeft - slides[0].offsetLeft,
+      behavior: reduceMotion ? "auto" : "smooth"
+    });
+  };
+
+  const dots = slides.map((slide, i) => {
+    const title = slide.querySelector("h3");
+    const dot = document.createElement("button");
+    dot.type = "button";
+    dot.className = "moment-dot";
+    dot.setAttribute("role", "tab");
+    dot.setAttribute("aria-label", title ? title.textContent.trim() : "Story " + (i + 1));
+    dot.addEventListener("click", () => goTo(i));
+    if (dotsWrap) dotsWrap.appendChild(dot);
+    return dot;
+  });
+
+  const sync = () => {
+    const i = currentIndex();
+    dots.forEach((dot, n) => {
+      dot.classList.toggle("is-active", n === i);
+      dot.setAttribute("aria-selected", n === i ? "true" : "false");
+    });
+    if (prevBtn) prevBtn.disabled = i === 0;
+    if (nextBtn) nextBtn.disabled = i === slides.length - 1;
+  };
+
+  let ticking = false;
+  track.addEventListener("scroll", () => {
+    if (ticking) return;
+    ticking = true;
+    window.requestAnimationFrame(() => {
+      sync();
+      ticking = false;
+    });
+  }, { passive: true });
+
+  window.addEventListener("resize", sync, { passive: true });
+  if (prevBtn) prevBtn.addEventListener("click", () => goTo(currentIndex() - 1));
+  if (nextBtn) nextBtn.addEventListener("click", () => goTo(currentIndex() + 1));
+
+  sync();
 }
 
 // ---------------------------------------------------------------------------

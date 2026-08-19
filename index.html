@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=8">
+  <link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
   <!-- =========================================================================
@@ -147,7 +147,7 @@
         <button class="category-pill" type="button" data-shop-filter="Casual">Avant-Garde &amp; 3D</button>
       </div>
 
-      <!-- Luxury Horizontal Swipe / Mouse Drag Carousel (All 21 Press-On Products) -->
+      <!-- Luxury Horizontal Swipe / Mouse Drag Carousel (All 22 Press-On Products) -->
       <div class="luxury-carousel-wrapper fade-up" data-carousel="shop">
         <div class="luxury-carousel-track" id="shop-carousel-track" role="region" aria-label="Press-On Nail Product Carousel">
           
@@ -271,7 +271,7 @@
             </div>
           </article>
 
-          <!-- PARTY & EVENING (5 Products) -->
+          <!-- PARTY & EVENING (6 Products) -->
           <article class="carousel-card is-active" data-category="Party" data-product-sku="PAR-003">
             <div class="carousel-card-image">
               <img src="assets/products/party/PAR-003/heroparty3.jpg" alt="Bordeaux red press-on nails" loading="lazy" decoding="async">
@@ -351,6 +351,23 @@
               <p class="made-to-order">Handmade Fresh &bull; Shipped Across India</p>
               <p class="product-description">Sheer nude base with hand-sculpted silver chrome stars and celestial constellations.</p>
               <button class="button primary-button product-cta" data-action="order" data-product-title="Starlight Metallic" data-product-category="Party & Evening" data-product-sku="PAR-0010">
+                <span>Order via WhatsApp</span>
+                <span aria-hidden="true">&rarr;</span>
+              </button>
+            </div>
+          </article>
+
+          <article class="carousel-card is-active" data-category="Party" data-product-sku="PAR-0011">
+            <div class="carousel-card-image">
+              <img src="assets/products/party/PAR-0011/PAR-0011.png" alt="Leopard French press-on nail set with hand-painted leopard tips" loading="lazy" decoding="async">
+              <span class="product-badge">Party &amp; Evening</span>
+            </div>
+            <div class="carousel-card-content">
+              <h4>Leopard French</h4>
+              <p class="product-price">₹799</p>
+              <p class="made-to-order">Handmade Fresh &bull; Shipped Across India</p>
+              <p class="product-description">A refined French set with hand-painted leopard detailing along the tips, kept soft and wearable over a natural nude base.</p>
+              <button class="button primary-button product-cta" data-action="order" data-product-title="Leopard French" data-product-category="Party & Evening" data-product-sku="PAR-0011">
                 <span>Order via WhatsApp</span>
                 <span aria-hidden="true">&rarr;</span>
               </button>
@@ -520,7 +537,7 @@
             <span aria-hidden="true">&larr;</span>
           </button>
           
-          <div class="carousel-progress" role="progressbar" aria-label="Shop scroll progress" aria-valuenow="1" aria-valuemin="1" aria-valuemax="21">
+          <div class="carousel-progress" role="progressbar" aria-label="Shop scroll progress" aria-valuenow="1" aria-valuemin="1" aria-valuemax="22">
             <div class="carousel-progress-bar" id="shop-progress-bar"></div>
           </div>
 
@@ -852,6 +869,105 @@
             <span aria-hidden="true">&rarr;</span>
           </button>
         </div>
+      </div>
+    </section>
+
+
+    <!-- =========================================================================
+         04B. MATCH THE MOMENT — REAL CLIENT CUSTOM CREATIONS (EDITORIAL)
+         ========================================================================= -->
+    <section class="match-moment section" id="match-the-moment" aria-labelledby="match-moment-title">
+      <div class="section-heading fade-up">
+        <p class="section-label" id="match-moment-title">THE MOMENT EDIT</p>
+        <h2>Real moments. Real inspiration. Nails made around her story.</h2>
+        <p class="section-subtext">Match the Moment is our growing edit of real client sets &mdash; each one hand-painted around something she was actually living. Tell us what you are celebrating, watching, wearing or dreaming up, and we will create the nails around it, freshly made after your order is confirmed.</p>
+      </div>
+
+      <!-- ===== STORY CAROUSEL ==================================================
+           TO ADD THE NEXT CLIENT STORY: copy one <article class="moment-slide">
+           block below, paste it after the last one, and change only:
+             1. <img> src + alt          (her real photograph)
+             2. <p class="eyebrow">      (her moment — no numbering)
+             3. <h3>                     (story title)
+             4. the story paragraph(s)
+             5. optional <p class="moment-slide-note"> (only if a disclaimer is needed)
+             6. optional <div class="moment-slide-action"> (per-story CTA button)
+           Arrows, dots, the swipe cue and the peek of the next card switch on by
+           themselves as soon as a second slide exists. No layout changes needed.
+           ====================================================================== -->
+      <div class="moment-carousel fade-up" id="moment-carousel">
+        <div class="moment-track" id="moment-track" tabindex="0" role="group" aria-roledescription="carousel" aria-label="The Moment Edit — real client stories">
+
+          <article class="moment-slide" role="group" aria-roledescription="slide" aria-label="Movie Night, But Make It Nails.">
+            <figure class="moment-slide-figure">
+              <img src="assets/custom%20sets/CUSTOM-SETS/spider-man-custom.png" alt="Custom handmade press-on set with hand-painted web detailing in red, silver and black, created for a client's movie night" loading="lazy" decoding="async">
+            </figure>
+            <div class="moment-slide-copy">
+              <p class="eyebrow">Her Moment &middot; Movie Night</p>
+              <h3>Movie Night, But Make It Nails.</h3>
+              <p>She was going to watch a Spider-Man movie and wanted her nails to match the vibe of the occasion. That was the entire brief &mdash; and it was enough to build a set around.</p>
+              <p>We created a custom handmade set around that moment: hand-painted webbing across red, silver and black, sculpted in her own sizes and made fresh after her order was confirmed. Made for one evening, kept long after it.</p>
+              <p class="moment-slide-note">A real client creation, inspired by her own plans for the evening. Nails by Divya is an independent nail artistry brand and is not affiliated with, endorsed by, or connected to any film, studio or entertainment company.</p>
+            </div>
+          </article>
+
+        </div>
+
+        <div class="moment-carousel-controls">
+          <button class="carousel-arrow moment-arrow moment-prev" type="button" aria-label="Previous story">
+            <span aria-hidden="true">&larr;</span>
+          </button>
+          <div class="moment-dots" id="moment-dots" role="tablist" aria-label="Choose a story"></div>
+          <button class="carousel-arrow moment-arrow moment-next" type="button" aria-label="Next story">
+            <span aria-hidden="true">&rarr;</span>
+          </button>
+        </div>
+        <p class="moment-swipe-cue">Swipe to explore the edit</p>
+      </div>
+
+      <div class="moment-inspiration fade-up">
+        <h3>Bring us any moment</h3>
+        <p>If it means something to you, it can become a set. Send the idea and we will design around it.</p>
+        <ul class="moment-inspiration-list">
+          <li>Movie nights</li>
+          <li>Concerts</li>
+          <li>Birthdays</li>
+          <li>Weddings</li>
+          <li>Festivals</li>
+          <li>Outfits</li>
+          <li>Celebrations</li>
+          <li>Events</li>
+          <li>Personal aesthetics</li>
+          <li>Any inspiration you have</li>
+        </ul>
+      </div>
+
+      <div class="moment-values fade-up">
+        <div class="moment-value-card">
+          <h4>Freshly Handmade</h4>
+          <p>Every custom set is made after your order is confirmed and created specifically for you. Never mass-produced.</p>
+        </div>
+        <div class="moment-value-card">
+          <h4>Made Around Your Idea</h4>
+          <p>Send an inspiration photo, an event, an outfit, a movie, a theme or your colours &mdash; or simply describe the vibe.</p>
+        </div>
+        <div class="moment-value-card">
+          <h4>Safe Delivery</h4>
+          <p>Every order is carefully packed to travel well and shipped across India.</p>
+        </div>
+        <div class="moment-value-card">
+          <h4>Quick Dispatch</h4>
+          <p>Once your design and order are confirmed, your set is freshly made and prepared for dispatch promptly.</p>
+        </div>
+      </div>
+
+      <div class="moment-final-cta fade-up">
+        <h3>Have a moment worth matching?</h3>
+        <p>Tell us what you are celebrating, watching, wearing or dreaming up. We will create the nails around it.</p>
+        <button class="button primary-button" data-action="order" data-product-title="Custom Set — Match the Moment" data-product-category="Custom Handmade Set">
+          <span>Create Your Custom Set</span>
+          <span aria-hidden="true">&rarr;</span>
+        </button>
       </div>
     </section>
 
