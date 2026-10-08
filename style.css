@@ -3247,3 +3247,48 @@ h4 {
     font-size: 1.65rem;
   }
 }
+
+/* Local SEO service-area strip */
+.service-area-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+  margin-top: 1.4rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(125, 86, 92, 0.14);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.62);
+  color: #6d5d61;
+  font-size: 0.84rem;
+}
+
+.service-area-strip > span:not(.service-area-label) {
+  padding: 0.38rem 0.72rem;
+  border: 1px solid rgba(125, 86, 92, 0.12);
+  border-radius: 999px;
+  background: #fffaf8;
+  color: var(--heading);
+  font-weight: 600;
+}
+
+.service-area-label {
+  margin-right: 0.2rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent-strong);
+}
+
+@media (max-width: 560px) {
+  .service-area-strip {
+    align-items: flex-start;
+    padding: 0.85rem;
+  }
+
+  .service-area-label {
+    width: 100%;
+    margin-bottom: 0.1rem;
+  }
+}
