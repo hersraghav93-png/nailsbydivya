@@ -88,7 +88,39 @@ document.addEventListener("DOMContentLoaded", () => {
   initTrustFaq();
   initMomentCarousel();
   initDivvStylist();
+  initDiwaliCards();
 });
+
+/**
+ * Enables subtle firework visual feedback on mobile touch/tap for Diwali offer cards.
+ * Uses a passive event listener so WhatsApp navigation is never blocked or delayed.
+ */
+function initDiwaliCards() {
+  document.querySelectorAll(".diwali-offer-card").forEach((card) => {
+    let startY = 0;
+    let timer = null;
+
+    card.addEventListener("pointerdown", (e) => {
+      startY = e.clientY;
+      card.classList.add("firework-active");
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        card.classList.remove("firework-active");
+      }, 900);
+    }, { passive: true });
+
+    card.addEventListener("pointermove", (e) => {
+      // If user drags/scrolls > 10px, dismiss firework state immediately
+      if (Math.abs(e.clientY - startY) > 10) {
+        card.classList.remove("firework-active");
+      }
+    }, { passive: true });
+
+    card.addEventListener("pointercancel", () => {
+      card.classList.remove("firework-active");
+    }, { passive: true });
+  });
+}
 
 /**
  * Ensures all product cards and prices stay synchronized to our Single Source of Truth (`PRODUCT_PRICES`).
@@ -237,9 +269,9 @@ function initLuxuryCarousels() {
         if (isDown && typeof scrollLeftStart !== "undefined") scrollLeftStart -= halfWidth;
       } else if (track.scrollLeft <= 1) {
         // When user scrolls backwards past start, wrap to second half
-        if (isDown && typeof scrollLeftStart !== "undefined") {
+        if ((isDown && typeof scrollLeftStart !== "undefined") || touchMoved) {
           track.scrollLeft += halfWidth;
-          scrollLeftStart += halfWidth;
+          if (typeof scrollLeftStart !== "undefined") scrollLeftStart += halfWidth;
         }
       }
     };
@@ -257,6 +289,13 @@ function initLuxuryCarousels() {
       const loopPosition = scrollLeft % halfWidth;
       const progressRatio = Math.min(1, Math.max(0.12, (loopPosition / halfWidth) * 0.88 + 0.12));
       progressBar.style.width = `${progressRatio * 100}%`;
+
+      const progressContainer = wrapper.querySelector(".carousel-progress");
+      if (progressContainer) {
+        const maxVal = parseInt(progressContainer.getAttribute("aria-valuemax"), 10) || 60;
+        const currentVal = Math.min(maxVal, Math.max(1, Math.round(progressRatio * maxVal)));
+        progressContainer.setAttribute("aria-valuenow", String(currentVal));
+      }
 
       if (prevBtn) prevBtn.disabled = false;
       if (nextBtn) nextBtn.disabled = false;
@@ -291,15 +330,19 @@ function initLuxuryCarousels() {
       });
     }
 
-    // Mouse drag support
+    // Mouse & Touch drag support
     let isDown = false;
     let startX;
     let scrollLeftStart;
     let hasDragged = false;
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchMoved = false;
 
     track.addEventListener("mousedown", (e) => {
       isDown = true;
       hasDragged = false;
+      track.dataset.hasDragged = "false";
       pauseAutoScroll(10000);
       track.classList.add("is-dragging");
       startX = e.pageX - track.offsetLeft;
@@ -316,6 +359,7 @@ function initLuxuryCarousels() {
     track.addEventListener("mouseup", () => {
       isDown = false;
       track.classList.remove("is-dragging");
+      track.dataset.hasDragged = hasDragged ? "true" : "false";
     });
 
     track.addEventListener("mousemove", (e) => {
@@ -331,9 +375,6 @@ function initLuxuryCarousels() {
     });
 
     track.dataset.hasDragged = "false";
-    track.addEventListener("mouseup", () => {
-      track.dataset.hasDragged = hasDragged ? "true" : "false";
-    });
 
     // -----------------------------------------------------------------------
     // TRUE INFINITE SEAMLESS HORIZONTAL AUTO-SCROLL (ZERO JUMP OR RESET)
@@ -383,10 +424,40 @@ function initLuxuryCarousels() {
     };
 
     track.addEventListener("mouseenter", () => pauseAutoScroll(6000));
-    track.addEventListener("touchstart", () => pauseAutoScroll(8000), { passive: true });
-    track.addEventListener("touchend", () => pauseAutoScroll(6000), { passive: true });
-    track.addEventListener("touchmove", () => pauseAutoScroll(8000), { passive: true });
     track.addEventListener("wheel", () => pauseAutoScroll(6000), { passive: true });
+
+    track.addEventListener("touchstart", (e) => {
+      if (e.touches && e.touches.length > 0) {
+        touchStartX = e.touches[0].pageX;
+        touchStartY = e.touches[0].pageY;
+        touchMoved = false;
+      }
+      pauseAutoScroll(8000);
+    }, { passive: true });
+
+    track.addEventListener("touchmove", (e) => {
+      if (e.touches && e.touches.length > 0) {
+        const dx = e.touches[0].pageX - touchStartX;
+        const dy = e.touches[0].pageY - touchStartY;
+        if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
+          touchMoved = true;
+          track.dataset.hasDragged = "true";
+        }
+      }
+      pauseAutoScroll(8000);
+    }, { passive: true });
+
+    track.addEventListener("touchend", () => {
+      pauseAutoScroll(6000);
+      if (touchMoved) {
+        setTimeout(() => {
+          track.dataset.hasDragged = "false";
+          touchMoved = false;
+        }, 150);
+      } else {
+        track.dataset.hasDragged = "false";
+      }
+    }, { passive: true });
 
     window.addEventListener("resize", () => {
       if (autoScrollInterval) {
@@ -509,6 +580,13 @@ function initModals() {
         imageAlt: img.alt || caption.textContent.trim(),
         description: `This custom hand-painted design (${caption.textContent.trim()}) can be crafted as a reusable luxury press-on set delivered anywhere across India, or sculpted as custom gel extensions during an at-home appointment in Delhi NCR.`
       });
+    });
+
+    card.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        card.click();
+      }
     });
   });
 
