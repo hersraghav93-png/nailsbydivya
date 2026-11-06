@@ -614,6 +614,127 @@ h4 {
   margin: 0 0 0.5rem;
 }
 
+/* =========================================================================
+   FESTIVE PROMOTIONAL PRICING (PRESS-ON COLLECTION)
+   ========================================================================= */
+.product-price.festive-pricing,
+.product-modal-price.festive-pricing {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.55rem; /* 8-10px vertical breathing room below price row */
+  margin: 0.15rem 0 0.65rem;
+}
+
+.product-price-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.product-price-promo {
+  position: relative;
+  top: -1px; /* Optical upward lift */
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.65rem; /* ~14% increase for prominent elegant hierarchy */
+  font-weight: 600;
+  color: var(--heading);
+  letter-spacing: 0.01em;
+  line-height: 1;
+}
+
+.product-price-original {
+  position: relative;
+  top: 3.5px; /* Subtle 3-4px downward offset relative to promotional price */
+  font-family: var(--font-main, "Manrope", sans-serif);
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: #8a7c80;
+  text-decoration: line-through;
+  text-decoration-color: rgba(140, 98, 57, 0.6);
+  text-decoration-thickness: 1.2px;
+}
+
+.festive-offer-label {
+  display: inline-block;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9c6c32;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  line-height: 1.3;
+}
+
+/* Modal Festive Pricing */
+#product-modal-price.festive-pricing {
+  margin: 0.35rem 0 1.25rem;
+  gap: 0.6rem; /* Refined breathing room in modal */
+}
+
+#product-modal-price .product-price-promo {
+  font-size: 2.2rem;
+  font-weight: 600;
+  position: relative;
+  top: -1.5px;
+}
+
+#product-modal-price .product-price-original {
+  font-size: 1.05rem;
+  position: relative;
+  top: 4.5px;
+}
+
+#product-modal-price .festive-offer-label {
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+}
+
+/* SEO Product Card Compatibility */
+.seo-product-card .festive-pricing {
+  margin: 0.25rem 0 0.65rem;
+  gap: 0.55rem;
+}
+
+.seo-product-card .product-price-promo {
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.seo-product-card .product-price-original {
+  font-size: 0.85rem;
+}
+
+.seo-product-card .festive-offer-label {
+  font-size: 0.76rem;
+}
+
+/* Mobile Responsive Refinements */
+@media (max-width: 560px) {
+  .product-price-promo {
+    font-size: 1.52rem;
+  }
+  .festive-offer-label {
+    font-size: 0.76rem;
+    letter-spacing: 0.06em;
+  }
+}
+
+@media (max-width: 360px) {
+  .product-price-promo {
+    font-size: 1.4rem;
+  }
+  .festive-offer-label {
+    font-size: 0.72rem;
+    letter-spacing: 0.05em;
+  }
+}
+
 .made-to-order {
   font-size: 0.75rem;
   font-weight: 700;

@@ -41,6 +41,33 @@ const PRODUCT_PRICES = {
 };
 
 // ---------------------------------------------------------------------------
+// 01B. FESTIVE PROMOTIONAL PRICING REGISTRY
+// ---------------------------------------------------------------------------
+const FESTIVE_OFFER_CONFIG = {
+  active: true,
+  promoPrice: "₹599",
+  promoPriceDisplay: "₹599",
+  badgeText: "✦ FESTIVE OFFER · ENDING SOON",
+
+  /**
+   * Identifies whether a SKU qualifies for the festive press-on promotional price.
+   */
+  isEligible(sku) {
+    return Boolean(this.active && sku && PRODUCT_PRICES[sku]);
+  },
+
+  /**
+   * Returns the current active offer price for quotation and checkout.
+   */
+  getEffectivePrice(sku) {
+    if (this.isEligible(sku)) {
+      return this.promoPrice;
+    }
+    return sku && PRODUCT_PRICES[sku] ? PRODUCT_PRICES[sku] : null;
+  }
+};
+
+// ---------------------------------------------------------------------------
 // 01B. CHECKOUT & COMMERCE CONFIGURATION (FUTURE-PROOF ABSTRACTION)
 // ---------------------------------------------------------------------------
 const CHECKOUT_CONFIG = {
@@ -123,17 +150,18 @@ function initDiwaliCards() {
 }
 
 /**
- * Ensures all product cards and prices stay synchronized to our Single Source of Truth (`PRODUCT_PRICES`).
+ * Ensures all product cards and prices stay synchronized to our Single Source of Truth (`PRODUCT_PRICES`),
+ * dynamically rendering the festive promotional pricing treatment when active.
  */
 function initProductPrices() {
   document.querySelectorAll(".carousel-card[data-product-sku], article[data-product-sku]").forEach((card) => {
     const sku = card.getAttribute("data-product-sku");
     if (!sku || !PRODUCT_PRICES[sku]) return;
 
-    const priceText = PRODUCT_PRICES[sku];
+    const originalPrice = PRODUCT_PRICES[sku];
     let priceEl = card.querySelector(".product-price");
     if (!priceEl) {
-      priceEl = document.createElement("p");
+      priceEl = document.createElement("div");
       priceEl.className = "product-price";
       const h4 = card.querySelector("h4");
       if (h4 && h4.nextSibling) {
@@ -142,7 +170,20 @@ function initProductPrices() {
         h4.parentNode.appendChild(priceEl);
       }
     }
-    priceEl.textContent = priceText;
+
+    if (FESTIVE_OFFER_CONFIG.isEligible(sku)) {
+      priceEl.classList.add("festive-pricing");
+      priceEl.innerHTML = `
+        <div class="product-price-row">
+          <span class="product-price-promo">${FESTIVE_OFFER_CONFIG.promoPriceDisplay}</span>
+          <del class="product-price-original">${originalPrice}</del>
+        </div>
+        <span class="festive-offer-label">${FESTIVE_OFFER_CONFIG.badgeText}</span>
+      `;
+    } else {
+      priceEl.classList.remove("festive-pricing");
+      priceEl.textContent = originalPrice;
+    }
 
     const orderBtn = card.querySelector("button[data-action='order']");
     if (orderBtn && !orderBtn.getAttribute("data-product-sku")) {
@@ -557,8 +598,8 @@ function initModals() {
       const category = btn.getAttribute("data-product-category") || "Handmade Collection";
       const cardEl = btn.closest(".carousel-card, article");
       const sku = btn.getAttribute("data-product-sku") || (cardEl ? cardEl.getAttribute("data-product-sku") : null);
-      const price = sku && PRODUCT_PRICES[sku] ? PRODUCT_PRICES[sku] : null;
-      window.open(CHECKOUT_CONFIG.getCheckoutUrl(title, category, price, sku), "_blank", "noopener,noreferrer");
+      const effectivePrice = FESTIVE_OFFER_CONFIG.getEffectivePrice(sku);
+      window.open(CHECKOUT_CONFIG.getCheckoutUrl(title, category, effectivePrice, sku), "_blank", "noopener,noreferrer");
     });
   });
 
@@ -650,10 +691,23 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
   }
   if (descEl) descEl.textContent = description;
 
-  const price = sku && PRODUCT_PRICES[sku] ? PRODUCT_PRICES[sku] : null;
+  const originalPrice = sku && PRODUCT_PRICES[sku] ? PRODUCT_PRICES[sku] : null;
+  const effectivePrice = FESTIVE_OFFER_CONFIG.getEffectivePrice(sku);
+
   if (priceEl) {
-    if (price) {
-      priceEl.textContent = price;
+    if (originalPrice && FESTIVE_OFFER_CONFIG.isEligible(sku)) {
+      priceEl.classList.add("festive-pricing");
+      priceEl.innerHTML = `
+        <div class="product-price-row">
+          <span class="product-price-promo">${FESTIVE_OFFER_CONFIG.promoPriceDisplay}</span>
+          <del class="product-price-original">${originalPrice}</del>
+        </div>
+        <span class="festive-offer-label">${FESTIVE_OFFER_CONFIG.badgeText}</span>
+      `;
+      priceEl.style.display = "flex";
+    } else if (originalPrice) {
+      priceEl.classList.remove("festive-pricing");
+      priceEl.textContent = originalPrice;
       priceEl.style.display = "block";
     } else {
       priceEl.style.display = "none";
@@ -662,11 +716,11 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
 
   if (actionBtn) {
     actionBtn.onclick = () => {
-      window.open(CHECKOUT_CONFIG.getCheckoutUrl(title, category, price, sku), "_blank", "noopener,noreferrer");
+      window.open(CHECKOUT_CONFIG.getCheckoutUrl(title, category, effectivePrice, sku), "_blank", "noopener,noreferrer");
     };
   }
 
-  window.DivvCurrentProductContext = `${title}${sku ? ` [SKU: ${sku}]` : ""}${price ? ` (${price})` : ""}`;
+  window.DivvCurrentProductContext = `${title}${sku ? ` [SKU: ${sku}]` : ""}${effectivePrice ? ` (${effectivePrice})` : ""}`;
   if (typeof window.updateDivvProductBanner === "function") window.updateDivvProductBanner();
 
   modal.classList.add("is-open");
