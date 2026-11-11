@@ -2006,7 +2006,14 @@ function initDivvStylist() {
     showTyping();
 
     try {
-      const apiUrl = window.DIVV_API_URL || "https://nails-ai-backend.onrender.com/chat";
+      const chatBaseUrl = (window.NAILS_CONFIG && window.NAILS_CONFIG.apiUrl)
+        ? window.NAILS_CONFIG.apiUrl.replace(/\/+$/, "")
+        : ((window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
+            ? "http://localhost:3000"
+            : (window.location.hostname.includes("staging") || window.location.hostname.includes("preview")
+                ? "https://staging-api.nailsbydivya.store"
+                : "https://nails-ai-backend.onrender.com"));
+      const apiUrl = window.DIVV_API_URL || `${chatBaseUrl}/chat`;
       const payload = {
         message: text,
         productContext: window.DivvCurrentProductContext || null,

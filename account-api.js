@@ -50,6 +50,9 @@
       if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
         return "http://localhost:3000";
       }
+      if (window.location.hostname.includes("staging") || window.location.hostname.includes("preview")) {
+        return "https://staging-api.nailsbydivya.store";
+      }
       return "https://nails-ai-backend.onrender.com";
     },
 
