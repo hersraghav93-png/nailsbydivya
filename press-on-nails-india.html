@@ -19,6 +19,7 @@
   <meta name="twitter:image" content="https://nailsbydivya.store/assets/products/party/PAR-0011/PAR-0011.png">
   <link rel="icon" type="image/png" href="assets/branding/favicon%20black.png?v=7">
   <link rel="stylesheet" href="style.css?v=10">
+  <link rel="stylesheet" href="auth.css">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -55,6 +56,10 @@
         <a href="press-on-nails-india.html">Press-Ons</a>
         <a href="nail-extensions.html">Nail Extensions</a>
         <a href="nail-art.html">Nail Art</a>
+        <button type="button" class="nav-auth-btn" id="nav-auth-btn" aria-label="Sign In or View Account">
+          <span class="nav-auth-icon" aria-hidden="true">👤</span>
+          <span class="nav-auth-label">Sign In</span>
+        </button>
         <a href="index.html#contact" class="nav-cta-link">Enquire Now</a>
       </div>
     </nav>
@@ -195,5 +200,15 @@
     </section>
   </main>
   <footer class="site-footer"><div class="footer-inner"><div class="footer-brand"><img src="assets/branding/primary%20black.png" alt="Nails by Divya Logo" class="footer-logo"></div><p class="footer-tagline">Beautiful nails, however you want them.</p><div class="footer-seo-links"><a href="index.html">Home</a><a href="press-on-nails-india.html">Press-On Nails</a><a href="nail-extensions.html">Nail Extensions</a><a href="nail-art.html">Nail Art</a></div><p class="footer-copyright">&copy; 2026 Nails by Divya. All rights reserved.</p></div></footer>
+
+  <!-- Firebase Client SDK (Compat v10) -->
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+
+  <!-- Client-side Config & Authentication Layer -->
+  <script src="firebase-config.js"></script>
+  <script src="account-api.js"></script>
+  <script src="auth.js"></script>
+  <script src="auth-modal.js"></script>
 </body>
 </html>
