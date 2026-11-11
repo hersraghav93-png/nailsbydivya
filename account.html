@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=10">
+  <link rel="stylesheet" href="style.css?v=11">
   <link rel="stylesheet" href="auth.css">
 </head>
 <body>
@@ -20,17 +20,29 @@
        ========================================================================= -->
   <header class="site-header" id="site-header">
     <nav class="navbar" aria-label="Main Navigation">
-      <a class="brand" href="index.html" aria-label="Nails by Divya Homepage">
+      <a class="brand" href="index.html#home" aria-label="Nails by Divya Homepage">
         <img src="assets/branding/icon1submark%20gold.png" alt="" class="brand-icon" aria-hidden="true">
-        <span>Nails by Divya</span>
+        <span class="brand-name">Nails by Divya</span>
       </a>
 
+      <button class="nav-toggle" aria-expanded="false" aria-label="Toggle navigation menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+
       <div class="nav-links" id="nav-links">
-        <a href="index.html#home">Home</a>
-        <a href="press-on-nails-india.html">Press-Ons</a>
-        <a href="nail-extensions.html">Services</a>
-        <a href="nail-art.html">Nail Art</a>
-        <a href="index.html#contact" class="nav-cta-link">Enquire Now</a>
+        <a href="index.html#home" class="nav-link">Home</a>
+        <a href="press-on-nails-india.html" class="nav-link">Press-On Nails</a>
+        <a href="nail-extensions.html" class="nav-link">At-Home Services</a>
+        <a href="nail-art.html" class="nav-link">Nail Art</a>
+        <a href="index.html#portfolio" class="nav-link">Lookbook</a>
+        <a href="index.html#custom" class="nav-link">Custom Set</a>
+        <a href="index.html#divv" class="nav-divv-btn" id="nav-divv-btn" aria-label="Open Ask Divv AI Stylist">Ask Divv 💅🏻</a>
+        <button type="button" class="nav-auth-btn is-logged-in" id="nav-auth-btn" aria-label="Sign In or View Account">
+          <span class="nav-auth-label">Account</span>
+        </button>
+        <a href="index.html#contact" class="nav-cta-link">Book / Enquire</a>
       </div>
     </nav>
   </header>
@@ -197,22 +209,44 @@
           </form>
         </section>
 
-        <!-- COLUMN 2: SAVED ADDRESS BOOK -->
-        <section class="account-card" aria-labelledby="addr-card-title">
-          <div class="account-card-header">
-            <div>
-              <h2 class="account-card-title" id="addr-card-title">Saved Addresses</h2>
-              <p class="account-card-desc">Delivery across India &amp; at-home service appointments in Delhi NCR.</p>
+        <!-- COLUMN 2: SAVED ADDRESSES & ORDER INQUIRIES -->
+        <div class="account-column" style="display: flex; flex-direction: column; gap: 2rem;">
+          <section class="account-card" aria-labelledby="addr-card-title">
+            <div class="account-card-header">
+              <div>
+                <h2 class="account-card-title" id="addr-card-title">Saved Addresses</h2>
+                <p class="account-card-desc">Delivery across India &amp; at-home service appointments in Delhi NCR.</p>
+              </div>
+              <button type="button" class="button secondary-button" id="open-add-address-btn" style="min-height: 40px; padding: 0.5rem 1rem; font-size: 0.88rem;">
+                + Add Address
+              </button>
             </div>
-            <button type="button" class="button secondary-button" id="open-add-address-btn" style="min-height: 40px; padding: 0.5rem 1rem; font-size: 0.88rem;">
-              + Add Address
-            </button>
-          </div>
 
-          <div class="addresses-container" id="saved-addresses-list">
-            <!-- Dynamically populated -->
-          </div>
-        </section>
+            <div class="addresses-container" id="saved-addresses-list">
+              <!-- Dynamically populated -->
+            </div>
+          </section>
+
+          <!-- ORDER STATUS & INQUIRIES -->
+          <section class="account-card" aria-labelledby="orders-card-title">
+            <div class="account-card-header">
+              <div>
+                <h2 class="account-card-title" id="orders-card-title">Order Status &amp; Inquiries</h2>
+                <p class="account-card-desc">Handmade order fulfillment &amp; dispatch tracking.</p>
+              </div>
+              <span class="status-badge" style="font-size: 0.75rem; background: var(--bg-cream); color: var(--accent-strong); padding: 0.25rem 0.65rem; border-radius: var(--radius-pill); font-weight: 600;">WhatsApp Fulfillment</span>
+            </div>
+
+            <div style="padding: 0.5rem 0;">
+              <p style="font-size: 0.92rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 1.25rem;">
+                All handmade press-on sets and at-home appointments are currently confirmed, hand-painted, and dispatched directly through WhatsApp consultation with Divya. Automated online order tracking is planned for a future platform update.
+              </p>
+              <a href="https://wa.me/917827437985?text=Hi%20Divya!%20I%20would%20like%20to%20check%20the%20status%20of%20my%20recent%20press-on%20order." target="_blank" rel="noopener noreferrer" class="button secondary-button" style="min-height: 42px; padding: 0.5rem 1.25rem; font-size: 0.88rem; display: inline-flex; width: auto;">
+                Track Order via WhatsApp Consultation &rarr;
+              </a>
+            </div>
+          </section>
+        </div>
 
       </div>
     </div>
@@ -294,24 +328,75 @@
   </dialog>
 
   <!-- =========================================================================
-       FOOTER
+       SHARED SITE FOOTER
        ========================================================================= -->
   <footer class="site-footer">
-    <div class="footer-inner">
-      <div class="footer-brand">
-        <img src="assets/branding/primary%20black.png" alt="Nails by Divya Logo" class="footer-logo">
+    <div class="footer-container">
+      <div class="footer-grid">
+        <div class="footer-col footer-col-brand">
+          <a href="index.html#home" class="footer-brand-link">
+            <img src="assets/branding/icon1submark%20gold.png" alt="" class="footer-brand-icon" aria-hidden="true">
+            <span class="footer-brand-name">Nails by Divya</span>
+          </a>
+          <p class="footer-bio">
+            Bespoke nail artistry by freelance artist Divya. Collectible handmade press-on nails delivered across India, and salon-grade at-home appointments across Delhi NCR.
+          </p>
+          <div class="footer-social-links">
+            <a href="https://www.instagram.com/nailsbydivya13/" target="_blank" rel="noopener noreferrer" class="footer-social-link">Instagram &bull; @nailsbydivya13</a>
+            <a href="https://wa.me/917827437985" target="_blank" rel="noopener noreferrer" class="footer-social-link">WhatsApp &bull; +91 78274 37985</a>
+          </div>
+        </div>
+
+        <div class="footer-col">
+          <h4 class="footer-col-title">Explore</h4>
+          <ul class="footer-nav-list">
+            <li><a href="press-on-nails-india.html">Shop Press-On Nails</a></li>
+            <li><a href="nail-extensions.html">At-Home Services (Delhi NCR)</a></li>
+            <li><a href="nail-art.html">Custom Nail Art Lookbook</a></li>
+            <li><a href="index.html#custom">Match the Moment (Custom Sets)</a></li>
+            <li><a href="index.html#portfolio">Recent Client Work</a></li>
+            <li><a href="index.html#divv" class="footer-divv-trigger">Ask Divv AI Stylist 💅🏻</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4 class="footer-col-title">Client Care</h4>
+          <ul class="footer-nav-list">
+            <li><a href="account.html">My Account &amp; Sizing Profile</a></li>
+            <li><a href="index.html#sizing-guide">How to Measure Nail Size</a></li>
+            <li><a href="index.html#trust">Hygiene &amp; Safety Protocol</a></li>
+            <li><a href="index.html#faq">Frequently Asked Questions</a></li>
+            <li><a href="index.html#reviews">Client Reviews</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4 class="footer-col-title">Service Areas</h4>
+          <p class="footer-info-text">
+            Selected residential areas across South Delhi, Gurgaon / Gurugram, Noida, Aerocity &amp; Central Delhi.
+          </p>
+          <p class="footer-info-meta">
+            <strong>Operating Hours:</strong> 12:00 PM – 6:00 PM<br>
+            Tuesday through Sunday (Advance notice required)
+          </p>
+          <p class="footer-info-meta">
+            <strong>Pan-India Shipping:</strong> Handmade press-on sets delivered across India via express couriers.
+          </p>
+        </div>
       </div>
-      <p class="footer-tagline">Beautiful nails, however you want them.</p>
-      <div class="footer-seo-links">
-        <a href="index.html">Home</a>
-        <a href="press-on-nails-india.html">Press-On Nails</a>
-        <a href="nail-extensions.html">Nail Extensions</a>
-        <a href="nail-art.html">Nail Art</a>
+
+      <div class="footer-bottom">
+        <p class="footer-copyright">&copy; 2026 Nails by Divya. All rights reserved.</p>
+        <div class="footer-bottom-links">
+          <span>Handmade in Delhi NCR</span>
+          <span>&bull;</span>
+          <span>Delivered Pan-India</span>
+        </div>
       </div>
-      <p class="footer-copyright">&copy; 2026 Nails by Divya. All rights reserved.</p>
     </div>
   </footer>
 
+  <script src="script.js"></script>
   <!-- Firebase Client SDK (Compat v10 for straightforward CDN integration) -->
   <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>

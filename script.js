@@ -47,7 +47,7 @@ const FESTIVE_OFFER_CONFIG = {
   active: true,
   promoPrice: "₹599",
   promoPriceDisplay: "₹599",
-  badgeText: "✦ FESTIVE OFFER · ENDING SOON",
+  badgeText: "✦ FESTIVE OFFER · ₹599",
 
   /**
    * Identifies whether a SKU qualifies for the festive press-on promotional price.
@@ -82,7 +82,8 @@ const CHECKOUT_CONFIG = {
     if (this.activeMethod === "whatsapp") {
       const skuStr = sku ? ` [SKU: ${sku}]` : "";
       const priceStr = price ? ` • Price: *${price}*` : "";
-      const text = `Hi Divya! I would like to order the handmade press-on nail set: *${productName}*${skuStr} (${category})${priceStr}. ${customNote}\n\nPlease let me know how to share my nail measurements and confirm delivery across India.`;
+      const noteStr = customNote ? `\n• ${customNote}` : "";
+      const text = `Hi Divya! I would like to order the handmade press-on nail set: *${productName}*${skuStr} (${category})${priceStr}.${noteStr}\n\nPlease let me know how to share my nail measurements and confirm delivery across India.`;
       const encodedText = encodeURIComponent(text);
       return `https://wa.me/${this.whatsappNumber}?text=${encodedText}`;
     }
@@ -513,39 +514,72 @@ function initLuxuryCarousels() {
 }
 
 // ---------------------------------------------------------------------------
-// 06. PRESS-ON COLLECTION CATEGORY FILTERS (`#shop`)
+// 06. PRESS-ON COLLECTION & LOOKBOOK CATEGORY FILTERS
 // ---------------------------------------------------------------------------
 function initShopFilters() {
-  const pills = document.querySelectorAll("[data-shop-filter]");
-  const cards = document.querySelectorAll("#shop-carousel-track .carousel-card");
+  // Shop Category Tabs
+  const shopTabs = document.querySelectorAll(".shop-category-nav .category-tab, [data-shop-filter]");
+  const productCards = document.querySelectorAll(".product-card, .carousel-card");
   const track = document.getElementById("shop-carousel-track");
 
-  if (!pills.length || !cards.length) return;
+  if (shopTabs.length && productCards.length) {
+    shopTabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        shopTabs.forEach((t) => {
+          t.classList.remove("is-active");
+          t.setAttribute("aria-selected", "false");
+        });
+        tab.classList.add("is-active");
+        tab.setAttribute("aria-selected", "true");
 
-  pills.forEach((pill) => {
-    pill.addEventListener("click", () => {
-      pills.forEach((p) => p.classList.remove("is-active"));
-      pill.classList.add("is-active");
+        const filter = tab.getAttribute("data-filter") || tab.getAttribute("data-shop-filter") || "all";
 
-      const filter = pill.getAttribute("data-shop-filter");
+        productCards.forEach((card) => {
+          const cat = card.getAttribute("data-category");
+          if (filter === "all" || cat === filter) {
+            card.classList.add("is-active");
+            card.style.display = "flex";
+          } else {
+            card.classList.remove("is-active");
+            card.style.display = "none";
+          }
+        });
 
-      cards.forEach((card) => {
-        const category = card.getAttribute("data-category");
-        if (filter === "all" || category === filter) {
-          card.classList.add("is-active");
-          card.style.display = "flex";
-        } else {
-          card.classList.remove("is-active");
-          card.style.display = "none";
+        if (track) {
+          track.scrollTo({ left: 0, behavior: "smooth" });
+          track.dispatchEvent(new Event("scroll"));
         }
       });
-
-      if (track) {
-        track.scrollTo({ left: 0, behavior: "smooth" });
-        track.dispatchEvent(new Event("scroll"));
-      }
     });
-  });
+  }
+
+  // Lookbook Gallery Filter Tabs
+  const galleryTabs = document.querySelectorAll(".gallery-filter-tabs .filter-tab");
+  const lookbookCards = document.querySelectorAll(".lookbook-card, .portfolio-card");
+
+  if (galleryTabs.length && lookbookCards.length) {
+    galleryTabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        galleryTabs.forEach((t) => {
+          t.classList.remove("is-active");
+          t.setAttribute("aria-selected", "false");
+        });
+        tab.classList.add("is-active");
+        tab.setAttribute("aria-selected", "true");
+
+        const filter = tab.getAttribute("data-filter") || "all";
+
+        lookbookCards.forEach((card) => {
+          const cat = card.getAttribute("data-category");
+          if (filter === "all" || cat === filter) {
+            card.style.display = "block";
+          } else {
+            card.style.display = "none";
+          }
+        });
+      });
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -577,17 +611,25 @@ function initModals() {
     });
   }
 
-  // 08A. PRODUCT CARD CLICK HANDLING (`.carousel-card`) -> PRODUCT MODAL ONLY
-  document.querySelectorAll(".carousel-card").forEach((card) => {
+  // 08A. PRODUCT CARD CLICK HANDLING (`.carousel-card, .product-card`) -> PRODUCT MODAL ONLY
+  document.querySelectorAll(".carousel-card, .product-card").forEach((card) => {
     card.addEventListener("click", (e) => {
       const track = card.closest(".luxury-carousel-track");
       if (track && track.dataset.hasDragged === "true") return;
 
-      // Check if button was clicked directly (handle directly)
+      // Check if button was clicked directly
       if (e.target.closest("button[data-action='order']")) return;
 
       openProductModalFromCard(card);
     });
+
+    const detailsBtn = card.querySelector("button[data-action='details']");
+    if (detailsBtn) {
+      detailsBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        openProductModalFromCard(card);
+      });
+    }
   });
 
   // Direct Order CTA Buttons inside Product Cards
@@ -636,7 +678,10 @@ function initModals() {
     btn.addEventListener("click", (e) => {
       e.preventDefault();
       const title = btn.getAttribute("data-service-title") || "At-Home Appointment";
-      openServiceModal(title, "Relax in the privacy and comfort of your home across Delhi NCR while we bring salon-grade equipment, electric drills, LED lamps, and top-tier soft gel collections directly to your doorstep.");
+      const card = btn.closest(".service-card");
+      const cardDesc = card ? card.querySelector("p") : null;
+      const desc = cardDesc ? cardDesc.textContent.trim() : "Relax in the privacy and comfort of your home across Delhi NCR while we bring salon-grade equipment directly to your doorstep.";
+      openServiceModal(title, desc);
     });
   });
 
@@ -678,16 +723,22 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
 
   const titleEl = document.getElementById("product-modal-title");
   const catEl = document.getElementById("product-modal-category");
+  const skuEl = document.getElementById("product-modal-sku");
   const imgEl = document.getElementById("product-modal-image");
   const descEl = document.getElementById("product-modal-desc");
   const priceEl = document.getElementById("product-modal-price");
   const actionBtn = document.getElementById("product-modal-action-btn");
+  const sizingGuideText = document.getElementById("modal-sizing-guide-text");
 
   if (titleEl) titleEl.textContent = title;
   if (catEl) catEl.textContent = category;
+  if (skuEl) skuEl.textContent = sku ? `SKU: ${sku}` : "";
   if (imgEl) {
     imgEl.src = imageSrc;
     imgEl.alt = imageAlt || title;
+    imgEl.onerror = () => {
+      imgEl.src = "assets/products/wedding/WED-005/herowedd5.png";
+    };
   }
   if (descEl) descEl.textContent = description;
 
@@ -714,11 +765,62 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
     }
   }
 
-  if (actionBtn) {
-    actionBtn.onclick = () => {
-      window.open(CHECKOUT_CONFIG.getCheckoutUrl(title, category, effectivePrice, sku), "_blank", "noopener,noreferrer");
-    };
+  // Sizing chart details (Standard reference sizing; exact fit confirmed via WhatsApp consultation)
+  const SIZING_INFO = {
+    "XS": "Thumb: 14mm, Index: 11mm, Middle: 12mm, Ring: 10mm, Pinky: 8mm",
+    "S": "Thumb: 15mm, Index: 12mm, Middle: 13mm, Ring: 11mm, Pinky: 8mm",
+    "M": "Thumb: 16mm, Index: 12mm, Middle: 13mm, Ring: 11mm, Pinky: 9mm",
+    "L": "Thumb: 17mm, Index: 13mm, Middle: 14mm, Ring: 12mm, Pinky: 10mm",
+    "Custom": "Tailored sizing — share measurements in mm or photo with coin"
+  };
+
+  let activeSize = "M";
+  const sizeChips = modal.querySelectorAll(".size-chip");
+
+  function updateOrderAction() {
+    if (actionBtn) {
+      actionBtn.onclick = () => {
+        const sizeDetail = activeSize === "Custom"
+          ? "Custom Sizing Consultation (Will share measurements / photo on WhatsApp)"
+          : `Size ${activeSize} (${SIZING_INFO[activeSize]})`;
+        window.open(CHECKOUT_CONFIG.getCheckoutUrl(title, category, effectivePrice, sku, sizeDetail), "_blank", "noopener,noreferrer");
+      };
+    }
   }
+
+  function renderSizingGuide() {
+    if (!sizingGuideText) return;
+    if (activeSize === "Custom") {
+      sizingGuideText.innerHTML = `Selected: <strong>Custom Sizing</strong> &bull; Tailored fit. Divya guides you to share measurements or a coin photo on WhatsApp before crafting!`;
+    } else {
+      const detail = SIZING_INFO[activeSize] || "";
+      sizingGuideText.innerHTML = `Reference size: <strong>${activeSize}</strong> &bull; ${detail}. Sizing verified directly with Divya before hand-painting!`;
+    }
+  }
+
+  if (sizeChips.length) {
+    sizeChips.forEach((chip) => {
+      const isM = chip.getAttribute("data-size") === "M";
+      chip.classList.toggle("is-active", isM);
+      chip.setAttribute("aria-checked", isM ? "true" : "false");
+
+      chip.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        activeSize = chip.getAttribute("data-size") || "M";
+        sizeChips.forEach((c) => {
+          const isSelected = c.getAttribute("data-size") === activeSize;
+          c.classList.toggle("is-active", isSelected);
+          c.setAttribute("aria-checked", isSelected ? "true" : "false");
+        });
+        renderSizingGuide();
+        updateOrderAction();
+      };
+    });
+  }
+
+  renderSizingGuide();
+  updateOrderAction();
 
   window.DivvCurrentProductContext = `${title}${sku ? ` [SKU: ${sku}]` : ""}${effectivePrice ? ` (${effectivePrice})` : ""}`;
   if (typeof window.updateDivvProductBanner === "function") window.updateDivvProductBanner();
