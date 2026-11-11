@@ -16,7 +16,7 @@
 window.NAILS_CONFIG = window.NAILS_CONFIG || {
   // Backend Express API URL
   apiUrl: (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
-    ? "http://localhost:5000"
+    ? "http://localhost:3000"
     : "https://nails-ai-backend.onrender.com",
 
   // Firebase Web App Configuration

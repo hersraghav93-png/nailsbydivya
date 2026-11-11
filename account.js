@@ -1,10 +1,10 @@
 /**
  * ==============================================================================
  * NAILS BY DIVYA — CUSTOMER ACCOUNT CONTROLLER (`account.js`)
- * Nails by Divya Platform — Phase 1D
+ * Nails by Divya Platform — Phase 3B Commerce & Booking Integration
  *
  * Manages customer profile preferences, custom nail measurements, address book,
- * and session state on account.html.
+ * real press-on orders, at-home appointments, and session state on account.html.
  * ==============================================================================
  */
 
@@ -14,6 +14,8 @@
   let currentUser = null;
   let currentProfile = null;
   let savedAddresses = [];
+  let savedOrders = [];
+  let savedBookings = [];
   let editingAddressId = null;
 
   const NAIL_SHAPES = ["Almond", "Square", "Coffin", "Stiletto", "Oval", "Round", "Squoval", "Ballerina"];
@@ -32,6 +34,10 @@
   let addressDialogEl = null;
   let addressFormEl = null;
   let addressFeedbackEl = null;
+  let ordersListEl = null;
+  let bookingsListEl = null;
+  let orderDetailsDialogEl = null;
+  let bookingDetailsDialogEl = null;
 
   /**
    * Initializes the account page controller.
@@ -48,6 +54,10 @@
     addressDialogEl = document.getElementById("address-dialog");
     addressFormEl = document.getElementById("address-form");
     addressFeedbackEl = document.getElementById("address-modal-feedback");
+    ordersListEl = document.getElementById("account-orders-list");
+    bookingsListEl = document.getElementById("account-bookings-list");
+    orderDetailsDialogEl = document.getElementById("order-details-dialog");
+    bookingDetailsDialogEl = document.getElementById("booking-details-dialog");
 
     // Listen to authentication changes
     if (window.NailsAuth) {
@@ -80,20 +90,24 @@
   }
 
   /**
-   * Loads profile and addresses from the backend.
+   * Loads profile, addresses, press-on orders, and at-home appointments from the backend.
    */
   async function loadAccountData() {
     renderUserOverview();
 
     try {
       if (window.NailsApi) {
-        const [profileRes, addressesRes] = await Promise.all([
+        const [profileRes, addressesRes, ordersRes, bookingsRes] = await Promise.all([
           window.NailsApi.getCustomerProfile().catch(() => ({ profile: null })),
           window.NailsApi.getCustomerAddresses().catch(() => ({ addresses: [] })),
+          window.NailsApi.getCustomerOrders().catch(() => ({ orders: [] })),
+          window.NailsApi.getCustomerBookings().catch(() => ({ bookings: [] })),
         ]);
 
         currentProfile = profileRes.profile;
         savedAddresses = addressesRes.addresses || [];
+        savedOrders = ordersRes.orders || [];
+        savedBookings = bookingsRes.bookings || [];
       }
     } catch (err) {
       console.warn("Could not load backend data, using local state:", err);
@@ -101,6 +115,8 @@
 
     renderProfileForm();
     renderAddresses();
+    renderOrders();
+    renderBookings();
   }
 
   /**
@@ -171,7 +187,7 @@
       });
     }
 
-    // Sizing Preset Pills
+    // Sizing Preset Selection Pills
     const presetContainer = document.getElementById("profile-presets-grid");
     if (presetContainer) {
       const selectedPreset = p.sizing_preset || "M";
@@ -190,8 +206,8 @@
       });
     }
 
-    // Custom measurements in mm
-    const measurements = p.custom_nail_measurements || { thumb: 14, index: 11, middle: 12, ring: 10, pinky: 8 };
+    // Custom Millimeter Measurements
+    const measurements = p.custom_nail_measurements || {};
     const thumbInput = document.getElementById("measure-thumb");
     const indexInput = document.getElementById("measure-index");
     const middleInput = document.getElementById("measure-middle");
@@ -204,123 +220,112 @@
     if (ringInput) ringInput.value = measurements.ring || "";
     if (pinkyInput) pinkyInput.value = measurements.pinky || "";
 
-    // Allergies & Notes
+    // Notes
     const notesInput = document.getElementById("profile-notes-input");
     if (notesInput) notesInput.value = p.allergies_or_notes || "";
   }
 
   /**
-   * Handles saving customer profile updates.
+   * Handles saving customer profile changes.
    */
   async function handleSaveProfile(e) {
-    if (e) e.preventDefault();
-    if (!profileFormEl) return;
+    e.preventDefault();
+    clearAddressFeedback();
 
     const saveBtn = document.getElementById("save-profile-btn");
+    setButtonLoading(saveBtn, true);
+
     const nameInput = document.getElementById("profile-name-input");
-    const notesInput = document.getElementById("profile-notes-input");
+    const shapeRadio = profileFormEl.querySelector('input[name="preferred_nail_shape"]:checked');
+    const lengthRadio = profileFormEl.querySelector('input[name="preferred_nail_length"]:checked');
+    const presetRadio = profileFormEl.querySelector('input[name="sizing_preset"]:checked');
 
-    const shapeInput = profileFormEl.querySelector('input[name="preferred_nail_shape"]:checked');
-    const lengthInput = profileFormEl.querySelector('input[name="preferred_nail_length"]:checked');
-    const presetInput = profileFormEl.querySelector('input[name="sizing_preset"]:checked');
+    const thumb = parseFloat(document.getElementById("measure-thumb")?.value);
+    const index = parseFloat(document.getElementById("measure-index")?.value);
+    const middle = parseFloat(document.getElementById("measure-middle")?.value);
+    const ring = parseFloat(document.getElementById("measure-ring")?.value);
+    const pinky = parseFloat(document.getElementById("measure-pinky")?.value);
 
-    const thumbInput = document.getElementById("measure-thumb");
-    const indexInput = document.getElementById("measure-index");
-    const middleInput = document.getElementById("measure-middle");
-    const ringInput = document.getElementById("measure-ring");
-    const pinkyInput = document.getElementById("measure-pinky");
-
-    const customMeasurements = {
-      thumb: parseFloat(thumbInput?.value) || null,
-      index: parseFloat(indexInput?.value) || null,
-      middle: parseFloat(middleInput?.value) || null,
-      ring: parseFloat(ringInput?.value) || null,
-      pinky: parseFloat(pinkyInput?.value) || null,
-    };
+    const custom_measurements = {};
+    if (!isNaN(thumb)) custom_measurements.thumb = thumb;
+    if (!isNaN(index)) custom_measurements.index = index;
+    if (!isNaN(middle)) custom_measurements.middle = middle;
+    if (!isNaN(ring)) custom_measurements.ring = ring;
+    if (!isNaN(pinky)) custom_measurements.pinky = pinky;
 
     const payload = {
-      full_name: (nameInput?.value || "").trim() || "Customer",
-      preferred_nail_shape: shapeInput?.value || "Almond",
-      preferred_nail_length: lengthInput?.value || "Medium",
-      sizing_preset: presetInput?.value || "M",
-      custom_nail_measurements: customMeasurements,
-      allergies_or_notes: (notesInput?.value || "").trim() || null,
+      full_name: (nameInput && nameInput.value.trim()) || "Customer",
+      preferred_nail_shape: (shapeRadio && shapeRadio.value) || "Almond",
+      preferred_nail_length: (lengthRadio && lengthRadio.value) || "Medium",
+      sizing_preset: (presetRadio && presetRadio.value) || "M",
+      custom_nail_measurements: Object.keys(custom_measurements).length ? custom_measurements : null,
+      allergies_or_notes: (document.getElementById("profile-notes-input")?.value.trim()) || null,
     };
-
-    setButtonLoading(saveBtn, true);
-    showProfileFeedback("", false);
 
     try {
       if (window.NailsApi) {
-        const updateRes = await window.NailsApi.updateCustomerProfile(payload);
-        currentProfile = updateRes.profile || payload;
+        const res = await window.NailsApi.updateCustomerProfile(payload);
+        currentProfile = res.profile;
+        showProfileFeedback("✓ Bespoke nail preferences saved successfully.", true);
+        renderUserOverview();
       } else {
-        currentProfile = payload;
+        showProfileFeedback("✓ Preferences updated locally.", true);
       }
-
-      renderUserOverview();
-      showProfileFeedback("✓ Nail preferences and sizing saved successfully!", true);
     } catch (err) {
-      showProfileFeedback(err.message || "Could not save profile. Please try again.", false);
+      showProfileFeedback(err.message || "Failed to update profile.", false);
     } finally {
       setButtonLoading(saveBtn, false);
     }
   }
 
   /**
-   * Renders the saved delivery and service addresses grid.
+   * Renders customer saved addresses.
    */
   function renderAddresses() {
     if (!addressListEl) return;
 
     if (!savedAddresses || savedAddresses.length === 0) {
       addressListEl.innerHTML = `
-        <div class="empty-address-card">
-          <div class="empty-address-icon">📍</div>
-          <h4>No Saved Addresses Yet</h4>
-          <p>Add your shipping or appointment location for effortless checkout across India and Delhi NCR.</p>
-          <button type="button" class="button secondary-button" id="empty-add-address-btn">+ Add Address</button>
+        <div class="empty-state-card" style="padding: 1.5rem; text-align: center; color: var(--text-muted); background: var(--bg-soft); border-radius: var(--radius-md);">
+          <p style="margin: 0; font-size: 0.92rem;">No delivery addresses saved yet.</p>
+          <p style="margin: 0.25rem 0 0; font-size: 0.82rem;">Add your address for rapid press-on dispatch and at-home appointments.</p>
         </div>
       `;
-      const addBtn = document.getElementById("empty-add-address-btn");
-      if (addBtn) addBtn.onclick = () => openAddressModal();
       return;
     }
 
     addressListEl.innerHTML = savedAddresses.map((addr) => {
-      const defaultBadges = [];
-      if (addr.is_default_shipping) defaultBadges.push('<span class="addr-badge badge-shipping">Default Shipping</span>');
-      if (addr.is_default_service) defaultBadges.push('<span class="addr-badge badge-service">Default Delhi NCR Service</span>');
-
-      const fullAddress = [
-        addr.address_line1,
-        addr.address_line2,
-        addr.landmark ? `Landmark: ${addr.landmark}` : null,
-        `${addr.city}, ${addr.state} — ${addr.postal_code}`,
-      ].filter(Boolean).join("<br>");
+      const isDefault = addr.isDefault || addr.is_default_shipping;
+      const isService = addr.isDefaultService || addr.is_default_service;
 
       return `
-        <div class="address-card" data-address-id="${addr.id}">
-          <div class="address-card-header">
-            <h4 class="addr-recipient-name">${escapeHtml(addr.recipient_name)}</h4>
-            <div class="addr-badges">${defaultBadges.join(" ")}</div>
+        <div class="address-item-card ${isDefault ? "is-default" : ""}" data-id="${addr.id}">
+          <div class="address-item-header">
+            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+              <strong style="color: var(--heading); font-size: 0.95rem;">${escapeHtml(addr.recipientName || addr.recipient_name)}</strong>
+              ${isDefault ? '<span class="address-badge">Default Shipping</span>' : ""}
+              ${isService ? '<span class="address-badge" style="background: rgba(197, 160, 89, 0.18); color: #8c6a23;">Default Appointment</span>' : ""}
+            </div>
+            <div class="address-actions-menu">
+              <button type="button" class="addr-action-btn edit-addr-btn" data-id="${addr.id}" aria-label="Edit address">Edit</button>
+              <button type="button" class="addr-action-btn delete-addr-btn" data-id="${addr.id}" aria-label="Delete address">Delete</button>
+            </div>
           </div>
-          <p class="addr-phone">📞 ${escapeHtml(addr.recipient_phone)}</p>
-          <p class="addr-lines">${fullAddress}</p>
-          <div class="address-card-actions">
-            <button type="button" class="addr-action-btn edit-addr-btn" data-id="${addr.id}">Edit</button>
-            <button type="button" class="addr-action-btn delete-addr-btn" data-id="${addr.id}">Delete</button>
+
+          <div class="address-item-body">
+            <p>${escapeHtml(addr.addressLine1 || addr.address_line1)}${addr.addressLine2 || addr.address_line2 ? `, ${escapeHtml(addr.addressLine2 || addr.address_line2)}` : ""}</p>
+            ${addr.landmark ? `<p class="address-landmark">Near ${escapeHtml(addr.landmark)}</p>` : ""}
+            <p>${escapeHtml(addr.city)}, ${escapeHtml(addr.state)} — ${escapeHtml(addr.postalCode || addr.postal_code)}</p>
+            <p class="address-phone">Mobile: ${escapeHtml(addr.recipientPhone || addr.recipient_phone)}</p>
           </div>
         </div>
       `;
     }).join("");
 
-    // Bind edit/delete handlers
     addressListEl.querySelectorAll(".edit-addr-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
         const id = btn.getAttribute("data-id");
-        const found = savedAddresses.find((a) => a.id === id);
-        if (found) openAddressModal(found);
+        openAddressModal(id);
       });
     });
 
@@ -333,132 +338,383 @@
   }
 
   /**
-   * Opens the Address Modal for Add or Edit.
-   * @param {object|null} address
+   * Renders customer press-on orders history.
    */
-  function openAddressModal(address = null) {
-    editingAddressId = address ? address.id : null;
+  function renderOrders() {
+    if (!ordersListEl) return;
+
+    if (!savedOrders || savedOrders.length === 0) {
+      ordersListEl.innerHTML = `
+        <div style="padding: 1.75rem 1rem; text-align: center; color: var(--text-muted); background: var(--bg-soft); border-radius: var(--radius-md); border: 1px solid var(--line);">
+          <span style="font-size: 1.8rem; display: block; margin-bottom: 0.35rem;">📦</span>
+          <p style="margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--heading);">No Press-On Orders Placed Yet</p>
+          <p style="margin: 0.35rem 0 0.85rem; font-size: 0.84rem;">Explore our 22 collectible handcrafted press-on sets. Complimentary Pan-India delivery included.</p>
+          <a href="index.html#shop" class="button secondary-button" style="min-height: 38px; padding: 0.4rem 1rem; font-size: 0.84rem; display: inline-flex;">Explore Press-On Sets &rarr;</a>
+        </div>
+      `;
+      return;
+    }
+
+    ordersListEl.innerHTML = savedOrders.map((ord) => {
+      const orderNum = ord.orderNumber || ord.order_number || `ORD-${ord.id.slice(0, 8)}`;
+      const orderDate = new Date(ord.createdAt || ord.created_at).toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
+      const orderStatus = (ord.orderStatus || ord.order_status || "PENDING").toUpperCase();
+      const paymentStatus = (ord.paymentStatus || ord.payment_status || "PENDING").toUpperCase();
+      const totalAmount = parseFloat(ord.totalAmount || ord.total_amount) || 0;
+
+      // Status pill styling
+      let statusClass = "status-pending";
+      let statusLabel = "Order Placed (Pending)";
+      if (orderStatus === "CONFIRMED") { statusClass = "status-confirmed"; statusLabel = "Confirmed"; }
+      else if (orderStatus === "IN_PRODUCTION") { statusClass = "status-in_production"; statusLabel = "In Production"; }
+      else if (orderStatus === "COMPLETED") { statusClass = "status-delivered"; statusLabel = "Completed"; }
+      else if (orderStatus === "CANCELLED") { statusClass = "status-cancelled"; statusLabel = "Cancelled"; }
+
+      const waText = encodeURIComponent(`Hi Divya! Regarding my press-on order *${orderNum}* (₹${totalAmount}): please let me know the current status and payment/sizing verification.`);
+      const waUrl = `https://wa.me/917827437985?text=${waText}`;
+
+      return `
+        <article class="order-history-card">
+          <div class="order-history-header">
+            <div>
+              <span class="order-code-text">${escapeHtml(orderNum)}</span>
+              <div class="order-date-text">Placed on ${orderDate} &bull; Pan-India Delivery</div>
+            </div>
+            <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
+              <span class="status-pill ${statusClass}">${escapeHtml(statusLabel)}</span>
+              <span class="status-pill status-pending" title="Payment confirmed via studio concierge">Payment: ${escapeHtml(paymentStatus)}</span>
+            </div>
+          </div>
+
+          <div class="order-items-snippet">
+            <strong>Bespoke Handcrafted Set</strong> &bull; Complimentary Standard Delivery &bull; Amount: <strong>₹${totalAmount}</strong>
+          </div>
+
+          <div class="order-card-footer">
+            <span style="font-size: 0.78rem; color: var(--text-muted);">
+              Sizing &amp; payment confirmed via studio concierge
+            </span>
+            <div style="display: flex; gap: 0.5rem;">
+              <button type="button" class="button secondary-button view-order-btn" data-id="${ord.id}" style="min-height: 34px; padding: 0.35rem 0.85rem; font-size: 0.8rem;">
+                View Details
+              </button>
+              <a href="${waUrl}" target="_blank" rel="noopener noreferrer" class="button secondary-button whatsapp-button" style="min-height: 34px; padding: 0.35rem 0.85rem; font-size: 0.8rem;">
+                WhatsApp &rarr;
+              </a>
+            </div>
+          </div>
+        </article>
+      `;
+    }).join("");
+
+    ordersListEl.querySelectorAll(".view-order-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.getAttribute("data-id");
+        openOrderDetailsModal(id);
+      });
+    });
+  }
+
+  /**
+   * Renders customer at-home appointments history.
+   */
+  function renderBookings() {
+    if (!bookingsListEl) return;
+
+    if (!savedBookings || savedBookings.length === 0) {
+      bookingsListEl.innerHTML = `
+        <div style="padding: 1.75rem 1rem; text-align: center; color: var(--text-muted); background: var(--bg-soft); border-radius: var(--radius-md); border: 1px solid var(--line);">
+          <span style="font-size: 1.8rem; display: block; margin-bottom: 0.35rem;">💅🏻</span>
+          <p style="margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--heading);">No Salon Appointments Requested Yet</p>
+          <p style="margin: 0.35rem 0 0.85rem; font-size: 0.84rem;">Enjoy luxury salon-grade nail extensions &amp; overlays in your home across Delhi NCR.</p>
+          <a href="index.html#services" class="button secondary-button" style="min-height: 38px; padding: 0.4rem 1rem; font-size: 0.84rem; display: inline-flex;">Explore At-Home Services &rarr;</a>
+        </div>
+      `;
+      return;
+    }
+
+    bookingsListEl.innerHTML = savedBookings.map((bkg) => {
+      const bookingNum = bkg.bookingNumber || bkg.booking_number || `BKG-${bkg.id.slice(0, 8)}`;
+      const serviceName = bkg.serviceName || bkg.service_name || "At-Home Nail Service";
+      const requestedDate = bkg.requestedDate || bkg.requested_date;
+      const requestedSlot = bkg.requestedTimeSlot || bkg.requested_time_slot || "Preferred Slot";
+      const bookingStatus = (bkg.bookingStatus || bkg.booking_status || "REQUESTED").toUpperCase();
+      const estimatedTotal = bkg.estimatedTotal !== null && bkg.estimatedTotal !== undefined
+        ? `₹${parseFloat(bkg.estimatedTotal)}`
+        : "Custom Quotation";
+
+      let statusClass = "status-requested";
+      let statusLabel = "Requested (Under Review)";
+      if (bookingStatus === "CONFIRMED") { statusClass = "status-confirmed"; statusLabel = "Confirmed"; }
+      else if (bookingStatus === "ALTERNATIVE_PROPOSED") { statusClass = "status-pending"; statusLabel = "Alternative Slot Proposed"; }
+      else if (bookingStatus === "DECLINED" || bookingStatus.includes("CANCEL")) { statusClass = "status-declined"; statusLabel = "Declined / Cancelled"; }
+      else if (bookingStatus === "COMPLETED") { statusClass = "status-delivered"; statusLabel = "Completed"; }
+
+      const waText = encodeURIComponent(`Hi Divya! Regarding my at-home appointment *${bookingNum}* for *${serviceName}* on ${requestedDate} (${requestedSlot}): please let me know your availability.`);
+      const waUrl = `https://wa.me/917827437985?text=${waText}`;
+
+      return `
+        <article class="booking-history-card">
+          <div class="booking-history-header">
+            <div>
+              <span class="booking-code-text">${escapeHtml(bookingNum)}</span>
+              <div class="booking-date-text">Appointment Date: <strong>${escapeHtml(requestedDate)}</strong> &bull; ${escapeHtml(requestedSlot)}</div>
+            </div>
+            <span class="status-pill ${statusClass}">${escapeHtml(statusLabel)}</span>
+          </div>
+
+          <div class="order-items-snippet">
+            <strong>${escapeHtml(serviceName)}</strong> &bull; Location: Delhi NCR &bull; Estimated Pricing: <strong>${escapeHtml(estimatedTotal)}</strong>
+          </div>
+
+          <div class="booking-card-footer">
+            <span style="font-size: 0.78rem; color: var(--text-muted);">
+              Manual scheduling review by Divya &bull; No online payment
+            </span>
+            <div style="display: flex; gap: 0.5rem;">
+              <button type="button" class="button secondary-button view-booking-btn" data-id="${bkg.id}" style="min-height: 34px; padding: 0.35rem 0.85rem; font-size: 0.8rem;">
+                View Details
+              </button>
+              <a href="${waUrl}" target="_blank" rel="noopener noreferrer" class="button secondary-button whatsapp-button" style="min-height: 34px; padding: 0.35rem 0.85rem; font-size: 0.8rem;">
+                WhatsApp &rarr;
+              </a>
+            </div>
+          </div>
+        </article>
+      `;
+    }).join("");
+
+    bookingsListEl.querySelectorAll(".view-booking-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.getAttribute("data-id");
+        openBookingDetailsModal(id);
+      });
+    });
+  }
+
+  /**
+   * Opens the Order Details modal snapshot.
+   */
+  async function openOrderDetailsModal(orderId) {
+    if (!orderDetailsDialogEl) return;
+    const bodyEl = document.getElementById("order-details-body");
+    const subTitleEl = document.getElementById("order-details-subtitle");
+    if (bodyEl) bodyEl.innerHTML = `<div style="text-align: center; padding: 2rem;">Loading order details...</div>`;
+    orderDetailsDialogEl.showModal();
+
+    try {
+      const res = await window.NailsApi.getOrderDetails(orderId);
+      const o = res.order;
+      if (subTitleEl) subTitleEl.textContent = `Order ${o.orderNumber || orderId.slice(0, 8)} &bull; ${new Date(o.createdAt).toLocaleDateString()}`;
+
+      if (bodyEl) {
+        bodyEl.innerHTML = `
+          <div style="background: var(--bg-soft); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 0.85rem; font-size: 0.85rem;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.35rem;">
+              <span>Order Status:</span>
+              <strong class="status-pill status-${(o.orderStatus || "pending").toLowerCase()}">${escapeHtml(o.orderStatus)}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.35rem;">
+              <span>Payment Status:</span>
+              <strong class="status-pill status-pending">${escapeHtml(o.paymentStatus || "PENDING")}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span>Total Amount:</span>
+              <strong>₹${parseFloat(o.totalAmount || 0)} (Complimentary Delivery)</strong>
+            </div>
+          </div>
+
+          <div style="font-size: 0.85rem;">
+            <span style="font-weight: 700; text-transform: uppercase; font-size: 0.76rem; color: var(--heading);">Delivery Address</span>
+            <p style="margin: 0.25rem 0 0; color: var(--text-muted); line-height: 1.45;">
+              ${escapeHtml(o.shippingAddress?.recipient_name || "")}<br>
+              ${escapeHtml(o.shippingAddress?.address_line1 || "")}${o.shippingAddress?.address_line2 ? `, ${escapeHtml(o.shippingAddress.address_line2)}` : ""}<br>
+              ${escapeHtml(o.shippingAddress?.city || "")}, ${escapeHtml(o.shippingAddress?.state || "")} — ${escapeHtml(o.shippingAddress?.postal_code || "")}<br>
+              Phone: ${escapeHtml(o.shippingAddress?.phone || "")}
+            </p>
+          </div>
+
+          ${o.customerNotes ? `
+            <div style="font-size: 0.85rem; background: var(--bg-cream); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 0.65rem;">
+              <span style="font-weight: 700; font-size: 0.74rem; text-transform: uppercase; color: var(--heading);">Customer Notes:</span>
+              <p style="margin: 0.2rem 0 0; color: var(--text);">${escapeHtml(o.customerNotes)}</p>
+            </div>
+          ` : ""}
+
+          <div class="cart-payment-notice">
+            <strong>Studio Concierge Note:</strong> All handmade press-on sets are hand-painted by Divya. Payment instructions and sizing double-checks are completed directly via WhatsApp before production.
+          </div>
+
+          <a href="https://wa.me/917827437985?text=${encodeURIComponent(`Hi Divya! Regarding my order ${o.orderNumber}: I am checking in on sizing and payment confirmation.`)}" target="_blank" rel="noopener noreferrer" class="button primary-button" style="width: 100%; text-align: center;">
+            Contact Studio Concierge on WhatsApp &rarr;
+          </a>
+        `;
+      }
+    } catch (err) {
+      if (bodyEl) bodyEl.innerHTML = `<div style="color: #d32f2f; padding: 1.5rem; text-align: center;">Could not load order details: ${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  /**
+   * Opens the Booking Details modal snapshot.
+   */
+  async function openBookingDetailsModal(bookingId) {
+    if (!bookingDetailsDialogEl) return;
+    const bodyEl = document.getElementById("booking-details-body");
+    const subTitleEl = document.getElementById("booking-details-subtitle");
+    if (bodyEl) bodyEl.innerHTML = `<div style="text-align: center; padding: 2rem;">Loading appointment details...</div>`;
+    bookingDetailsDialogEl.showModal();
+
+    try {
+      const res = await window.NailsApi.getBookingDetails(bookingId);
+      const b = res.booking;
+      if (subTitleEl) subTitleEl.textContent = `Booking ${b.bookingNumber || bookingId.slice(0, 8)} &bull; ${escapeHtml(b.serviceName || "")}`;
+
+      if (bodyEl) {
+        bodyEl.innerHTML = `
+          <div style="background: var(--bg-soft); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 0.85rem; font-size: 0.85rem;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.35rem;">
+              <span>Booking Status:</span>
+              <strong class="status-pill status-${(b.bookingStatus || "requested").toLowerCase()}">${escapeHtml(b.bookingStatus)}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.35rem;">
+              <span>Requested Date:</span>
+              <strong>${escapeHtml(b.requestedDate || "")}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.35rem;">
+              <span>Time Window:</span>
+              <strong>${escapeHtml(b.requestedTimeSlot || "")}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span>Estimated Total:</span>
+              <strong>${b.estimatedTotal !== null ? `₹${b.estimatedTotal}` : "Custom Quotation Required"}</strong>
+            </div>
+          </div>
+
+          <div style="font-size: 0.85rem;">
+            <span style="font-weight: 700; text-transform: uppercase; font-size: 0.76rem; color: var(--heading);">Appointment Address</span>
+            <p style="margin: 0.25rem 0 0; color: var(--text-muted); line-height: 1.45;">
+              ${escapeHtml(b.serviceAddress?.address_line1 || "")}${b.serviceAddress?.address_line2 ? `, ${escapeHtml(b.serviceAddress.address_line2)}` : ""}<br>
+              ${escapeHtml(b.serviceAddress?.city || "")}, ${escapeHtml(b.serviceAddress?.state || "")} — ${escapeHtml(b.serviceAddress?.postal_code || "")}
+            </p>
+          </div>
+
+          ${b.customerNotes ? `
+            <div style="font-size: 0.85rem; background: var(--bg-cream); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 0.65rem;">
+              <span style="font-weight: 700; font-size: 0.74rem; text-transform: uppercase; color: var(--heading);">Customer Notes:</span>
+              <p style="margin: 0.2rem 0 0; color: var(--text);">${escapeHtml(b.customerNotes)}</p>
+            </div>
+          ` : ""}
+
+          <div class="cart-payment-notice">
+            <strong>Travel &amp; Scheduling Protocol:</strong> Divya personally confirms appointment slots based on travel logistics across Delhi NCR. No prepayment is taken online.
+          </div>
+
+          <a href="https://wa.me/917827437985?text=${encodeURIComponent(`Hi Divya! Regarding my appointment ${b.bookingNumber} for ${b.serviceName} on ${b.requestedDate}: let me know your availability.`)}" target="_blank" rel="noopener noreferrer" class="button primary-button" style="width: 100%; text-align: center;">
+            Confirm Appointment via WhatsApp &rarr;
+          </a>
+        `;
+      }
+    } catch (err) {
+      if (bodyEl) bodyEl.innerHTML = `<div style="color: #d32f2f; padding: 1.5rem; text-align: center;">Could not load appointment details: ${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  /**
+   * Opens the address modal dialog.
+   */
+  function openAddressModal(addressId = null) {
+    if (!addressDialogEl) return;
+    editingAddressId = addressId;
     clearAddressFeedback();
 
     const titleEl = document.getElementById("address-modal-title");
-    if (titleEl) {
-      titleEl.textContent = address ? "Edit Address" : "Add New Address";
-    }
-
     const nameInput = document.getElementById("addr-name");
     const phoneInput = document.getElementById("addr-phone-input");
     const line1Input = document.getElementById("addr-line1");
     const line2Input = document.getElementById("addr-line2");
     const landmarkInput = document.getElementById("addr-landmark");
+    const pinInput = document.getElementById("addr-pin");
     const cityInput = document.getElementById("addr-city");
     const stateInput = document.getElementById("addr-state");
-    const pinInput = document.getElementById("addr-pin");
-    const isShipCheck = document.getElementById("addr-is-shipping");
-    const isServCheck = document.getElementById("addr-is-service");
+    const shipDefault = document.getElementById("addr-is-shipping");
+    const srvDefault = document.getElementById("addr-is-service");
 
-    if (address) {
-      if (nameInput) nameInput.value = address.recipient_name || "";
-      if (phoneInput) phoneInput.value = address.recipient_phone || "";
-      if (line1Input) line1Input.value = address.address_line1 || "";
-      if (line2Input) line2Input.value = address.address_line2 || "";
-      if (landmarkInput) landmarkInput.value = address.landmark || "";
-      if (cityInput) cityInput.value = address.city || "";
-      if (stateInput) stateInput.value = address.state || "";
-      if (pinInput) pinInput.value = address.postal_code || "";
-      if (isShipCheck) isShipCheck.checked = Boolean(address.is_default_shipping);
-      if (isServCheck) isServCheck.checked = Boolean(address.is_default_service);
-    } else {
-      if (nameInput) nameInput.value = (currentProfile && currentProfile.full_name) || "";
-      if (phoneInput) phoneInput.value = (currentUser && currentUser.phone) || "";
-      if (line1Input) line1Input.value = "";
-      if (line2Input) line2Input.value = "";
-      if (landmarkInput) landmarkInput.value = "";
-      if (cityInput) cityInput.value = "New Delhi";
-      if (stateInput) stateInput.value = "Delhi";
-      if (pinInput) pinInput.value = "";
-      if (isShipCheck) isShipCheck.checked = savedAddresses.length === 0;
-      if (isServCheck) isServCheck.checked = savedAddresses.length === 0;
-    }
-
-    if (addressDialogEl) {
-      if (typeof addressDialogEl.showModal === "function") {
-        addressDialogEl.showModal();
-      } else {
-        addressDialogEl.setAttribute("open", "");
+    if (addressId) {
+      const addr = savedAddresses.find((a) => a.id === addressId);
+      if (titleEl) titleEl.textContent = "Edit Address";
+      if (addr) {
+        if (nameInput) nameInput.value = addr.recipientName || addr.recipient_name || "";
+        if (phoneInput) phoneInput.value = addr.recipientPhone || addr.recipient_phone || "";
+        if (line1Input) line1Input.value = addr.addressLine1 || addr.address_line1 || "";
+        if (line2Input) line2Input.value = addr.addressLine2 || addr.address_line2 || "";
+        if (landmarkInput) landmarkInput.value = addr.landmark || "";
+        if (pinInput) pinInput.value = addr.postalCode || addr.postal_code || "";
+        if (cityInput) cityInput.value = addr.city || "";
+        if (stateInput) stateInput.value = addr.state || "";
+        if (shipDefault) shipDefault.checked = Boolean(addr.isDefaultShipping || addr.is_default_shipping);
+        if (srvDefault) srvDefault.checked = Boolean(addr.isDefaultService || addr.is_default_service);
       }
+    } else {
+      if (titleEl) titleEl.textContent = "Add New Address";
+      if (addressFormEl) addressFormEl.reset();
+      if (nameInput && currentProfile && currentProfile.full_name) {
+        nameInput.value = currentProfile.full_name;
+      }
+      if (phoneInput && currentUser && currentUser.phone) {
+        phoneInput.value = currentUser.phone;
+      }
+      if (cityInput && !cityInput.value) cityInput.value = "Delhi";
+      if (stateInput && !stateInput.value) stateInput.value = "Delhi";
+      if (shipDefault) shipDefault.checked = savedAddresses.length === 0;
     }
+
+    addressDialogEl.showModal();
   }
 
-  /**
-   * Closes the Address modal.
-   */
   function closeAddressModal() {
     if (!addressDialogEl) return;
-    if (typeof addressDialogEl.close === "function") {
-      addressDialogEl.close();
-    } else {
-      addressDialogEl.removeAttribute("open");
-    }
+    addressDialogEl.close();
     editingAddressId = null;
   }
 
   /**
-   * Handles saving a new address or updating an existing address.
+   * Handles saving (create or update) address.
    */
   async function handleSaveAddress(e) {
-    if (e) e.preventDefault();
+    e.preventDefault();
+    clearAddressFeedback();
 
     const saveBtn = document.getElementById("save-address-btn");
+    setButtonLoading(saveBtn, true);
+
     const name = document.getElementById("addr-name")?.value.trim();
     const phone = document.getElementById("addr-phone-input")?.value.trim();
     const line1 = document.getElementById("addr-line1")?.value.trim();
-    const line2 = document.getElementById("addr-line2")?.value.trim() || null;
-    const landmark = document.getElementById("addr-landmark")?.value.trim() || null;
+    const line2 = document.getElementById("addr-line2")?.value.trim();
+    const landmark = document.getElementById("addr-landmark")?.value.trim();
+    const pin = document.getElementById("addr-pin")?.value.trim();
     const city = document.getElementById("addr-city")?.value.trim();
     const state = document.getElementById("addr-state")?.value.trim();
-    const pin = document.getElementById("addr-pin")?.value.trim();
-    const isShip = Boolean(document.getElementById("addr-is-shipping")?.checked);
-    const isServ = Boolean(document.getElementById("addr-is-service")?.checked);
-
-    if (!name || name.length > 100) {
-      showAddressFeedback("Recipient name is required (up to 100 characters).", false);
-      return;
-    }
-
-    if (!phone || !/^(?:\+91)?[6-9]\d{9}$/.test(phone.replace(/[\s-]/g, ""))) {
-      showAddressFeedback("Please enter a valid 10-digit mobile number.", false);
-      return;
-    }
-
-    if (!line1 || line1.length < 3) {
-      showAddressFeedback("Address line 1 is required (at least 3 characters).", false);
-      return;
-    }
-
-    if (!city || !state) {
-      showAddressFeedback("City and State are required.", false);
-      return;
-    }
-
-    if (!pin || !/^[1-9]\d{5}$/.test(pin)) {
-      showAddressFeedback("Please enter a valid 6-digit Indian PIN code.", false);
-      return;
-    }
+    const isShip = document.getElementById("addr-is-shipping")?.checked;
+    const isSrv = document.getElementById("addr-is-service")?.checked;
 
     const payload = {
       recipient_name: name,
       recipient_phone: phone,
       address_line1: line1,
-      address_line2: line2,
-      landmark: landmark,
-      city: city,
-      state: state,
+      address_line2: line2 || null,
+      landmark: landmark || null,
+      city,
+      state,
       postal_code: pin,
       is_default_shipping: isShip,
-      is_default_service: isServ,
+      is_default_service: isSrv,
     };
-
-    setButtonLoading(saveBtn, true);
 
     try {
       if (window.NailsApi) {
@@ -470,17 +726,9 @@
           const res = await window.NailsApi.addCustomerAddress(payload);
           savedAddresses.unshift(res.address);
         }
-      } else {
-        if (editingAddressId) {
-          const idx = savedAddresses.findIndex((a) => a.id === editingAddressId);
-          if (idx !== -1) savedAddresses[idx] = { id: editingAddressId, ...payload };
-        } else {
-          savedAddresses.unshift({ id: `addr_${Date.now()}`, ...payload });
-        }
       }
-
-      closeAddressModal();
       renderAddresses();
+      closeAddressModal();
     } catch (err) {
       showAddressFeedback(err.message || "Failed to save address.", false);
     } finally {
@@ -488,13 +736,8 @@
     }
   }
 
-  /**
-   * Handles deleting an address with confirmation.
-   * @param {string} addressId
-   */
   async function handleDeleteAddress(addressId) {
-    if (!confirm("Are you sure you want to remove this address?")) return;
-
+    if (!confirm("Are you sure you want to remove this saved address?")) return;
     try {
       if (window.NailsApi) {
         await window.NailsApi.deleteCustomerAddress(addressId);
@@ -510,7 +753,6 @@
    * Binds page level interactive elements.
    */
   function bindEventListeners() {
-    // Top sign in button in auth gate
     const gateLoginBtn = document.getElementById("gate-login-btn");
     if (gateLoginBtn) {
       gateLoginBtn.addEventListener("click", () => {
@@ -518,7 +760,6 @@
       });
     }
 
-    // Logout button
     const logoutBtn = document.getElementById("client-logout-btn");
     if (logoutBtn) {
       logoutBtn.addEventListener("click", async () => {
@@ -528,29 +769,38 @@
       });
     }
 
-    // Profile form submit
     if (profileFormEl) {
       profileFormEl.addEventListener("submit", handleSaveProfile);
     }
 
-    // Add address button
     const openAddBtn = document.getElementById("open-add-address-btn");
     if (openAddBtn) {
       openAddBtn.addEventListener("click", () => openAddressModal());
     }
 
-    // Address form submit
     if (addressFormEl) {
       addressFormEl.addEventListener("submit", handleSaveAddress);
     }
 
-    // Address modal close button
     const closeAddrBtn = document.getElementById("address-dialog-close");
     if (closeAddrBtn) {
       closeAddrBtn.addEventListener("click", closeAddressModal);
     }
 
-    // PIN code auto-fill helper (Delhi NCR PINs default to Delhi)
+    const closeOrderDetailsBtn = document.getElementById("order-details-close");
+    if (closeOrderDetailsBtn) {
+      closeOrderDetailsBtn.addEventListener("click", () => {
+        if (orderDetailsDialogEl) orderDetailsDialogEl.close();
+      });
+    }
+
+    const closeBookingDetailsBtn = document.getElementById("booking-details-close");
+    if (closeBookingDetailsBtn) {
+      closeBookingDetailsBtn.addEventListener("click", () => {
+        if (bookingDetailsDialogEl) bookingDetailsDialogEl.close();
+      });
+    }
+
     const pinInput = document.getElementById("addr-pin");
     if (pinInput) {
       pinInput.addEventListener("input", (e) => {
@@ -595,7 +845,7 @@
 
   function escapeHtml(str) {
     if (!str) return "";
-    return str
+    return String(str)
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")

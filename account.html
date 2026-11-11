@@ -42,6 +42,11 @@
         <button type="button" class="nav-auth-btn is-logged-in" id="nav-auth-btn" aria-label="Sign In or View Account">
           <span class="nav-auth-label">Account</span>
         </button>
+        <a href="index.html" class="nav-cart-btn" id="nav-cart-btn" aria-label="View Shopping Bag">
+          <span class="nav-cart-icon" aria-hidden="true">🛍️</span>
+          <span class="nav-cart-label">Bag</span>
+          <span class="nav-cart-badge" id="nav-cart-count" style="display: none;">0</span>
+        </a>
         <a href="index.html#contact" class="nav-cta-link">Book / Enquire</a>
       </div>
     </nav>
@@ -227,23 +232,37 @@
             </div>
           </section>
 
-          <!-- ORDER STATUS & INQUIRIES -->
+          <!-- 01. RECENT PRESS-ON ORDERS -->
           <section class="account-card" aria-labelledby="orders-card-title">
             <div class="account-card-header">
               <div>
-                <h2 class="account-card-title" id="orders-card-title">Order Status &amp; Inquiries</h2>
-                <p class="account-card-desc">Handmade order fulfillment &amp; dispatch tracking.</p>
+                <h2 class="account-card-title" id="orders-card-title">Press-On Orders</h2>
+                <p class="account-card-desc">Handmade sets, custom sizing verification &amp; Pan-India dispatch.</p>
               </div>
-              <span class="status-badge" style="font-size: 0.75rem; background: var(--bg-cream); color: var(--accent-strong); padding: 0.25rem 0.65rem; border-radius: var(--radius-pill); font-weight: 600;">WhatsApp Fulfillment</span>
+              <span class="status-badge" style="font-size: 0.75rem; background: var(--bg-cream); color: var(--accent-strong); padding: 0.25rem 0.65rem; border-radius: var(--radius-pill); font-weight: 600;">Studio Orders</span>
             </div>
 
-            <div style="padding: 0.5rem 0;">
-              <p style="font-size: 0.92rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 1.25rem;">
-                All handmade press-on sets and at-home appointments are currently confirmed, hand-painted, and dispatched directly through WhatsApp consultation with Divya. Automated online order tracking is planned for a future platform update.
-              </p>
-              <a href="https://wa.me/917827437985?text=Hi%20Divya!%20I%20would%20like%20to%20check%20the%20status%20of%20my%20recent%20press-on%20order." target="_blank" rel="noopener noreferrer" class="button secondary-button" style="min-height: 42px; padding: 0.5rem 1.25rem; font-size: 0.88rem; display: inline-flex; width: auto;">
-                Track Order via WhatsApp Consultation &rarr;
-              </a>
+            <div id="account-orders-list" style="display: flex; flex-direction: column; gap: 0.85rem; padding-top: 0.5rem;">
+              <div style="text-align: center; padding: 2rem 1rem; color: var(--text-muted); font-size: 0.88rem;">
+                Loading your press-on orders...
+              </div>
+            </div>
+          </section>
+
+          <!-- 02. AT-HOME SALON APPOINTMENTS (DELHI NCR) -->
+          <section class="account-card" aria-labelledby="bookings-card-title">
+            <div class="account-card-header">
+              <div>
+                <h2 class="account-card-title" id="bookings-card-title">At-Home Appointments</h2>
+                <p class="account-card-desc">Personal salon-grade nail services across Delhi NCR.</p>
+              </div>
+              <span class="status-badge" style="font-size: 0.75rem; background: var(--bg-cream); color: var(--accent-strong); padding: 0.25rem 0.65rem; border-radius: var(--radius-pill); font-weight: 600;">Delhi NCR</span>
+            </div>
+
+            <div id="account-bookings-list" style="display: flex; flex-direction: column; gap: 0.85rem; padding-top: 0.5rem;">
+              <div style="text-align: center; padding: 2rem 1rem; color: var(--text-muted); font-size: 0.88rem;">
+                Loading your appointment requests...
+              </div>
             </div>
           </section>
         </div>
@@ -328,6 +347,36 @@
   </dialog>
 
   <!-- =========================================================================
+       ORDER DETAILS DIALOG
+       ========================================================================= -->
+  <dialog id="order-details-dialog" class="address-dialog" aria-labelledby="order-details-title" closedby="any">
+    <div class="address-dialog-content" style="max-width: 580px;">
+      <button type="button" class="address-dialog-close" id="order-details-close" aria-label="Close order details">&times;</button>
+      <h3 id="order-details-title" class="auth-step-title">Order Details</h3>
+      <p class="auth-step-subtitle" id="order-details-subtitle">Press-on order snapshot and fulfillment tracking.</p>
+      
+      <div id="order-details-body" style="display: flex; flex-direction: column; gap: 0.85rem; margin-top: 1rem;">
+        <!-- Dynamically rendered -->
+      </div>
+    </div>
+  </dialog>
+
+  <!-- =========================================================================
+       BOOKING DETAILS DIALOG
+       ========================================================================= -->
+  <dialog id="booking-details-dialog" class="address-dialog" aria-labelledby="booking-details-title" closedby="any">
+    <div class="address-dialog-content" style="max-width: 580px;">
+      <button type="button" class="address-dialog-close" id="booking-details-close" aria-label="Close booking details">&times;</button>
+      <h3 id="booking-details-title" class="auth-step-title">Appointment Details</h3>
+      <p class="auth-step-subtitle" id="booking-details-subtitle">At-home service request &amp; scheduling details.</p>
+      
+      <div id="booking-details-body" style="display: flex; flex-direction: column; gap: 0.85rem; margin-top: 1rem;">
+        <!-- Dynamically rendered -->
+      </div>
+    </div>
+  </dialog>
+
+  <!-- =========================================================================
        SHARED SITE FOOTER
        ========================================================================= -->
   <footer class="site-footer">
@@ -396,7 +445,6 @@
     </div>
   </footer>
 
-  <script src="script.js"></script>
   <!-- Firebase Client SDK (Compat v10 for straightforward CDN integration) -->
   <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
@@ -407,5 +455,6 @@
   <script src="auth.js"></script>
   <script src="auth-modal.js"></script>
   <script src="account.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>

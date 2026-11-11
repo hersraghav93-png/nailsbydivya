@@ -588,12 +588,19 @@ function initShopFilters() {
 function initModals() {
   const productModal = document.getElementById("product-modal");
   const serviceModal = document.getElementById("service-modal");
+  const checkoutModal = document.getElementById("checkout-modal");
+  const cartDrawerOverlay = document.getElementById("cart-drawer-overlay");
+
   const productClose = document.getElementById("product-modal-close");
   const serviceClose = document.getElementById("service-modal-close");
+  const checkoutClose = document.getElementById("checkout-modal-close");
+  const cartDrawerClose = document.getElementById("cart-drawer-close");
 
   // Close triggers
   if (productClose) productClose.addEventListener("click", closeAllModals);
   if (serviceClose) serviceClose.addEventListener("click", closeAllModals);
+  if (checkoutClose) checkoutClose.addEventListener("click", closeAllModals);
+  if (cartDrawerClose) cartDrawerClose.addEventListener("click", closeCartDrawer);
 
   window.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closeAllModals();
@@ -610,6 +617,50 @@ function initModals() {
       if (e.target === serviceModal) closeAllModals();
     });
   }
+
+  if (checkoutModal) {
+    checkoutModal.addEventListener("click", (e) => {
+      if (e.target === checkoutModal) closeAllModals();
+    });
+  }
+
+  if (cartDrawerOverlay) {
+    cartDrawerOverlay.addEventListener("click", (e) => {
+      if (e.target === cartDrawerOverlay) closeCartDrawer();
+    });
+  }
+
+  // Navigation Cart Button
+  const navCartBtn = document.getElementById("nav-cart-btn");
+  if (navCartBtn) {
+    navCartBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      openCartDrawer();
+    });
+  }
+
+  // Cart Drawer Checkout CTA
+  const cartCheckoutCta = document.getElementById("cart-checkout-cta");
+  if (cartCheckoutCta) {
+    cartCheckoutCta.addEventListener("click", () => {
+      openCheckoutModal();
+    });
+  }
+
+  // Cart Empty Shop CTA
+  const cartEmptyShopBtn = document.getElementById("cart-empty-shop-btn");
+  if (cartEmptyShopBtn) {
+    cartEmptyShopBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      closeCartDrawer();
+      const shopSec = document.getElementById("shop");
+      if (shopSec) shopSec.scrollIntoView({ behavior: "smooth" });
+    });
+  }
+
+  // Refresh cart badge on load and on custom cart updates
+  refreshCartBadge();
+  window.addEventListener("nbd_cart_updated", refreshCartBadge);
 
   // 08A. PRODUCT CARD CLICK HANDLING (`.carousel-card, .product-card`) -> PRODUCT MODAL ONLY
   document.querySelectorAll(".carousel-card, .product-card").forEach((card) => {
@@ -727,8 +778,13 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
   const imgEl = document.getElementById("product-modal-image");
   const descEl = document.getElementById("product-modal-desc");
   const priceEl = document.getElementById("product-modal-price");
+  const addBagBtn = document.getElementById("product-modal-add-bag");
+  const addBagLabel = document.getElementById("product-modal-add-label");
+  const checkoutBtn = document.getElementById("product-modal-checkout-btn");
   const actionBtn = document.getElementById("product-modal-action-btn");
+  const feedbackEl = document.getElementById("product-modal-feedback");
   const sizingGuideText = document.getElementById("modal-sizing-guide-text");
+  const customBox = document.getElementById("modal-custom-measurements");
 
   if (titleEl) titleEl.textContent = title;
   if (catEl) catEl.textContent = category;
@@ -741,9 +797,10 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
     };
   }
   if (descEl) descEl.textContent = description;
+  if (feedbackEl) { feedbackEl.textContent = ""; feedbackEl.style.display = "none"; }
 
   const originalPrice = sku && PRODUCT_PRICES[sku] ? PRODUCT_PRICES[sku] : null;
-  const effectivePrice = FESTIVE_OFFER_CONFIG.getEffectivePrice(sku);
+  const effectivePrice = FESTIVE_OFFER_CONFIG.getEffectivePrice(sku) || "₹599";
 
   if (priceEl) {
     if (originalPrice && FESTIVE_OFFER_CONFIG.isEligible(sku)) {
@@ -765,58 +822,165 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
     }
   }
 
-  // Sizing chart details (Standard reference sizing; exact fit confirmed via WhatsApp consultation)
+  if (addBagLabel) {
+    addBagLabel.textContent = `Add to Bag • ${effectivePrice}`;
+  }
+
+  // Active attributes
+  let activeShape = "Almond";
+  let activeLength = "Medium";
+  let activeSize = "M";
+
+  // Wire shape pills
+  const shapePills = modal.querySelectorAll("#modal-shape-pills .option-pill");
+  shapePills.forEach((pill) => {
+    const isAlmond = pill.getAttribute("data-shape") === "Almond";
+    pill.classList.toggle("is-active", isAlmond);
+    pill.onclick = () => {
+      shapePills.forEach((p) => p.classList.remove("is-active"));
+      pill.classList.add("is-active");
+      activeShape = pill.getAttribute("data-shape") || "Almond";
+      updateOrderAction();
+    };
+  });
+
+  // Wire length pills
+  const lengthPills = modal.querySelectorAll("#modal-length-pills .option-pill");
+  lengthPills.forEach((pill) => {
+    const isMedium = pill.getAttribute("data-length") === "Medium";
+    pill.classList.toggle("is-active", isMedium);
+    pill.onclick = () => {
+      lengthPills.forEach((p) => p.classList.remove("is-active"));
+      pill.classList.add("is-active");
+      activeLength = pill.getAttribute("data-length") || "Medium";
+      updateOrderAction();
+    };
+  });
+
+  // Sizing chart details
   const SIZING_INFO = {
     "XS": "Thumb: 14mm, Index: 11mm, Middle: 12mm, Ring: 10mm, Pinky: 8mm",
     "S": "Thumb: 15mm, Index: 12mm, Middle: 13mm, Ring: 11mm, Pinky: 8mm",
     "M": "Thumb: 16mm, Index: 12mm, Middle: 13mm, Ring: 11mm, Pinky: 9mm",
     "L": "Thumb: 17mm, Index: 13mm, Middle: 14mm, Ring: 12mm, Pinky: 10mm",
-    "Custom": "Tailored sizing — share measurements in mm or photo with coin"
+    "Custom": "Tailored sizing — enter exact measurements below or share on WhatsApp",
   };
 
-  let activeSize = "M";
   const sizeChips = modal.querySelectorAll(".size-chip");
 
-  function updateOrderAction() {
-    if (actionBtn) {
-      actionBtn.onclick = () => {
-        const sizeDetail = activeSize === "Custom"
-          ? "Custom Sizing Consultation (Will share measurements / photo on WhatsApp)"
-          : `Size ${activeSize} (${SIZING_INFO[activeSize]})`;
-        window.open(CHECKOUT_CONFIG.getCheckoutUrl(title, category, effectivePrice, sku, sizeDetail), "_blank", "noopener,noreferrer");
-      };
-    }
+  function getCustomMeasurements() {
+    if (activeSize !== "Custom") return null;
+    const thumb = parseFloat(document.getElementById("modal-measure-thumb")?.value);
+    const index = parseFloat(document.getElementById("modal-measure-index")?.value);
+    const middle = parseFloat(document.getElementById("modal-measure-middle")?.value);
+    const ring = parseFloat(document.getElementById("modal-measure-ring")?.value);
+    const pinky = parseFloat(document.getElementById("modal-measure-pinky")?.value);
+    const custom = {};
+    if (!isNaN(thumb)) custom.thumb = thumb;
+    if (!isNaN(index)) custom.index = index;
+    if (!isNaN(middle)) custom.middle = middle;
+    if (!isNaN(ring)) custom.ring = ring;
+    if (!isNaN(pinky)) custom.pinky = pinky;
+    return Object.keys(custom).length ? custom : null;
   }
 
   function renderSizingGuide() {
     if (!sizingGuideText) return;
     if (activeSize === "Custom") {
-      sizingGuideText.innerHTML = `Selected: <strong>Custom Sizing</strong> &bull; Tailored fit. Divya guides you to share measurements or a coin photo on WhatsApp before crafting!`;
+      sizingGuideText.innerHTML = `Selected: <strong>Custom Sizing</strong> &bull; Tailored fit. Enter measurements or share photo on WhatsApp before crafting!`;
+      if (customBox) customBox.style.display = "block";
     } else {
       const detail = SIZING_INFO[activeSize] || "";
       sizingGuideText.innerHTML = `Reference size: <strong>${activeSize}</strong> &bull; ${detail}. Sizing verified directly with Divya before hand-painting!`;
+      if (customBox) customBox.style.display = "none";
     }
   }
 
-  if (sizeChips.length) {
-    sizeChips.forEach((chip) => {
-      const isM = chip.getAttribute("data-size") === "M";
-      chip.classList.toggle("is-active", isM);
-      chip.setAttribute("aria-checked", isM ? "true" : "false");
-
-      chip.onclick = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        activeSize = chip.getAttribute("data-size") || "M";
-        sizeChips.forEach((c) => {
-          const isSelected = c.getAttribute("data-size") === activeSize;
-          c.classList.toggle("is-active", isSelected);
-          c.setAttribute("aria-checked", isSelected ? "true" : "false");
-        });
-        renderSizingGuide();
-        updateOrderAction();
+  function updateOrderAction() {
+    if (actionBtn) {
+      actionBtn.onclick = () => {
+        const sizeDetail = activeSize === "Custom"
+          ? `Custom Sizing (${activeShape}, ${activeLength})`
+          : `Size ${activeSize} (${activeShape}, ${activeLength})`;
+        window.open(CHECKOUT_CONFIG.getCheckoutUrl(title, category, effectivePrice, sku, sizeDetail), "_blank", "noopener,noreferrer");
       };
-    });
+    }
+  }
+
+  sizeChips.forEach((chip) => {
+    const isM = chip.getAttribute("data-size") === "M";
+    chip.classList.toggle("is-active", isM);
+    chip.setAttribute("aria-checked", isM ? "true" : "false");
+
+    chip.onclick = (e) => {
+      e.preventDefault();
+      activeSize = chip.getAttribute("data-size") || "M";
+      sizeChips.forEach((c) => {
+        const isSelected = c.getAttribute("data-size") === activeSize;
+        c.classList.toggle("is-active", isSelected);
+        c.setAttribute("aria-checked", isSelected ? "true" : "false");
+      });
+      renderSizingGuide();
+      updateOrderAction();
+    };
+  });
+
+  // Add to Bag Button
+  if (addBagBtn) {
+    addBagBtn.onclick = async () => {
+      if (!window.NailsApi) return;
+      const targetSku = sku || "WED-005";
+      const custom_measurements = getCustomMeasurements();
+
+      try {
+        addBagBtn.disabled = true;
+        await window.NailsApi.addToCart({
+          sku: targetSku,
+          shape: activeShape,
+          length: activeLength,
+          sizing_preset: activeSize,
+          custom_measurements,
+          quantity: 1,
+        });
+
+        if (feedbackEl) {
+          feedbackEl.textContent = `✓ "${title}" added to your bag (${activeShape}, ${activeLength}, Size ${activeSize})`;
+          feedbackEl.style.display = "block";
+        }
+        openCartDrawer();
+      } catch (err) {
+        alert(`Could not add item to bag: ${err.message || "Please try again."}`);
+      } finally {
+        addBagBtn.disabled = false;
+      }
+    };
+  }
+
+  // Direct Checkout Button
+  if (checkoutBtn) {
+    checkoutBtn.onclick = async () => {
+      if (!window.NailsApi) return;
+      const targetSku = sku || "WED-005";
+      const custom_measurements = getCustomMeasurements();
+
+      try {
+        checkoutBtn.disabled = true;
+        await window.NailsApi.addToCart({
+          sku: targetSku,
+          shape: activeShape,
+          length: activeLength,
+          sizing_preset: activeSize,
+          custom_measurements,
+          quantity: 1,
+        });
+        closeAllModals();
+        openCheckoutModal();
+      } catch (err) {
+        alert(`Could not initiate checkout: ${err.message || "Please try again."}`);
+      } finally {
+        checkoutBtn.disabled = false;
+      }
+    };
   }
 
   renderSizingGuide();
@@ -829,23 +993,557 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
   document.body.style.overflow = "hidden";
 }
 
+// ---------------------------------------------------------------------------
+// 08B. AT-HOME SERVICE APPOINTMENT MODAL & BOOKING REQUEST
+// ---------------------------------------------------------------------------
+
+const CANONICAL_SERVICES_MAP = {
+  "nail extensions": { id: "gel_extensions", name: "Bespoke Gel Extensions", price: "From ₹999", isCustomQuote: false },
+  "bespoke gel extensions": { id: "gel_extensions", name: "Bespoke Gel Extensions", price: "From ₹999", isCustomQuote: false },
+  "natural nail overlay": { id: "natural_overlay", name: "Natural Nail Overlay & Strengthening", price: "From ₹999", isCustomQuote: false },
+  "natural nail overlay & strengthening": { id: "natural_overlay", name: "Natural Nail Overlay & Strengthening", price: "From ₹999", isCustomQuote: false },
+  "power polish / shellac": { id: "power_polish", name: "Signature Manicure & Power Polish", price: "From ₹999", isCustomQuote: false },
+  "power polish": { id: "power_polish", name: "Signature Manicure & Power Polish", price: "From ₹999", isCustomQuote: false },
+  "signature manicure & power polish": { id: "power_polish", name: "Signature Manicure & Power Polish", price: "From ₹999", isCustomQuote: false },
+  "3d & custom nail art": { id: "custom_3d_art", name: "3D, Chrome & Custom Artistry", price: "Custom Quote", isCustomQuote: true },
+  "3d, chrome & custom artistry": { id: "custom_3d_art", name: "3D, Chrome & Custom Artistry", price: "Custom Quote", isCustomQuote: true },
+  "french nails": { id: "gel_extensions", name: "French Nails (Design Add-On)", price: "Design Add-On", isCustomQuote: true },
+  "extension removal": { id: "extension_removal", name: "Nail Extension Removal", price: "Custom Quote", isCustomQuote: true },
+  "nail extension removal": { id: "extension_removal", name: "Nail Extension Removal", price: "Custom Quote", isCustomQuote: true },
+};
+
 /**
- * Opens the Editorial Service Modal (`#service-modal`). Strictly NO product images.
+ * Opens the Editorial Service Modal (`#service-modal`) with interactive booking request.
  */
-function openServiceModal(title, description) {
+async function openServiceModal(title, description) {
   const modal = document.getElementById("service-modal");
   if (!modal) return;
 
   const titleEl = document.getElementById("service-modal-title");
   const descEl = document.getElementById("service-modal-desc");
-  const actionBtn = document.getElementById("service-modal-action-btn");
+  const priceValEl = document.getElementById("service-price-value");
+  const formEl = document.getElementById("service-booking-form");
+  const confirmationView = document.getElementById("service-confirmation-view");
+  const errorEl = document.getElementById("service-booking-error");
+  const dateInput = document.getElementById("service-requested-date");
+  const addonsWrapper = document.getElementById("service-addons-wrapper");
+  const addonsContainer = document.getElementById("service-addons-container");
 
   if (titleEl) titleEl.textContent = title;
   if (descEl) descEl.textContent = description;
+  if (formEl) { formEl.style.display = "flex"; formEl.reset(); }
+  if (confirmationView) confirmationView.style.display = "none";
+  if (errorEl) { errorEl.textContent = ""; errorEl.style.display = "none"; }
 
-  if (actionBtn) {
-    actionBtn.onclick = () => {
-      window.open(CHECKOUT_CONFIG.getServiceBookingUrl(title, "Delhi NCR At-Home / Event Service"), "_blank", "noopener,noreferrer");
+  // Resolve service mapping
+  const normalizedKey = title.toLowerCase().trim();
+  const matchedService = CANONICAL_SERVICES_MAP[normalizedKey] || {
+    id: "gel_extensions",
+    name: title,
+    price: "From ₹999",
+    isCustomQuote: false,
+  };
+
+  if (priceValEl) priceValEl.textContent = matchedService.price;
+
+  // Set min date to tomorrow
+  if (dateInput) {
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    dateInput.min = tomorrow.toISOString().split("T")[0];
+    dateInput.value = tomorrow.toISOString().split("T")[0];
+  }
+
+  // Pre-fill customer details if authenticated
+  try {
+    if (window.NailsApi) {
+      const userRes = await window.NailsApi.getCurrentUser().catch(() => null);
+      if (userRes && userRes.user) {
+        const u = userRes.user;
+        const nameInput = document.getElementById("service-customer-name");
+        const phoneInput = document.getElementById("service-customer-phone");
+        const emailInput = document.getElementById("service-customer-email");
+        if (nameInput && !nameInput.value) nameInput.value = (u.profile && u.profile.full_name) || "Customer";
+        if (phoneInput && !phoneInput.value) phoneInput.value = (u.phone || "").replace(/^\+91/, "");
+        if (emailInput && !emailInput.value) emailInput.value = u.email || "";
+
+        // Also check saved addresses for default service address
+        const addrRes = await window.NailsApi.getCustomerAddresses().catch(() => null);
+        if (addrRes && addrRes.addresses && addrRes.addresses.length) {
+          const srvAddr = addrRes.addresses.find((a) => a.isDefaultService || a.is_default_service) || addrRes.addresses[0];
+          if (srvAddr) {
+            const l1 = document.getElementById("service-addr-line1");
+            const lm = document.getElementById("service-addr-landmark");
+            const city = document.getElementById("service-addr-city");
+            const pin = document.getElementById("service-addr-pin");
+            if (l1 && !l1.value) l1.value = srvAddr.addressLine1 || srvAddr.address_line1 || "";
+            if (lm && !lm.value) lm.value = srvAddr.landmark || "";
+            if (city && !city.value) city.value = srvAddr.city || "Delhi NCR";
+            if (pin && !pin.value) pin.value = srvAddr.postalCode || srvAddr.postal_code || "";
+          }
+        }
+      }
+    }
+  } catch {}
+
+  // Render addons dynamically
+  if (addonsWrapper && addonsContainer) {
+    if (matchedService.id === "gel_extensions" || matchedService.id === "natural_overlay") {
+      addonsWrapper.style.display = "block";
+      addonsContainer.innerHTML = `
+        <label class="addon-checkbox-card">
+          <div class="addon-checkbox-left">
+            <input type="checkbox" name="service_addon" value="542e1dc4-f980-46bf-a160-c69b5788a453" />
+            <span>French Tip Precision Detailing</span>
+          </div>
+          <span class="addon-checkbox-price">Custom Quote</span>
+        </label>
+        <label class="addon-checkbox-card">
+          <div class="addon-checkbox-left">
+            <input type="checkbox" name="service_addon" value="ded5fc10-a4ce-4be0-8dc2-307aaa00aaf3" />
+            <span>Liquid Chrome Mirror Finish</span>
+          </div>
+          <span class="addon-checkbox-price">Custom Quote</span>
+        </label>
+        <label class="addon-checkbox-card">
+          <div class="addon-checkbox-left">
+            <input type="checkbox" name="service_addon" value="3c85fb85-43fc-4534-a85e-a0907f5bdbda" />
+            <span>3D Dimensional Art Accents (Per Pair)</span>
+          </div>
+          <span class="addon-checkbox-price">Custom Quote</span>
+        </label>
+      `;
+    } else {
+      addonsWrapper.style.display = "none";
+      addonsContainer.innerHTML = "";
+    }
+  }
+
+  // Active time slot handling
+  let activeSlot = "10:00 AM - 12:00 PM";
+  const slotPills = modal.querySelectorAll(".slot-pill");
+  slotPills.forEach((pill) => {
+    pill.classList.toggle("is-active", pill.getAttribute("data-slot") === "10:00 AM - 12:00 PM");
+    pill.onclick = () => {
+      slotPills.forEach((p) => p.classList.remove("is-active"));
+      pill.classList.add("is-active");
+      activeSlot = pill.getAttribute("data-slot") || "10:00 AM - 12:00 PM";
+    };
+  });
+
+  // Handle appointment submission
+  if (formEl) {
+    formEl.onsubmit = async (e) => {
+      e.preventDefault();
+      if (!window.NailsApi) return;
+
+      const submitBtn = document.getElementById("service-submit-btn");
+      const name = document.getElementById("service-customer-name")?.value.trim();
+      const phone = document.getElementById("service-customer-phone")?.value.trim();
+      const email = document.getElementById("service-customer-email")?.value.trim();
+      const line1 = document.getElementById("service-addr-line1")?.value.trim();
+      const landmark = document.getElementById("service-addr-landmark")?.value.trim();
+      const city = document.getElementById("service-addr-city")?.value.trim() || "Delhi NCR";
+      const pin = document.getElementById("service-addr-pin")?.value.trim();
+      const reqDate = document.getElementById("service-requested-date")?.value;
+      const notes = document.getElementById("service-customer-notes")?.value.trim();
+
+      // Check selected addons
+      const selectedAddons = [];
+      formEl.querySelectorAll('input[name="service_addon"]:checked').forEach((cb) => {
+        selectedAddons.push(cb.value);
+      });
+
+      if (!name || !phone || !line1 || !pin || !reqDate) {
+        if (errorEl) {
+          errorEl.textContent = "Please fill in all required fields (Name, Phone, Address, PIN, Date).";
+          errorEl.style.display = "block";
+        }
+        return;
+      }
+
+      if (!/^[1-9][0-9]{5}$/.test(pin)) {
+        if (errorEl) {
+          errorEl.textContent = "Please provide a valid 6-digit Indian PIN code.";
+          errorEl.style.display = "block";
+        }
+        return;
+      }
+
+      try {
+        if (submitBtn) submitBtn.disabled = true;
+        if (errorEl) errorEl.style.display = "none";
+
+        const bookingPayload = {
+          serviceId: matchedService.id,
+          addonIds: selectedAddons,
+          customer: {
+            name,
+            phone,
+            email: email || null,
+          },
+          serviceAddress: {
+            address_line1: line1,
+            landmark: landmark || null,
+            city,
+            state: "Delhi",
+            postal_code: pin,
+          },
+          requestedDate: reqDate,
+          requestedTimeSlot: activeSlot,
+          customerNotes: notes || null,
+        };
+
+        const result = await window.NailsApi.createBooking(bookingPayload);
+        const bookingNum = result.booking?.bookingNumber || "NBD-BKG-CONFIRMED";
+
+        formEl.style.display = "none";
+        if (confirmationView) {
+          confirmationView.style.display = "flex";
+          const bkgNumEl = document.getElementById("service-confirmation-booking-number");
+          if (bkgNumEl) bkgNumEl.textContent = bookingNum;
+
+          const waBtn = document.getElementById("service-confirmation-whatsapp-btn");
+          if (waBtn) {
+            const waText = encodeURIComponent(`Hi Divya! I have submitted appointment request *${bookingNum}* for *${title}* on ${reqDate} (${activeSlot}) in Delhi NCR. Please confirm your availability.`);
+            waBtn.href = `https://wa.me/917827437985?text=${waText}`;
+          }
+
+          const closeBtn = document.getElementById("service-confirmation-close-btn");
+          if (closeBtn) closeBtn.onclick = closeAllModals;
+        }
+      } catch (err) {
+        if (errorEl) {
+          errorEl.textContent = err.message || "Failed to submit appointment request.";
+          errorEl.style.display = "block";
+        }
+      } finally {
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    };
+  }
+
+  modal.classList.add("is-open");
+  document.body.style.overflow = "hidden";
+}
+
+// ---------------------------------------------------------------------------
+// 08C. COMMERCE CART DRAWER MANAGEMENT
+// ---------------------------------------------------------------------------
+
+let activeCartData = null;
+
+async function openCartDrawer() {
+  const overlay = document.getElementById("cart-drawer-overlay");
+  if (!overlay) return;
+
+  overlay.classList.add("is-open");
+  document.body.style.overflow = "hidden";
+
+  await refreshCartView();
+}
+
+function closeCartDrawer() {
+  const overlay = document.getElementById("cart-drawer-overlay");
+  if (overlay) overlay.classList.remove("is-open");
+  document.body.style.overflow = "";
+}
+
+async function refreshCartBadge() {
+  if (!window.NailsApi) return;
+  try {
+    const res = await window.NailsApi.getCart();
+    activeCartData = res;
+    const count = (res.items || []).reduce((acc, it) => acc + (it.quantity || 1), 0);
+    const badges = document.querySelectorAll("#nav-cart-count, #cart-drawer-count");
+    badges.forEach((b) => {
+      b.textContent = count;
+      b.style.display = count > 0 ? "inline-block" : "none";
+    });
+  } catch {}
+}
+
+async function refreshCartView() {
+  if (!window.NailsApi) return;
+  const itemsContainer = document.getElementById("cart-drawer-items");
+  const footer = document.getElementById("cart-drawer-footer");
+  const emptyState = document.getElementById("cart-empty-state");
+
+  try {
+    const res = await window.NailsApi.getCart();
+    activeCartData = res;
+    const items = res.items || [];
+    const totals = res.totals || {};
+
+    refreshCartBadge();
+
+    if (items.length === 0) {
+      if (emptyState) emptyState.style.display = "flex";
+      if (footer) footer.style.display = "none";
+      if (itemsContainer) itemsContainer.innerHTML = "";
+      if (itemsContainer && emptyState) itemsContainer.appendChild(emptyState);
+      return;
+    }
+
+    if (emptyState) emptyState.style.display = "none";
+    if (footer) footer.style.display = "flex";
+
+    // Update totals
+    const subtotalEl = document.getElementById("cart-subtotal-val");
+    const discountRow = document.getElementById("cart-discount-row");
+    const discountVal = document.getElementById("cart-discount-val");
+    const totalEl = document.getElementById("cart-total-val");
+
+    if (subtotalEl) subtotalEl.textContent = `₹${totals.subtotal || 0}`;
+    if (totals.discountAmount > 0) {
+      if (discountRow) discountRow.style.display = "flex";
+      if (discountVal) discountVal.textContent = `-₹${totals.discountAmount}`;
+    } else {
+      if (discountRow) discountRow.style.display = "none";
+    }
+    if (totalEl) totalEl.textContent = `₹${totals.totalAmount || 0}`;
+
+    // Render items list
+    if (itemsContainer) {
+      itemsContainer.innerHTML = items.map((it) => {
+        const specParts = [it.shape, it.length, `Size ${it.sizingPreset}`];
+        if (it.sizingPreset === "Custom" && it.customMeasurements) {
+          const m = it.customMeasurements;
+          specParts.push(`Custom (${m.thumb || 0}/${m.index || 0}/${m.middle || 0}/${m.ring || 0}/${m.pinky || 0}mm)`);
+        }
+
+        return `
+          <div class="cart-item-card" data-item-id="${it.id}">
+            <img src="${it.heroImageUrl || "assets/products/wedding/WED-005/herowedd5.png"}" alt="${escapeHtml(it.productName)}" class="cart-item-img" onerror="this.src='assets/products/wedding/WED-005/herowedd5.png'" />
+            <div class="cart-item-details">
+              <h4 class="cart-item-title">${escapeHtml(it.productName)}</h4>
+              <span class="cart-item-spec">${escapeHtml(specParts.join(" • "))}</span>
+              <div class="cart-item-price-row">
+                <span class="cart-item-price">₹${it.unitPrice}</span>
+                ${it.isPromoApplied ? `<span class="cart-item-original">₹${it.basePrice}</span><span class="cart-item-promo-tag">Festive ₹599</span>` : ""}
+              </div>
+            </div>
+            <div class="cart-item-controls">
+              <button type="button" class="cart-remove-btn" data-action="remove-item" data-id="${it.id}" aria-label="Remove item">&times;</button>
+              <div class="qty-stepper">
+                <button type="button" class="qty-btn" data-action="qty-minus" data-id="${it.id}" data-qty="${it.quantity}">-</button>
+                <span class="qty-val">${it.quantity}</span>
+                <button type="button" class="qty-btn" data-action="qty-plus" data-id="${it.id}" data-qty="${it.quantity}">+</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      // Wire controls
+      itemsContainer.querySelectorAll('button[data-action="qty-minus"]').forEach((btn) => {
+        btn.onclick = async () => {
+          const id = btn.getAttribute("data-id");
+          const currentQty = parseInt(btn.getAttribute("data-qty"), 10) || 1;
+          if (currentQty <= 1) {
+            await window.NailsApi.removeCartItem(id);
+          } else {
+            await window.NailsApi.updateCartItem(id, { quantity: currentQty - 1 });
+          }
+          await refreshCartView();
+        };
+      });
+
+      itemsContainer.querySelectorAll('button[data-action="qty-plus"]').forEach((btn) => {
+        btn.onclick = async () => {
+          const id = btn.getAttribute("data-id");
+          const currentQty = parseInt(btn.getAttribute("data-qty"), 10) || 1;
+          if (currentQty < 20) {
+            await window.NailsApi.updateCartItem(id, { quantity: currentQty + 1 });
+            await refreshCartView();
+          }
+        };
+      });
+
+      itemsContainer.querySelectorAll('button[data-action="remove-item"]').forEach((btn) => {
+        btn.onclick = async () => {
+          const id = btn.getAttribute("data-id");
+          await window.NailsApi.removeCartItem(id);
+          await refreshCartView();
+        };
+      });
+    }
+  } catch (err) {
+    console.warn("Could not refresh cart:", err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 08D. CHECKOUT MODAL & ORDER CREATION
+// ---------------------------------------------------------------------------
+
+async function openCheckoutModal() {
+  closeCartDrawer();
+  const modal = document.getElementById("checkout-modal");
+  if (!modal) return;
+
+  const formView = document.getElementById("checkout-form-view");
+  const confirmationView = document.getElementById("checkout-confirmation-view");
+  const errorEl = document.getElementById("checkout-error-feedback");
+  const itemsListEl = document.getElementById("checkout-summary-items-list");
+  const subtotalEl = document.getElementById("checkout-subtotal-val");
+  const discountLine = document.getElementById("checkout-discount-line");
+  const discountVal = document.getElementById("checkout-discount-val");
+  const totalEl = document.getElementById("checkout-total-val");
+
+  if (formView) formView.style.display = "block";
+  if (confirmationView) confirmationView.style.display = "none";
+  if (errorEl) { errorEl.textContent = ""; errorEl.style.display = "none"; }
+
+  // Check cart items
+  if (!activeCartData || !activeCartData.items || activeCartData.items.length === 0) {
+    try {
+      activeCartData = await window.NailsApi.getCart();
+    } catch {}
+  }
+
+  const items = (activeCartData && activeCartData.items) || [];
+  if (items.length === 0) {
+    alert("Your bag is empty. Please add a handcrafted press-on set before checking out.");
+    openCartDrawer();
+    return;
+  }
+
+  const totals = (activeCartData && activeCartData.totals) || {};
+
+  // Render items snippet
+  if (itemsListEl) {
+    itemsListEl.innerHTML = items.map((it) => `
+      <div class="checkout-summary-item" style="padding: 0.25rem 0;">
+        <span>${escapeHtml(it.productName)} (${escapeHtml(it.shape)}, ${escapeHtml(it.length)}, Size ${escapeHtml(it.sizingPreset)}) × ${it.quantity}</span>
+        <strong>₹${it.itemTotal}</strong>
+      </div>
+    `).join("");
+  }
+
+  if (subtotalEl) subtotalEl.textContent = `₹${totals.subtotal || 0}`;
+  if (totals.discountAmount > 0) {
+    if (discountLine) discountLine.style.display = "flex";
+    if (discountVal) discountVal.textContent = `-₹${totals.discountAmount}`;
+  } else {
+    if (discountLine) discountLine.style.display = "none";
+  }
+  if (totalEl) totalEl.textContent = `₹${totals.totalAmount || 0}`;
+
+  // Pre-fill customer details from authentication / addresses
+  try {
+    if (window.NailsApi) {
+      const userRes = await window.NailsApi.getCurrentUser().catch(() => null);
+      if (userRes && userRes.user) {
+        const u = userRes.user;
+        const nameInput = document.getElementById("checkout-name");
+        const phoneInput = document.getElementById("checkout-phone");
+        const emailInput = document.getElementById("checkout-email");
+        if (nameInput && !nameInput.value) nameInput.value = (u.profile && u.profile.full_name) || "Customer";
+        if (phoneInput && !phoneInput.value) phoneInput.value = (u.phone || "").replace(/^\+91/, "");
+        if (emailInput && !emailInput.value) emailInput.value = u.email || "";
+
+        const addrRes = await window.NailsApi.getCustomerAddresses().catch(() => null);
+        if (addrRes && addrRes.addresses && addrRes.addresses.length) {
+          const shipAddr = addrRes.addresses.find((a) => a.isDefaultShipping || a.is_default_shipping) || addrRes.addresses[0];
+          if (shipAddr) {
+            const l1 = document.getElementById("checkout-addr-line1");
+            const l2 = document.getElementById("checkout-addr-line2");
+            const city = document.getElementById("checkout-addr-city");
+            const state = document.getElementById("checkout-addr-state");
+            const pin = document.getElementById("checkout-addr-pin");
+            if (l1 && !l1.value) l1.value = shipAddr.addressLine1 || shipAddr.address_line1 || "";
+            if (l2 && !l2.value) l2.value = shipAddr.addressLine2 || shipAddr.address_line2 || shipAddr.landmark || "";
+            if (city && !city.value) city.value = shipAddr.city || "";
+            if (state && !state.value) state.value = shipAddr.state || "";
+            if (pin && !pin.value) pin.value = shipAddr.postalCode || shipAddr.postal_code || "";
+          }
+        }
+      }
+    }
+  } catch {}
+
+  // Handle order submission
+  const checkoutForm = document.getElementById("checkout-order-form");
+  if (checkoutForm) {
+    checkoutForm.onsubmit = async (e) => {
+      e.preventDefault();
+      const placeBtn = document.getElementById("checkout-place-order-btn");
+      const name = document.getElementById("checkout-name")?.value.trim();
+      const phone = document.getElementById("checkout-phone")?.value.trim();
+      const email = document.getElementById("checkout-email")?.value.trim();
+      const line1 = document.getElementById("checkout-addr-line1")?.value.trim();
+      const line2 = document.getElementById("checkout-addr-line2")?.value.trim();
+      const city = document.getElementById("checkout-addr-city")?.value.trim();
+      const state = document.getElementById("checkout-addr-state")?.value.trim();
+      const pin = document.getElementById("checkout-addr-pin")?.value.trim();
+      const notes = document.getElementById("checkout-notes")?.value.trim();
+
+      if (!name || !phone || !line1 || !city || !state || !pin) {
+        if (errorEl) {
+          errorEl.textContent = "Please fill in all required customer and delivery address fields.";
+          errorEl.style.display = "block";
+        }
+        return;
+      }
+
+      if (!/^[1-9][0-9]{5}$/.test(pin)) {
+        if (errorEl) {
+          errorEl.textContent = "Please enter a valid 6-digit Indian PIN code.";
+          errorEl.style.display = "block";
+        }
+        return;
+      }
+
+      try {
+        if (placeBtn) placeBtn.disabled = true;
+        if (errorEl) errorEl.style.display = "none";
+
+        const orderPayload = {
+          customer: {
+            name,
+            phone,
+            email: email || null,
+          },
+          shipping_address: {
+            recipient_name: name,
+            phone,
+            address_line1: line1,
+            address_line2: line2 || null,
+            city,
+            state,
+            postal_code: pin,
+          },
+          customer_notes: notes || null,
+        };
+
+        const result = await window.NailsApi.createOrder(orderPayload);
+        const orderNum = result.order?.orderNumber || "NBD-ORD-CONFIRMED";
+        const orderTotal = result.order?.totalAmount || totals.totalAmount || 599;
+
+        // Clear bag
+        await window.NailsApi.clearCart().catch(() => {});
+        refreshCartBadge();
+
+        if (formView) formView.style.display = "none";
+        if (confirmationView) {
+          confirmationView.style.display = "flex";
+          const ordNumEl = document.getElementById("checkout-confirmation-order-number");
+          if (ordNumEl) ordNumEl.textContent = orderNum;
+
+          const waBtn = document.getElementById("checkout-confirmation-whatsapp-btn");
+          if (waBtn) {
+            const waText = encodeURIComponent(`Hi Divya! I have placed order *${orderNum}* for ₹${orderTotal} with delivery to ${city}. Please verify my nail measurements and share studio UPI payment details.`);
+            waBtn.href = `https://wa.me/917827437985?text=${waText}`;
+          }
+        }
+      } catch (err) {
+        if (errorEl) {
+          errorEl.textContent = err.message || "Failed to place order. Please try again.";
+          errorEl.style.display = "block";
+        }
+      } finally {
+        if (placeBtn) placeBtn.disabled = false;
+      }
     };
   }
 
@@ -857,7 +1555,18 @@ function closeAllModals() {
   document.querySelectorAll(".modal-overlay").forEach((modal) => {
     modal.classList.remove("is-open");
   });
+  closeCartDrawer();
   document.body.style.overflow = "";
+}
+
+function escapeHtml(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 // ---------------------------------------------------------------------------

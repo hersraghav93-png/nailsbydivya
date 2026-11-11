@@ -115,6 +115,11 @@
           <span class="nav-auth-icon" aria-hidden="true">👤</span>
           <span class="nav-auth-label">Sign In</span>
         </button>
+        <button type="button" class="nav-cart-btn" id="nav-cart-btn" aria-label="View Shopping Bag">
+          <span class="nav-cart-icon" aria-hidden="true">🛍️</span>
+          <span class="nav-cart-label">Bag</span>
+          <span class="nav-cart-badge" id="nav-cart-count" style="display: none;">0</span>
+        </button>
         <a href="#contact" class="nav-cta-link">Book / Enquire</a>
       </div>
     </nav>
@@ -1278,10 +1283,32 @@
 
       <p class="modal-desc" id="product-modal-desc">Individually hand-painted by Divya using salon-grade soft gel after your order is confirmed.</p>
 
+      <!-- Shape Selection -->
+      <div class="modal-option-group">
+        <span class="modal-option-label">Select Nail Shape</span>
+        <div class="modal-option-pills" id="modal-shape-pills" role="radiogroup" aria-label="Select nail shape">
+          <button type="button" class="option-pill is-active" data-shape="Almond">Almond</button>
+          <button type="button" class="option-pill" data-shape="Square">Square</button>
+          <button type="button" class="option-pill" data-shape="Coffin">Coffin</button>
+          <button type="button" class="option-pill" data-shape="Stiletto">Stiletto</button>
+          <button type="button" class="option-pill" data-shape="Oval">Oval</button>
+        </div>
+      </div>
+
+      <!-- Length Selection -->
+      <div class="modal-option-group">
+        <span class="modal-option-label">Select Nail Length</span>
+        <div class="modal-option-pills" id="modal-length-pills" role="radiogroup" aria-label="Select nail length">
+          <button type="button" class="option-pill" data-length="Short">Short</button>
+          <button type="button" class="option-pill is-active" data-length="Medium">Medium</button>
+          <button type="button" class="option-pill" data-length="Long">Long</button>
+        </div>
+      </div>
+
       <!-- Sizing Selection & Chart Box -->
       <div class="modal-sizing-box">
         <div class="modal-sizing-header">
-          <span class="modal-sizing-title">Select Your Size</span>
+          <span class="modal-sizing-title">Select Nail Size</span>
           <span class="modal-sizing-badge">10 Custom Nails</span>
         </div>
         <div class="modal-size-chips" role="radiogroup" aria-label="Select nail size">
@@ -1291,16 +1318,52 @@
           <button type="button" class="size-chip" data-size="L" role="radio" aria-checked="false">L (17/13/14/12/10mm)</button>
           <button type="button" class="size-chip" data-size="Custom" role="radio" aria-checked="false">Custom Sizes</button>
         </div>
-        <p class="modal-sizing-guide-text" id="modal-sizing-guide-text">
-          Selected size: <strong>M (Standard)</strong> &bull; Thumb: 16mm, Index: 12mm, Middle: 13mm, Ring: 11mm, Pinky: 9mm. Not sure? Divya confirms sizing with you on WhatsApp before painting!
+        
+        <!-- Custom Millimeter Measurement Inputs (shown if Custom selected) -->
+        <div id="modal-custom-measurements" style="display: none; margin-top: 0.6rem;">
+          <p style="font-size: 0.76rem; color: var(--text-muted); margin: 0 0 0.4rem 0;">Enter widest width in mm for each nail bed:</p>
+          <div class="custom-measurements-row">
+            <div class="measurement-field">
+              <label for="modal-measure-thumb">Thumb</label>
+              <input type="number" id="modal-measure-thumb" min="5" max="25" step="0.5" value="16" />
+            </div>
+            <div class="measurement-field">
+              <label for="modal-measure-index">Index</label>
+              <input type="number" id="modal-measure-index" min="5" max="25" step="0.5" value="12" />
+            </div>
+            <div class="measurement-field">
+              <label for="modal-measure-middle">Middle</label>
+              <input type="number" id="modal-measure-middle" min="5" max="25" step="0.5" value="13" />
+            </div>
+            <div class="measurement-field">
+              <label for="modal-measure-ring">Ring</label>
+              <input type="number" id="modal-measure-ring" min="5" max="25" step="0.5" value="11" />
+            </div>
+            <div class="measurement-field">
+              <label for="modal-measure-pinky">Pinky</label>
+              <input type="number" id="modal-measure-pinky" min="5" max="25" step="0.5" value="9" />
+            </div>
+          </div>
+        </div>
+
+        <p class="modal-sizing-guide-text" id="modal-sizing-guide-text" style="margin-top: 0.6rem;">
+          Selected size: <strong>M (Standard)</strong> &bull; Thumb: 16mm, Index: 12mm, Middle: 13mm, Ring: 11mm, Pinky: 9mm. Sizing verified directly with Divya before hand-painting!
         </p>
       </div>
 
       <div class="modal-footer">
-        <button type="button" class="button primary-button whatsapp-button" id="product-modal-action-btn" style="width: 100%;">
-          <span>Order via WhatsApp Consultation</span>
-          <span aria-hidden="true">&rarr;</span>
+        <div class="modal-action-split">
+          <button type="button" class="button primary-button" id="product-modal-add-bag">
+            <span id="product-modal-add-label">Add to Bag &bull; ₹599</span>
+          </button>
+          <button type="button" class="button secondary-button" id="product-modal-checkout-btn">
+            <span>Direct Checkout &rarr;</span>
+          </button>
+        </div>
+        <button type="button" class="button secondary-button whatsapp-button" id="product-modal-action-btn" style="width: 100%; border: none; background: transparent; color: var(--accent-strong); font-size: 0.86rem; padding: 0.25rem;">
+          <span>Prefer direct WhatsApp enquiry? Consult with Divya &rarr;</span>
         </button>
+        <div id="product-modal-feedback" style="display: none; text-align: center; font-size: 0.85rem; font-weight: 600; color: #2e7d32;"></div>
         <p class="modal-guarantee">Includes 10 custom soft gel nails, salon adhesive, sticky tabs, prep wipe &amp; nail buffer.</p>
       </div>
     </div>
@@ -1308,19 +1371,324 @@
 
   <!-- Service Appointment Details Modal -->
   <div class="modal-overlay" id="service-modal" aria-hidden="true" role="dialog" aria-labelledby="service-modal-title">
-    <div class="modal-card">
+    <div class="modal-card" style="max-width: 620px;">
       <button type="button" class="modal-close" id="service-modal-close" aria-label="Close service details">&times;</button>
       <span class="modal-category-tag">At-Home Salon Service &bull; Delhi NCR</span>
       <h3 class="modal-title" id="service-modal-title">Service Title</h3>
       <p class="modal-desc" id="service-modal-desc">Service details and description.</p>
-
-      <div class="modal-footer">
-        <button type="button" class="button primary-button whatsapp-button" id="service-modal-action-btn" style="width: 100%;">
-          <span>Continue to WhatsApp Booking</span>
-          <span aria-hidden="true">&rarr;</span>
-        </button>
-        <p class="modal-guarantee">Direct consultation with Divya. Operating hours: 12 PM - 6 PM across Delhi NCR.</p>
+      
+      <div id="service-price-badge" style="margin-bottom: 1rem; display: inline-flex; align-items: center; gap: 0.5rem; background: var(--bg-soft); border: 1px solid var(--line); padding: 0.35rem 0.85rem; border-radius: var(--radius-pill); font-weight: 700; color: var(--heading); font-size: 0.95rem;">
+        <span id="service-price-value">From ₹999</span>
       </div>
+
+      <!-- Interactive Booking Request Form -->
+      <form id="service-booking-form" class="service-booking-section" onsubmit="return false;">
+        
+        <!-- Add-ons Selection -->
+        <div id="service-addons-wrapper" style="display: none;">
+          <span class="modal-option-label">Available Design Add-Ons</span>
+          <div class="addons-selection-grid" id="service-addons-container">
+            <!-- Dynamically populated from /api/services -->
+          </div>
+        </div>
+
+        <!-- Customer Contact Details -->
+        <div>
+          <span class="modal-option-label">Your Contact Details</span>
+          <div class="checkout-grid">
+            <div>
+              <label for="service-customer-name" class="form-label" style="font-size: 0.78rem;">Full Name *</label>
+              <input type="text" id="service-customer-name" class="form-input" placeholder="Your Name" required />
+            </div>
+            <div>
+              <label for="service-customer-phone" class="form-label" style="font-size: 0.78rem;">Mobile Number (+91) *</label>
+              <input type="tel" id="service-customer-phone" class="form-input" placeholder="9876543210" required />
+            </div>
+            <div class="checkout-span-2">
+              <label for="service-customer-email" class="form-label" style="font-size: 0.78rem;">Email Address (Optional)</label>
+              <input type="email" id="service-customer-email" class="form-input" placeholder="you@example.com" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Service Location in Delhi NCR -->
+        <div>
+          <span class="modal-option-label">At-Home Service Address (Delhi NCR)</span>
+          <div class="checkout-grid">
+            <div class="checkout-span-2">
+              <label for="service-addr-line1" class="form-label" style="font-size: 0.78rem;">Flat / House No., Apartment, Street *</label>
+              <input type="text" id="service-addr-line1" class="form-input" placeholder="Flat 402, Lotus Tower, Golf Course Road" required />
+            </div>
+            <div>
+              <label for="service-addr-landmark" class="form-label" style="font-size: 0.78rem;">Landmark / Area</label>
+              <input type="text" id="service-addr-landmark" class="form-input" placeholder="Near DLF Cyber City" />
+            </div>
+            <div>
+              <label for="service-addr-city" class="form-label" style="font-size: 0.78rem;">City / Region *</label>
+              <input type="text" id="service-addr-city" class="form-input" value="Delhi NCR" required />
+            </div>
+            <div class="checkout-span-2">
+              <label for="service-addr-pin" class="form-label" style="font-size: 0.78rem;">6-Digit PIN Code *</label>
+              <input type="text" id="service-addr-pin" class="form-input" placeholder="110001 or 122002" maxlength="6" inputmode="numeric" required />
+            </div>
+          </div>
+        </div>
+
+        <!-- Appointment Date & Time Slot -->
+        <div>
+          <span class="modal-option-label">Preferred Date &amp; Arrival Window</span>
+          <div class="checkout-grid">
+            <div class="checkout-span-2">
+              <label for="service-requested-date" class="form-label" style="font-size: 0.78rem;">Preferred Date * (Advance notice required)</label>
+              <input type="date" id="service-requested-date" class="form-input" required />
+            </div>
+            <div class="checkout-span-2">
+              <label class="form-label" style="font-size: 0.78rem;">Preferred Time Window *</label>
+              <div class="slot-pills-grid" id="service-slot-pills">
+                <button type="button" class="slot-pill is-active" data-slot="10:00 AM - 12:00 PM">10:00 AM – 12:00 PM</button>
+                <button type="button" class="slot-pill" data-slot="12:30 PM - 02:30 PM">12:30 PM – 02:30 PM</button>
+                <button type="button" class="slot-pill" data-slot="03:00 PM - 05:00 PM">03:00 PM – 05:00 PM</button>
+                <button type="button" class="slot-pill" data-slot="05:30 PM - 07:30 PM">05:30 PM – 07:30 PM</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Notes / Art Requirements -->
+        <div>
+          <label for="service-customer-notes" class="form-label" style="font-size: 0.78rem;">Special Requests / Nail Notes (Optional)</label>
+          <textarea id="service-customer-notes" class="form-textarea" rows="2" placeholder="e.g. Existing extension removal needed, prefer almond shape, outfit colour match..."></textarea>
+        </div>
+
+        <!-- Pricing Notice -->
+        <div class="cart-payment-notice">
+          <strong>🗓️ Request-and-Confirmation Workflow:</strong>
+          Appointments enter <strong>REQUESTED</strong> status. Divya personally verifies travel logistics across Delhi NCR and confirms your booking time slot before any appointment is finalized. No payment is collected online.
+        </div>
+
+        <div id="service-booking-error" style="display: none; color: #d32f2f; font-size: 0.85rem; font-weight: 600;"></div>
+
+        <button type="submit" class="button primary-button" id="service-submit-btn" style="width: 100%;">
+          <span>Submit Appointment Request &rarr;</span>
+        </button>
+
+        <a href="https://wa.me/917827437985" target="_blank" rel="noopener noreferrer" class="button secondary-button whatsapp-button" style="width: 100%; border: none; background: transparent; color: var(--accent-strong); font-size: 0.86rem; padding: 0.25rem;">
+          <span>Prefer direct consultation? Enquire via WhatsApp &rarr;</span>
+        </a>
+      </form>
+
+      <!-- Booking Confirmation State (shown upon submission) -->
+      <div id="service-confirmation-view" class="confirmation-card" style="display: none;">
+        <div class="confirmation-badge-icon">✓</div>
+        <h3 style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 1.8rem; margin: 0; color: var(--heading);">Appointment Requested</h3>
+        <p style="font-size: 0.92rem; color: var(--text-muted); margin: 0; max-width: 420px;">
+          Your at-home salon appointment request has been submitted to Divya. She will review your requested time slot and confirm availability.
+        </p>
+        <div class="confirmation-code-box" id="service-confirmation-booking-number">
+          NBD-BKG-000
+        </div>
+        <div style="font-size: 0.85rem; color: var(--text-muted);">
+          Status: <strong class="status-pill status-requested">REQUESTED</strong>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 0.65rem; width: 100%; max-width: 380px; margin-top: 0.5rem;">
+          <a href="#" target="_blank" rel="noopener noreferrer" id="service-confirmation-whatsapp-btn" class="button primary-button">
+            <span>Message Divya on WhatsApp &rarr;</span>
+          </a>
+          <button type="button" class="button secondary-button" id="service-confirmation-close-btn">
+            <span>Close &amp; Continue Browsing</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       CART DRAWER COMPONENT
+       ========================================================================= -->
+  <div class="cart-drawer-overlay" id="cart-drawer-overlay" aria-hidden="true">
+    <aside class="cart-drawer" id="cart-drawer" aria-label="Shopping Bag">
+      
+      <div class="cart-drawer-header">
+        <div class="cart-drawer-title-row">
+          <span style="font-size: 1.3rem;">🛍️</span>
+          <h2 class="cart-drawer-title">Your Bespoke Bag</h2>
+          <span class="nav-cart-badge" id="cart-drawer-count">0</span>
+        </div>
+        <button type="button" class="cart-drawer-close" id="cart-drawer-close" aria-label="Close Shopping Bag">&times;</button>
+      </div>
+
+      <div class="cart-drawer-body" id="cart-drawer-items">
+        <!-- Dynamically rendered cart items or empty state -->
+        <div class="cart-empty-box" id="cart-empty-state">
+          <span class="cart-empty-icon">💅🏻</span>
+          <h3 class="cart-empty-title">Your Bag is Empty</h3>
+          <p class="cart-empty-desc">Discover our 22 collectible handmade press-on nail sets, painted fresh to your measurements.</p>
+          <a href="#shop" class="button secondary-button" id="cart-empty-shop-btn" style="margin-top: 0.5rem;">Explore Press-On Nails &rarr;</a>
+        </div>
+      </div>
+
+      <div class="cart-drawer-footer" id="cart-drawer-footer" style="display: none;">
+        <div class="cart-summary-line">
+          <span>Subtotal</span>
+          <span id="cart-subtotal-val">₹0</span>
+        </div>
+        <div class="cart-summary-line is-highlight" id="cart-discount-row" style="display: none;">
+          <span id="cart-discount-label">Festive Offer Savings</span>
+          <span id="cart-discount-val">-₹0</span>
+        </div>
+        <div class="cart-summary-line">
+          <span>Delivery</span>
+          <span style="color: #2e7d32; font-weight: 600;">Complimentary Standard Delivery</span>
+        </div>
+        <div class="cart-summary-line is-total">
+          <span>Total (Pan-India)</span>
+          <span id="cart-total-val">₹0</span>
+        </div>
+
+        <div class="cart-payment-notice">
+          <strong>💳 Payment Boundary:</strong> Orders enter <strong>PENDING</strong> status. Divya confirms measurements and shares studio payment details (UPI/Transfer) on WhatsApp before painting begins.
+        </div>
+
+        <button type="button" class="button primary-button" id="cart-checkout-cta" style="width: 100%;">
+          <span>Proceed to Checkout &rarr;</span>
+        </button>
+      </div>
+
+    </aside>
+  </div>
+
+  <!-- =========================================================================
+       CHECKOUT MODAL COMPONENT
+       ========================================================================= -->
+  <div class="modal-overlay" id="checkout-modal" aria-hidden="true" role="dialog" aria-labelledby="checkout-modal-title">
+    <div class="modal-card checkout-modal-card">
+      <button type="button" class="modal-close" id="checkout-modal-close" aria-label="Close Checkout">&times;</button>
+      
+      <!-- Checkout Form View -->
+      <div id="checkout-form-view">
+        <span class="modal-category-tag">Bespoke Press-On Delivery &bull; Pan-India</span>
+        <h3 class="modal-title" id="checkout-modal-title" style="font-size: 1.75rem; margin-bottom: 0.25rem;">Complete Your Order</h3>
+        <p class="modal-desc" style="margin-bottom: 1rem;">Handcrafted to order. Complimentary express delivery across India.</p>
+
+        <form id="checkout-order-form" onsubmit="return false;">
+          
+          <!-- Contact Details -->
+          <div style="margin-bottom: 1rem;">
+            <span class="modal-option-label">1. Customer Contact Details</span>
+            <div class="checkout-grid">
+              <div>
+                <label for="checkout-name" class="form-label" style="font-size: 0.78rem;">Full Name *</label>
+                <input type="text" id="checkout-name" class="form-input" placeholder="Your Name" required />
+              </div>
+              <div>
+                <label for="checkout-phone" class="form-label" style="font-size: 0.78rem;">Mobile Number (+91) *</label>
+                <input type="tel" id="checkout-phone" class="form-input" placeholder="9811001122" required />
+              </div>
+              <div class="checkout-span-2">
+                <label for="checkout-email" class="form-label" style="font-size: 0.78rem;">Email Address (Optional)</label>
+                <input type="email" id="checkout-email" class="form-input" placeholder="you@example.com" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Shipping Address -->
+          <div style="margin-bottom: 1rem;">
+            <span class="modal-option-label">2. Delivery Address (Pan-India)</span>
+            <div class="checkout-grid">
+              <div class="checkout-span-2">
+                <label for="checkout-addr-line1" class="form-label" style="font-size: 0.78rem;">Flat / House No., Apartment, Street *</label>
+                <input type="text" id="checkout-addr-line1" class="form-input" placeholder="Flat 402, Lotus Tower, Golf Course Road" required />
+              </div>
+              <div class="checkout-span-2">
+                <label for="checkout-addr-line2" class="form-label" style="font-size: 0.78rem;">Locality, Sector, Landmark</label>
+                <input type="text" id="checkout-addr-line2" class="form-input" placeholder="Near DLF Cyber City" />
+              </div>
+              <div>
+                <label for="checkout-addr-city" class="form-label" style="font-size: 0.78rem;">City *</label>
+                <input type="text" id="checkout-addr-city" class="form-input" placeholder="Gurgaon" required />
+              </div>
+              <div>
+                <label for="checkout-addr-state" class="form-label" style="font-size: 0.78rem;">State *</label>
+                <input type="text" id="checkout-addr-state" class="form-input" placeholder="Haryana" required />
+              </div>
+              <div class="checkout-span-2">
+                <label for="checkout-addr-pin" class="form-label" style="font-size: 0.78rem;">6-Digit PIN Code *</label>
+                <input type="text" id="checkout-addr-pin" class="form-input" placeholder="122002" maxlength="6" inputmode="numeric" required />
+              </div>
+            </div>
+          </div>
+
+          <!-- Sizing Notes -->
+          <div style="margin-bottom: 1rem;">
+            <label for="checkout-notes" class="form-label" style="font-size: 0.78rem;">Special Sizing Notes or Art Requests (Optional)</label>
+            <textarea id="checkout-notes" class="form-textarea" rows="2" placeholder="e.g. Sizing verified via photo, require custom thumb width..."></textarea>
+          </div>
+
+          <!-- Order Summary Box -->
+          <div class="checkout-summary-box">
+            <span style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; color: var(--heading);">Order Summary</span>
+            <div id="checkout-summary-items-list">
+              <!-- Dynamically populated items -->
+            </div>
+            <div class="checkout-summary-item" style="border-top: 1px solid var(--line); padding-top: 0.45rem;">
+              <span>Subtotal:</span>
+              <span id="checkout-subtotal-val">₹0</span>
+            </div>
+            <div class="checkout-summary-item" id="checkout-discount-line" style="color: var(--accent-strong); font-weight: 600;">
+              <span>Festive Offer Savings:</span>
+              <span id="checkout-discount-val">-₹0</span>
+            </div>
+            <div class="checkout-summary-item">
+              <span>Standard Delivery:</span>
+              <span style="color: #2e7d32; font-weight: 600;">Complimentary</span>
+            </div>
+            <div class="checkout-summary-item" style="font-size: 1.1rem; font-weight: 700; color: var(--heading); border-top: 1px dashed var(--line); padding-top: 0.45rem;">
+              <span>Total Payable:</span>
+              <span id="checkout-total-val">₹0</span>
+            </div>
+          </div>
+
+          <!-- Payment Boundary Notice -->
+          <div class="cart-payment-notice" style="margin-top: 1rem;">
+            <strong>💳 Payment Boundary &bull; Status: PENDING</strong><br>
+            Nails by Divya sets are hand-crafted on demand. No payment is charged right now. Your order will enter <strong>PENDING</strong> status. Divya personally reaches out on WhatsApp to verify your exact nail measurements and share studio payment options (UPI/Bank Transfer) before crafting begins.
+          </div>
+
+          <div id="checkout-error-feedback" style="display: none; color: #d32f2f; font-size: 0.85rem; font-weight: 600; margin-top: 0.5rem;"></div>
+
+          <button type="submit" class="button primary-button" id="checkout-place-order-btn" style="width: 100%; margin-top: 1rem;">
+            <span>Confirm &amp; Place Order &rarr;</span>
+          </button>
+        </form>
+      </div>
+
+      <!-- Confirmation Screen View -->
+      <div id="checkout-confirmation-view" class="confirmation-card" style="display: none;">
+        <div class="confirmation-badge-icon">✓</div>
+        <h3 style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 1.8rem; margin: 0; color: var(--heading);">Order Successfully Placed</h3>
+        <p style="font-size: 0.92rem; color: var(--text-muted); margin: 0; max-width: 440px;">
+          Thank you for choosing Nails by Divya. Your handmade press-on set has been logged in our studio queue.
+        </p>
+        <div class="confirmation-code-box" id="checkout-confirmation-order-number">
+          NBD-ORD-0000
+        </div>
+        <div style="font-size: 0.85rem; color: var(--text-muted);">
+          Order Status: <strong class="status-pill status-pending">PENDING</strong> &bull; Payment: <strong class="status-pill status-pending">PENDING</strong>
+        </div>
+        <p style="font-size: 0.82rem; color: var(--text-muted); max-width: 420px; margin: 0;">
+          Our concierge will contact you on WhatsApp to confirm your nail sizing and share studio UPI payment details.
+        </p>
+        <div style="display: flex; flex-direction: column; gap: 0.65rem; width: 100%; max-width: 380px; margin-top: 0.5rem;">
+          <a href="#" target="_blank" rel="noopener noreferrer" id="checkout-confirmation-whatsapp-btn" class="button primary-button">
+            <span>Confirm Details via WhatsApp Concierge &rarr;</span>
+          </a>
+          <a href="account.html" class="button secondary-button">
+            <span>View Order in My Account &rarr;</span>
+          </a>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -1441,9 +1809,6 @@
     </div>
   </footer>
 
-  <!-- Core Scripts -->
-  <script src="script.js"></script>
-
   <!-- Firebase Client SDK (Compat v10) -->
   <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
@@ -1453,5 +1818,8 @@
   <script src="account-api.js"></script>
   <script src="auth.js"></script>
   <script src="auth-modal.js"></script>
+
+  <!-- Core Scripts -->
+  <script src="script.js"></script>
 </body>
 </html>
