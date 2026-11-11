@@ -998,18 +998,19 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
 // ---------------------------------------------------------------------------
 
 const CANONICAL_SERVICES_MAP = {
-  "nail extensions": { id: "gel_extensions", name: "Bespoke Gel Extensions", price: "From ₹999", isCustomQuote: false },
-  "bespoke gel extensions": { id: "gel_extensions", name: "Bespoke Gel Extensions", price: "From ₹999", isCustomQuote: false },
-  "natural nail overlay": { id: "natural_overlay", name: "Natural Nail Overlay & Strengthening", price: "From ₹999", isCustomQuote: false },
-  "natural nail overlay & strengthening": { id: "natural_overlay", name: "Natural Nail Overlay & Strengthening", price: "From ₹999", isCustomQuote: false },
-  "power polish / shellac": { id: "power_polish", name: "Signature Manicure & Power Polish", price: "From ₹999", isCustomQuote: false },
-  "power polish": { id: "power_polish", name: "Signature Manicure & Power Polish", price: "From ₹999", isCustomQuote: false },
-  "signature manicure & power polish": { id: "power_polish", name: "Signature Manicure & Power Polish", price: "From ₹999", isCustomQuote: false },
-  "3d & custom nail art": { id: "custom_3d_art", name: "3D, Chrome & Custom Artistry", price: "Custom Quote", isCustomQuote: true },
-  "3d, chrome & custom artistry": { id: "custom_3d_art", name: "3D, Chrome & Custom Artistry", price: "Custom Quote", isCustomQuote: true },
+  "nail extensions": { id: "gel_extensions", name: "Nail Extensions", price: "From ₹999", isCustomQuote: false },
+  "bespoke gel extensions": { id: "gel_extensions", name: "Nail Extensions", price: "From ₹999", isCustomQuote: false },
+  "natural nail overlay": { id: "natural_overlay", name: "Natural Nail Overlay", price: "From ₹999", isCustomQuote: false },
+  "natural nail overlay & strengthening": { id: "natural_overlay", name: "Natural Nail Overlay", price: "From ₹999", isCustomQuote: false },
+  "power polish / shellac": { id: "power_polish", name: "Power Polish / Shellac", price: "From ₹999", isCustomQuote: false },
+  "power polish": { id: "power_polish", name: "Power Polish / Shellac", price: "From ₹999", isCustomQuote: false },
+  "signature manicure & power polish": { id: "power_polish", name: "Power Polish / Shellac", price: "From ₹999", isCustomQuote: false },
+  "3d & custom nail art": { id: "custom_3d_art", name: "3D & Custom Nail Art", price: "Custom Quotation", isCustomQuote: true },
+  "3d, chrome & custom artistry": { id: "custom_3d_art", name: "3D & Custom Nail Art", price: "Custom Quotation", isCustomQuote: true },
   "french nails": { id: "gel_extensions", name: "French Nails (Design Add-On)", price: "Design Add-On", isCustomQuote: true },
-  "extension removal": { id: "extension_removal", name: "Nail Extension Removal", price: "Custom Quote", isCustomQuote: true },
-  "nail extension removal": { id: "extension_removal", name: "Nail Extension Removal", price: "Custom Quote", isCustomQuote: true },
+  "safe extension removal": { id: "extension_removal", name: "Safe Extension Removal", price: "Price on Enquiry", isCustomQuote: true },
+  "extension removal": { id: "extension_removal", name: "Safe Extension Removal", price: "Price on Enquiry", isCustomQuote: true },
+  "nail extension removal": { id: "extension_removal", name: "Safe Extension Removal", price: "Price on Enquiry", isCustomQuote: true },
 };
 
 /**

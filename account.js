@@ -348,7 +348,7 @@
         <div style="padding: 1.75rem 1rem; text-align: center; color: var(--text-muted); background: var(--bg-soft); border-radius: var(--radius-md); border: 1px solid var(--line);">
           <span style="font-size: 1.8rem; display: block; margin-bottom: 0.35rem;">📦</span>
           <p style="margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--heading);">No Press-On Orders Placed Yet</p>
-          <p style="margin: 0.35rem 0 0.85rem; font-size: 0.84rem;">Explore our 22 collectible handcrafted press-on sets. Complimentary Pan-India delivery included.</p>
+          <p style="margin: 0.35rem 0 0.85rem; font-size: 0.84rem;">Explore our 22 collectible handcrafted press-on sets. Delivery arrangements confirmed by studio.</p>
           <a href="index.html#shop" class="button secondary-button" style="min-height: 38px; padding: 0.4rem 1rem; font-size: 0.84rem; display: inline-flex;">Explore Press-On Sets &rarr;</a>
         </div>
       `;
@@ -391,7 +391,7 @@
           </div>
 
           <div class="order-items-snippet">
-            <strong>Bespoke Handcrafted Set</strong> &bull; Complimentary Standard Delivery &bull; Amount: <strong>₹${totalAmount}</strong>
+            <strong>Bespoke Handcrafted Set</strong> &bull; Delivery: Confirmed by studio &bull; Amount: <strong>₹${totalAmount}</strong>
           </div>
 
           <div class="order-card-footer">
@@ -524,7 +524,7 @@
             </div>
             <div style="display: flex; justify-content: space-between;">
               <span>Total Amount:</span>
-              <strong>₹${parseFloat(o.totalAmount || 0)} (Complimentary Delivery)</strong>
+              <strong>₹${parseFloat(o.totalAmount || 0)} (Delivery confirmed by studio)</strong>
             </div>
           </div>
 
