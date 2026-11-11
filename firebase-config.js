@@ -14,12 +14,14 @@
  */
 
 window.NAILS_CONFIG = window.NAILS_CONFIG || {
-  // Backend Express API URL
+  // Backend Express API URL (Local, Staging, or Production)
   apiUrl: (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
     ? "http://localhost:3000"
-    : "https://nails-ai-backend.onrender.com",
+    : (window.location.hostname.includes("staging") || window.location.hostname.includes("preview")
+        ? "https://staging-api.nailsbydivya.store"
+        : "https://nails-ai-backend.onrender.com"),
 
-  // Firebase Web App Configuration
+  // Firebase Web App Configuration (Populate from Firebase Console in staging/prod)
   firebase: {
     apiKey: "",
     authDomain: "",
