@@ -38,22 +38,59 @@
 
   const CART_SESSION_KEY = "nbd_cart_session";
 
+  /**
+   * Resolves the active backend API base URL based on explicit environment detection.
+   * Unknown/unrecognized hostnames fail closed and never fall back to production.
+   * @param {string} [hostnameOverride]
+   * @returns {string}
+   */
+  function resolveBackendApiUrl(hostnameOverride) {
+    const host = (
+      hostnameOverride ||
+      (typeof window !== "undefined" && window.location ? window.location.hostname : "") ||
+      ""
+    ).toLowerCase().trim();
+
+    // 1. Local development
+    if (host === "localhost" || host === "127.0.0.1" || host === "") {
+      return "http://localhost:3000";
+    }
+
+    // 2. Explicit Staging and Preview Environments
+    if (
+      host === "staging.nailsbydivya.store" ||
+      host === "preview.nailsbydivya.store" ||
+      host === "staging-admin.nailsbydivya.store" ||
+      host.endsWith(".pages.dev") ||
+      host === "pages.dev" ||
+      host.includes("staging") ||
+      host.includes("preview")
+    ) {
+      return "https://nailsbydivya-staging-api.onrender.com";
+    }
+
+    // 3. Explicit Production Website
+    if (host === "nailsbydivya.store" || host === "www.nailsbydivya.store") {
+      return "https://nails-ai-backend.onrender.com";
+    }
+
+    // 4. Fail closed on unknown/unrecognized hosts (Never fall back to production)
+    throw new Error(
+      `[Nails API Error] Unrecognized environment hostname: "${host}". Refusing to route to production backend.`
+    );
+  }
+
   const NailsApi = {
     /**
      * Resolves the active backend API base URL.
+     * @param {string} [hostnameOverride]
      * @returns {string}
      */
-    getBaseUrl() {
-      if (window.NAILS_CONFIG && window.NAILS_CONFIG.apiUrl) {
+    getBaseUrl(hostnameOverride) {
+      if (!hostnameOverride && typeof window !== "undefined" && window.NAILS_CONFIG && window.NAILS_CONFIG.apiUrl) {
         return window.NAILS_CONFIG.apiUrl.replace(/\/+$/, "");
       }
-      if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
-        return "http://localhost:3000";
-      }
-      if (window.location.hostname.includes("staging") || window.location.hostname.includes("preview")) {
-        return "https://staging-api.nailsbydivya.store";
-      }
-      return "https://nails-ai-backend.onrender.com";
+      return resolveBackendApiUrl(hostnameOverride);
     },
 
     /**
@@ -549,5 +586,11 @@
     });
   }
 
-  window.NailsApi = NailsApi;
+  if (typeof window !== "undefined") {
+    window.NailsApi = NailsApi;
+  }
+
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = { NailsApi, resolveBackendApiUrl };
+  }
 })();

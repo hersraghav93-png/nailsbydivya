@@ -13,21 +13,73 @@
  *   full UI and local backend interaction without crashing.
  */
 
-window.NAILS_CONFIG = window.NAILS_CONFIG || {
-  // Backend Express API URL (Local, Staging, or Production)
-  apiUrl: (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
-    ? "http://localhost:3000"
-    : (window.location.hostname.includes("staging") || window.location.hostname.includes("preview")
-        ? "https://staging-api.nailsbydivya.store"
-        : "https://nails-ai-backend.onrender.com"),
+(function () {
+  /**
+   * Resolves the active backend API base URL.
+   * Explicitly maps local, staging, and production environments.
+   * Unknown/unrecognized hostnames fail closed and never fall back to production.
+   * @param {string} [hostname]
+   * @returns {string|null}
+   */
+  function resolveApiUrl(hostname) {
+    const host = (
+      hostname ||
+      (typeof window !== "undefined" && window.location ? window.location.hostname : "") ||
+      ""
+    ).toLowerCase().trim();
 
-  // Firebase Web App Configuration (Populate from Firebase Console in staging/prod)
-  firebase: {
-    apiKey: "",
-    authDomain: "",
-    projectId: "",
-    storageBucket: "",
-    messagingSenderId: "",
-    appId: "",
-  },
-};
+    // 1. Local Development
+    if (host === "localhost" || host === "127.0.0.1" || host === "") {
+      return "http://localhost:3000";
+    }
+
+    // 2. Explicit Staging & Preview Environments
+    if (
+      host === "staging.nailsbydivya.store" ||
+      host === "preview.nailsbydivya.store" ||
+      host === "staging-admin.nailsbydivya.store" ||
+      host.endsWith(".pages.dev") ||
+      host === "pages.dev" ||
+      host.includes("staging") ||
+      host.includes("preview")
+    ) {
+      return "https://nailsbydivya-staging-api.onrender.com";
+    }
+
+    // 3. Explicit Production Website
+    if (host === "nailsbydivya.store" || host === "www.nailsbydivya.store") {
+      return "https://nails-ai-backend.onrender.com";
+    }
+
+    // 4. Fail closed on unknown/unrecognized hostnames (Never fall back to production)
+    console.error(
+      `[Nails Config] Unrecognized environment hostname: "${host}". Refusing to route to production backend.`
+    );
+    return null;
+  }
+
+  const resolvedApiUrl = resolveApiUrl(
+    typeof window !== "undefined" && window.location ? window.location.hostname : ""
+  );
+
+  if (typeof window !== "undefined") {
+    window.NAILS_CONFIG = window.NAILS_CONFIG || {
+      // Backend Express API URL (Local, Staging, or Production)
+      apiUrl: resolvedApiUrl,
+
+      // Firebase Web App Configuration (Populate from Firebase Console in staging/prod)
+      firebase: {
+        apiKey: "",
+        authDomain: "",
+        projectId: "",
+        storageBucket: "",
+        messagingSenderId: "",
+        appId: "",
+      },
+    };
+  }
+
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = { resolveApiUrl };
+  }
+})();

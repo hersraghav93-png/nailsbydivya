@@ -17,15 +17,16 @@
  * 6. Under Authentication -> Settings -> Authorized domains:
  *    - Add `staging.nailsbydivya.store`
  *    - Add `staging-admin.nailsbydivya.store`
+ *    - Add `*.pages.dev` (Cloudflare Pages preview deployments)
  *    - Add `localhost`
  * 7. Copy this file to `firebase-config.js` in your staging environment.
  */
 
 window.NAILS_CONFIG = window.NAILS_CONFIG || {
-  // Staging Express Backend API URL
+  // Staging Express Backend API URL (Isolated Staging Backend on Render)
   apiUrl: (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
     ? "http://localhost:3000"
-    : "https://staging-api.nailsbydivya.store",
+    : "https://nailsbydivya-staging-api.onrender.com",
 
   // Staging Firebase Web App Identifiers (Public)
   firebase: {

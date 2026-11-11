@@ -2006,13 +2006,33 @@ function initDivvStylist() {
     showTyping();
 
     try {
-      const chatBaseUrl = (window.NAILS_CONFIG && window.NAILS_CONFIG.apiUrl)
-        ? window.NAILS_CONFIG.apiUrl.replace(/\/+$/, "")
-        : ((window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
-            ? "http://localhost:3000"
-            : (window.location.hostname.includes("staging") || window.location.hostname.includes("preview")
-                ? "https://staging-api.nailsbydivya.store"
-                : "https://nails-ai-backend.onrender.com"));
+      let chatBaseUrl;
+      if (window.NAILS_CONFIG && window.NAILS_CONFIG.apiUrl) {
+        chatBaseUrl = window.NAILS_CONFIG.apiUrl.replace(/\/+$/, "");
+      } else if (typeof window.NailsApi !== "undefined" && typeof window.NailsApi.getBaseUrl === "function") {
+        chatBaseUrl = window.NailsApi.getBaseUrl();
+      } else {
+        const host = (window.location && window.location.hostname ? window.location.hostname : "").toLowerCase().trim();
+        if (host === "localhost" || host === "127.0.0.1" || host === "") {
+          chatBaseUrl = "http://localhost:3000";
+        } else if (
+          host === "staging.nailsbydivya.store" ||
+          host === "preview.nailsbydivya.store" ||
+          host === "staging-admin.nailsbydivya.store" ||
+          host.endsWith(".pages.dev") ||
+          host === "pages.dev" ||
+          host.includes("staging") ||
+          host.includes("preview")
+        ) {
+          chatBaseUrl = "https://nailsbydivya-staging-api.onrender.com";
+        } else if (host === "nailsbydivya.store" || host === "www.nailsbydivya.store") {
+          chatBaseUrl = "https://nails-ai-backend.onrender.com";
+        } else {
+          throw new Error(
+            `[Divv Stylist Error] Unrecognized environment hostname: "${host}". Refusing to route to production backend.`
+          );
+        }
+      }
       const apiUrl = window.DIVV_API_URL || `${chatBaseUrl}/chat`;
       const payload = {
         message: text,
