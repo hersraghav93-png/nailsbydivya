@@ -434,6 +434,10 @@
       // After 900ms, close dialog and navigate to account page or update UI
       setTimeout(() => {
         closeDialog();
+        // If on admin portal, stay on admin page so admin.js transitions into dashboard
+        if (window.location.pathname.includes("admin")) {
+          return;
+        }
         // If not already on account.html, navigate there
         if (!window.location.pathname.endsWith("account.html")) {
           window.location.href = "account.html";

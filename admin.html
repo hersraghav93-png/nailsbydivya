@@ -16,48 +16,97 @@
        1. AUTHENTICATION SCREEN (Shown when unauthenticated)
        ========================================================================= -->
   <div id="admin-auth-view" class="admin-auth-screen">
-    <div class="auth-card">
+    <div class="auth-card" style="max-width: 480px; width: 100%;">
       <h1 class="auth-logo">Nails by Divya</h1>
       <p class="auth-tagline">Studio Administration &amp; Operations</p>
 
-      <form id="admin-login-form" onsubmit="return false;">
-        <!-- Firebase Configuration & Studio Status -->
-        <div id="firebase-status-notice" style="background: rgba(197, 160, 89, 0.12); border: 1px solid rgba(197, 160, 89, 0.3); border-radius: 6px; padding: 0.65rem 0.85rem; margin-bottom: 1.25rem; text-align: left; font-size: 0.78rem; color: var(--text-primary); line-height: 1.45;">
-          <strong>🔐 Studio Security Gate:</strong> Enter your verified Firebase Administrator ID Token to sign in.
-          <span id="firebase-setup-detail" style="display: block; font-size: 0.74rem; color: var(--text-muted); margin-top: 0.25rem;">
-            (Requires authenticated Firebase session with <code>artist_divya</code> or <code>super_operator</code> role in PostgreSQL)
-          </span>
-        </div>
+      <!-- Status / Error Notification Banner -->
+      <div id="auth-status-msg" style="display: none; font-size: 0.85rem; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1.25rem; line-height: 1.45; text-align: left;"></div>
 
-        <!-- Optional Storefront Session Sync -->
-        <div id="storefront-auth-sync-box" style="display: none; background: rgba(46, 125, 50, 0.08); border: 1px solid rgba(46, 125, 50, 0.25); border-radius: 6px; padding: 0.65rem 0.85rem; margin-bottom: 1.25rem; text-align: left; font-size: 0.82rem;">
-          <span style="font-weight: 600; color: #2e7d32;">Active Storefront Session Detected:</span>
-          <p id="storefront-auth-user-label" style="margin: 0.2rem 0 0.5rem; font-size: 0.78rem; color: var(--text-primary);"></p>
-          <button type="button" id="btn-sync-storefront-auth" class="btn btn-secondary" style="width: 100%; padding: 0.45rem; font-size: 0.8rem;">
-            Authenticate with Current Session &rarr;
+      <!-- 1. ACTIVE STUDIO SESSION DETECTED -->
+      <div id="storefront-auth-sync-box" style="display: none; background: rgba(46, 125, 50, 0.08); border: 1px solid rgba(46, 125, 50, 0.3); border-radius: 8px; padding: 1rem; margin-bottom: 1.25rem; text-align: left;">
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem;">
+          <span style="font-size: 1.1rem;">✨</span>
+          <strong style="color: #2e7d32; font-size: 0.9rem;">Active Studio Session Detected</strong>
+        </div>
+        <p id="storefront-auth-user-label" style="margin: 0 0 0.75rem; font-size: 0.82rem; color: var(--text-primary);"></p>
+        <button type="button" id="btn-sync-storefront-auth" class="btn btn-primary" style="width: 100%; padding: 0.65rem;">
+          <span>Enter Studio Dashboard as Divya &rarr;</span>
+        </button>
+      </div>
+
+      <!-- 2. DIRECT PHONE SMS OTP AUTHENTICATION -->
+      <div id="admin-phone-auth-container">
+        
+        <!-- Step A: Enter Phone Number -->
+        <div id="admin-step-phone">
+          <div style="text-align: left; margin-bottom: 1rem;">
+            <label class="form-label" for="admin-phone-input">Studio Mobile Number</label>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <span style="padding: 0.65rem 0.85rem; background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 6px; font-weight: 600; font-size: 0.9rem; color: var(--text-primary);">+91</span>
+              <input type="tel" id="admin-phone-input" class="form-input" placeholder="84473 91310" value="8447391310" maxlength="10" inputmode="numeric" style="flex: 1;" required>
+            </div>
+            <p style="font-size: 0.74rem; color: var(--text-muted); margin-top: 0.35rem;">
+              Authorized studio admin number: <strong>+91 84473 91310</strong>
+            </p>
+          </div>
+
+          <!-- reCAPTCHA Container -->
+          <div id="admin-recaptcha-container" style="margin-bottom: 1rem;"></div>
+
+          <button type="button" id="btn-admin-send-otp" class="btn btn-primary" style="width: 100%; padding: 0.75rem;">
+            <span>Send Verification SMS Code &rarr;</span>
           </button>
         </div>
 
-        <div class="form-group" style="text-align: left;">
-          <label class="form-label" for="admin-token-input">Firebase Administrator ID Token</label>
-          <input type="password" id="admin-token-input" class="form-input" placeholder="Paste verified Firebase Administrator ID Token..." autocomplete="current-password" required>
-          <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem;">
-            Cryptographically verified against Google Firebase Admin SDK and PostgreSQL RBAC.
-          </p>
+        <!-- Step B: Enter 6-digit OTP -->
+        <div id="admin-step-otp" style="display: none; text-align: left;">
+          <div style="margin-bottom: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.35rem;">
+              <label class="form-label" for="admin-otp-input">6-Digit Verification Code</label>
+              <button type="button" id="btn-admin-change-phone" style="background: none; border: none; color: var(--gold-primary); font-size: 0.75rem; cursor: pointer; text-decoration: underline;">
+                Change Number
+              </button>
+            </div>
+            <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+              SMS sent to <strong id="admin-otp-phone-display">+91 84473 91310</strong>
+            </p>
+            <input type="text" id="admin-otp-input" class="form-input" placeholder="Enter 6-digit code..." maxlength="6" inputmode="numeric" autocomplete="one-time-code" style="letter-spacing: 0.25rem; font-size: 1.1rem; text-align: center; font-weight: 600;" required>
+          </div>
+
+          <button type="button" id="btn-admin-verify-otp" class="btn btn-primary" style="width: 100%; padding: 0.75rem; margin-bottom: 0.75rem;">
+            <span>Verify &amp; Enter Studio Dashboard &rarr;</span>
+          </button>
+
+          <div style="text-align: center;">
+            <button type="button" id="btn-admin-resend-otp" style="background: none; border: none; color: var(--text-muted); font-size: 0.78rem; cursor: pointer;">
+              Didn't receive code? <span style="text-decoration: underline; color: var(--gold-primary);">Resend SMS</span>
+            </button>
+            <span id="admin-resend-timer" style="display: none; font-size: 0.78rem; color: var(--text-muted);"></span>
+          </div>
         </div>
 
-        <div id="auth-status-msg" style="display: none; font-size: 0.85rem; padding: 0.65rem; border-radius: 6px; margin-bottom: 1rem;"></div>
+      </div>
 
-        <button type="submit" id="btn-admin-login" class="btn btn-primary" style="width: 100%; padding: 0.75rem;">
-          <span>Sign In to Admin Portal &rarr;</span>
-        </button>
+      <!-- 3. ADVANCED DEVELOPER / MANUAL ID TOKEN FALLBACK -->
+      <details style="margin-top: 1.5rem; text-align: left; font-size: 0.78rem; color: var(--text-muted); border-top: 1px solid var(--border-light); padding-top: 1rem;">
+        <summary style="cursor: pointer; color: var(--text-muted); font-weight: 500;">
+          ⚙️ Advanced: Sign in with ID Token directly
+        </summary>
+        <form id="admin-login-form" onsubmit="return false;" style="margin-top: 0.75rem;">
+          <div class="form-group" style="text-align: left;">
+            <label class="form-label" for="admin-token-input" style="font-size: 0.75rem;">Firebase Administrator ID Token</label>
+            <input type="password" id="admin-token-input" class="form-input" placeholder="Paste verified Firebase Administrator ID Token..." autocomplete="current-password" style="font-size: 0.78rem;">
+          </div>
+          <button type="submit" id="btn-admin-login" class="btn btn-secondary" style="width: 100%; padding: 0.5rem; font-size: 0.8rem;">
+            <span>Verify ID Token &rarr;</span>
+          </button>
+        </form>
+      </details>
 
-        <div style="margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border-light); font-size: 0.78rem; color: var(--text-muted);">
-          <p>Protected by Nails by Divya Server-Side RBAC.</p>
-          <p style="margin-top: 0.5rem;"><a href="account.html" style="color: var(--gold-primary); text-decoration: underline;">📲 Need to sign in? Click here to authenticate with Phone SMS OTP</a></p>
-          <a href="index.html" style="color: var(--gold-primary); text-decoration: none; display: inline-block; margin-top: 0.5rem;">&larr; Return to Client Storefront</a>
-        </div>
-      </form>
+      <div style="margin-top: 1.25rem; font-size: 0.78rem; color: var(--text-muted); text-align: center;">
+        <a href="index.html" style="color: var(--gold-primary); text-decoration: none;">&larr; Return to Client Storefront</a>
+      </div>
     </div>
   </div>
 

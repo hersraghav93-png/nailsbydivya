@@ -90,9 +90,48 @@
   // ---------------------------------------------------------------------------
   // 1. AUTHENTICATION & IDENTITY DERIVATION
   // ---------------------------------------------------------------------------
+  let adminResendInterval = null;
+
+  function showAuthStatus(msg, isError = true) {
+    const statusMsg = document.getElementById("auth-status-msg");
+    if (!statusMsg) return;
+    statusMsg.style.display = "block";
+    if (isError) {
+      statusMsg.style.background = "rgba(198, 40, 40, 0.12)";
+      statusMsg.style.border = "1px solid rgba(198, 40, 40, 0.3)";
+      statusMsg.style.color = "#c62828";
+    } else {
+      statusMsg.style.background = "rgba(46, 125, 50, 0.12)";
+      statusMsg.style.border = "1px solid rgba(46, 125, 50, 0.3)";
+      statusMsg.style.color = "#2e7d32";
+    }
+    statusMsg.textContent = msg;
+  }
+
+  function clearAuthStatus() {
+    const statusMsg = document.getElementById("auth-status-msg");
+    if (statusMsg) statusMsg.style.display = "none";
+  }
+
   async function checkAuth() {
-    // Check if user is logged into storefront via NailsAuth
-    if (!state.token && typeof NailsAuth !== "undefined") {
+    // 1. If we already have a session token stored in sessionStorage, verify it directly
+    if (state.token) {
+      try {
+        const data = await adminFetch("/api/admin/me");
+        state.adminUser = data.admin;
+        renderAdminUserPill();
+        showAppView();
+        loadActiveTabData();
+        return;
+      } catch (err) {
+        console.warn("[Admin Auth] Stored session invalid or expired:", err.message);
+        state.token = null;
+        sessionStorage.removeItem("nbd_admin_token");
+      }
+    }
+
+    // 2. Check if user is logged into Firebase/NailsAuth
+    if (typeof NailsAuth !== "undefined") {
       if (typeof NailsAuth.init === "function") {
         NailsAuth.init();
       }
@@ -102,26 +141,33 @@
         const userLabel = document.getElementById("storefront-auth-user-label");
         if (syncBox && user) {
           syncBox.style.display = "block";
-          if (userLabel) userLabel.textContent = `Client: ${user.phone || user.id || "Authenticated Session"}`;
+          if (userLabel) userLabel.textContent = `Studio Artist: ${user.phone || user.id || "Authenticated Session"}`;
+        }
+
+        // Attempt seamless auto-login with existing session token
+        try {
+          const token = await NailsAuth.getToken();
+          if (token) {
+            state.token = token;
+            const data = await adminFetch("/api/admin/me");
+            state.adminUser = data.admin;
+            sessionStorage.setItem("nbd_admin_token", token);
+            renderAdminUserPill();
+            showAppView();
+            loadActiveTabData();
+            return;
+          }
+        } catch (autoErr) {
+          state.token = null;
+          console.debug("[Admin Auth] Seamless auto-login notice:", autoErr.message);
+          if (autoErr.status === 403 || autoErr.code === "FORBIDDEN_ROLE") {
+            showAuthStatus("Access Denied: The active session does not have administrator privileges (requires artist_divya or super_operator).", true);
+          }
         }
       }
     }
 
-    if (!state.token) {
-      showAuthView();
-      return;
-    }
-
-    try {
-      const data = await adminFetch("/api/admin/me");
-      state.adminUser = data.admin;
-      renderAdminUserPill();
-      showAppView();
-      loadActiveTabData();
-    } catch (err) {
-      console.warn("[Admin Auth] Session invalid or expired:", err.message);
-      logout();
-    }
+    showAuthView();
   }
 
   function showAuthView() {
@@ -151,17 +197,20 @@
     state.token = null;
     state.adminUser = null;
     sessionStorage.removeItem("nbd_admin_token");
+    if (typeof NailsAuth !== "undefined" && typeof NailsAuth.signOut === "function") {
+      NailsAuth.signOut().catch(() => {});
+    }
     showAuthView();
   }
 
   // Subscribe to NailsAuth state changes for real-time storefront session synchrony
   if (typeof NailsAuth !== "undefined" && typeof NailsAuth.onAuthChange === "function") {
-    NailsAuth.onAuthChange((user) => {
+    NailsAuth.onAuthChange(async (user) => {
       const syncBox = document.getElementById("storefront-auth-sync-box");
       const userLabel = document.getElementById("storefront-auth-user-label");
       if (syncBox && user && !state.token) {
         syncBox.style.display = "block";
-        if (userLabel) userLabel.textContent = `Client: ${user.phone || user.id || "Authenticated Session"}`;
+        if (userLabel) userLabel.textContent = `Studio Artist: ${user.phone || user.id || "Authenticated Session"}`;
       } else if (syncBox && !user) {
         syncBox.style.display = "none";
       }
@@ -176,6 +225,7 @@
         syncBtn.disabled = true;
         const originalText = syncBtn.innerHTML;
         syncBtn.innerHTML = "<span>Retrieving Session Token...</span>";
+        clearAuthStatus();
         try {
           const token = await NailsAuth.getToken();
           if (token) {
@@ -183,10 +233,11 @@
             if (tokenInput) tokenInput.value = token;
             await handleAdminLogin();
           } else {
-            alert("No active Firebase session token found. Please sign in on the storefront first.");
+            showAuthStatus("No active Firebase session token found. Please sign in with phone OTP below.", true);
           }
         } catch (err) {
           console.error("Token sync error:", err);
+          showAuthStatus(err.message || "Failed to retrieve session token.", true);
         } finally {
           syncBtn.disabled = false;
           syncBtn.innerHTML = originalText;
@@ -195,10 +246,147 @@
     });
   }
 
-  // Handle Login Execution
+  // --- DIRECT PHONE SMS OTP CONTROLLER FOR ADMIN ---
+  const sendOtpBtn = document.getElementById("btn-admin-send-otp");
+  const verifyOtpBtn = document.getElementById("btn-admin-verify-otp");
+  const changePhoneBtn = document.getElementById("btn-admin-change-phone");
+  const resendBtn = document.getElementById("btn-admin-resend-otp");
+  const resendTimerEl = document.getElementById("admin-resend-timer");
+  const stepPhoneEl = document.getElementById("admin-step-phone");
+  const stepOtpEl = document.getElementById("admin-step-otp");
+  const phoneInputEl = document.getElementById("admin-phone-input");
+  const otpInputEl = document.getElementById("admin-otp-input");
+  const otpPhoneDisplay = document.getElementById("admin-otp-phone-display");
+
+  function startResendCountdown(seconds = 30) {
+    if (adminResendInterval) clearInterval(adminResendInterval);
+    if (!resendBtn || !resendTimerEl) return;
+
+    resendBtn.style.display = "none";
+    resendTimerEl.style.display = "inline";
+    let left = seconds;
+    resendTimerEl.textContent = `Resend SMS in ${left}s`;
+
+    adminResendInterval = setInterval(() => {
+      left--;
+      if (left <= 0) {
+        clearInterval(adminResendInterval);
+        resendTimerEl.style.display = "none";
+        resendBtn.style.display = "inline";
+      } else {
+        resendTimerEl.textContent = `Resend SMS in ${left}s`;
+      }
+    }, 1000);
+  }
+
+  if (sendOtpBtn) {
+    sendOtpBtn.addEventListener("click", async () => {
+      clearAuthStatus();
+      const rawPhone = phoneInputEl ? phoneInputEl.value.trim() : "";
+      const digits = rawPhone.replace(/\D/g, "");
+      if (digits.length !== 10) {
+        showAuthStatus("Please enter a valid 10-digit mobile number.", true);
+        if (phoneInputEl) phoneInputEl.focus();
+        return;
+      }
+
+      sendOtpBtn.disabled = true;
+      const originalText = sendOtpBtn.innerHTML;
+      sendOtpBtn.innerHTML = "<span>Sending SMS Code...</span>";
+
+      try {
+        if (typeof NailsAuth === "undefined") {
+          throw new Error("Authentication service is not loaded.");
+        }
+        const res = await NailsAuth.sendOtp(rawPhone, "admin-recaptcha-container");
+        if (stepPhoneEl) stepPhoneEl.style.display = "none";
+        if (stepOtpEl) stepOtpEl.style.display = "block";
+        if (otpPhoneDisplay) otpPhoneDisplay.textContent = res.phone || `+91 ${digits}`;
+        if (otpInputEl) {
+          otpInputEl.value = "";
+          otpInputEl.focus();
+        }
+        startResendCountdown(30);
+      } catch (err) {
+        console.error("Admin sendOtp error:", err);
+        showAuthStatus(err.message || "Failed to send SMS verification code.", true);
+      } finally {
+        sendOtpBtn.disabled = false;
+        sendOtpBtn.innerHTML = originalText;
+      }
+    });
+  }
+
+  if (verifyOtpBtn) {
+    verifyOtpBtn.addEventListener("click", async () => {
+      clearAuthStatus();
+      const code = otpInputEl ? otpInputEl.value.trim() : "";
+      if (!/^\d{6}$/.test(code)) {
+        showAuthStatus("Please enter the complete 6-digit verification code.", true);
+        if (otpInputEl) otpInputEl.focus();
+        return;
+      }
+
+      verifyOtpBtn.disabled = true;
+      const originalText = verifyOtpBtn.innerHTML;
+      verifyOtpBtn.innerHTML = "<span>Verifying Code & Roles...</span>";
+
+      try {
+        if (typeof NailsAuth === "undefined") {
+          throw new Error("Authentication service is not loaded.");
+        }
+        await NailsAuth.verifyOtp(code);
+        const token = await NailsAuth.getToken();
+        if (!token) {
+          throw new Error("Failed to acquire verified authentication token.");
+        }
+        state.token = token;
+        const data = await adminFetch("/api/admin/me");
+        state.adminUser = data.admin;
+        sessionStorage.setItem("nbd_admin_token", token);
+        renderAdminUserPill();
+        showAppView();
+        loadActiveTabData();
+      } catch (err) {
+        console.error("Admin verifyOtp error:", err);
+        let msg = err.message || "Verification failed.";
+        if (err.status === 403 || err.code === "FORBIDDEN_ROLE") {
+          msg = "Access Denied: This account does not have administrator privileges for Nails by Divya. Required role: artist_divya or super_operator.";
+        }
+        showAuthStatus(msg, true);
+      } finally {
+        verifyOtpBtn.disabled = false;
+        verifyOtpBtn.innerHTML = originalText;
+      }
+    });
+  }
+
+  if (changePhoneBtn) {
+    changePhoneBtn.addEventListener("click", () => {
+      clearAuthStatus();
+      if (stepOtpEl) stepOtpEl.style.display = "none";
+      if (stepPhoneEl) stepPhoneEl.style.display = "block";
+      if (phoneInputEl) phoneInputEl.focus();
+    });
+  }
+
+  if (resendBtn) {
+    resendBtn.addEventListener("click", async () => {
+      clearAuthStatus();
+      const rawPhone = phoneInputEl ? phoneInputEl.value.trim() : "";
+      try {
+        await NailsAuth.sendOtp(rawPhone, "admin-recaptcha-container");
+        startResendCountdown(30);
+        showAuthStatus("A new verification code has been dispatched via SMS.", false);
+      } catch (err) {
+        showAuthStatus(err.message || "Failed to resend verification code.", true);
+      }
+    });
+  }
+
+  // Handle Login Execution (ID Token or Session Token)
   async function handleAdminLogin() {
     const tokenInput = document.getElementById("admin-token-input");
-    const statusMsg = document.getElementById("auth-status-msg");
     const submitBtn = document.getElementById("btn-admin-login");
     const token = tokenInput ? tokenInput.value.trim() : "";
 
@@ -208,7 +396,7 @@
       submitBtn.disabled = true;
       submitBtn.innerHTML = "<span>Verifying Credentials...</span>";
     }
-    if (statusMsg) statusMsg.style.display = "none";
+    clearAuthStatus();
 
     try {
       state.token = token;
@@ -220,21 +408,15 @@
       loadActiveTabData();
     } catch (err) {
       state.token = null;
-      if (statusMsg) {
-        statusMsg.style.display = "block";
-        statusMsg.style.background = "var(--danger-light)";
-        statusMsg.style.color = "var(--danger)";
-
-        let friendlyMsg = err.message || "Invalid administrative credentials or insufficient privileges.";
-        if (err.status === 401) {
-          friendlyMsg = "Authentication Required: The provided administrator token is invalid or has expired.";
-        } else if (err.status === 403 || err.code === "FORBIDDEN_ROLE") {
-          friendlyMsg = "Access Denied: Your account does not have administrator privileges for Nails by Divya. Required roles: artist_divya or super_operator.";
-        } else if (err.message && (err.message.includes("Failed to fetch") || err.message.includes("NetworkError"))) {
-          friendlyMsg = "Connection Error: Unable to contact the Nails by Divya API server. Please check your internet connection or server status.";
-        }
-        statusMsg.textContent = friendlyMsg;
+      let friendlyMsg = err.message || "Invalid administrative credentials or insufficient privileges.";
+      if (err.status === 401) {
+        friendlyMsg = "Authentication Required: The provided administrator token is invalid or has expired.";
+      } else if (err.status === 403 || err.code === "FORBIDDEN_ROLE") {
+        friendlyMsg = "Access Denied: Your account does not have administrator privileges for Nails by Divya. Required roles: artist_divya or super_operator.";
+      } else if (err.message && (err.message.includes("Failed to fetch") || err.message.includes("NetworkError"))) {
+        friendlyMsg = "Connection Error: Unable to contact the Nails by Divya API server. Please check your internet connection or server status.";
       }
+      showAuthStatus(friendlyMsg, true);
     } finally {
       if (submitBtn) {
         submitBtn.disabled = false;

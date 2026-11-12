@@ -225,6 +225,22 @@
       return this.request("/api/auth/me");
     },
 
+    /**
+     * Verifies authenticated Firebase ID token and binds user record in PostgreSQL.
+     * @param {string} [idToken] Optional explicit token; defaults to NailsAuth.getToken()
+     * @returns {Promise<{ status: string, user: object }>}
+     */
+    async verifyPhone(idToken) {
+      const options = {
+        method: "POST",
+      };
+      if (idToken) {
+        options.headers = { Authorization: `Bearer ${idToken}` };
+        options.body = { idToken };
+      }
+      return this.request("/api/auth/verify-phone", options);
+    },
+
     // --------------------------------------------------------------------------
     // CUSTOMER PROFILE
     // --------------------------------------------------------------------------

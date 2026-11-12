@@ -365,10 +365,16 @@
           }
 
           let message = fbErr.message || "Failed to send SMS verification code.";
-          if (fbErr.code === "auth/too-many-requests") {
-            message = "Too many requests. Please wait a few minutes before requesting another code.";
+          if (fbErr.code === "auth/operation-not-allowed") {
+            message = "SMS delivery blocked by Firebase project policy: Region India (+91) must be enabled in Firebase Console (Authentication > Settings > SMS region policy), or this number must be added under Test Phone Numbers.";
+          } else if (fbErr.code === "auth/quota-exceeded") {
+            message = "Firebase SMS daily limit (10 SMS/day) reached. Please wait for daily reset or configure this phone as a Test Phone Number in Firebase Console.";
+          } else if (fbErr.code === "auth/too-many-requests") {
+            message = "Too many SMS requests. Please wait a few minutes before requesting another code.";
           } else if (fbErr.code === "auth/invalid-phone-number") {
-            message = "The phone number format is invalid.";
+            message = "The phone number format is invalid. Please enter a valid 10-digit Indian mobile number.";
+          } else if (fbErr.code === "auth/captcha-check-failed") {
+            message = "reCAPTCHA verification failed or timed out. Please refresh and try again.";
           }
 
           const err = new Error(message);
@@ -448,22 +454,33 @@
         const fbUser = result.user;
         currentToken = await fbUser.getIdToken();
 
-        // Sync with PostgreSQL backend if available
+        // Sync with PostgreSQL backend if available (links UID and resolves roles/profile)
         if (window.NailsApi) {
           try {
-            const meRes = await window.NailsApi.getCurrentUser();
-            currentUser = (meRes && meRes.user) || {
+            const syncRes = typeof window.NailsApi.verifyPhone === "function"
+              ? await window.NailsApi.verifyPhone(currentToken)
+              : await window.NailsApi.getCurrentUser();
+            currentUser = (syncRes && syncRes.user) || {
               id: fbUser.uid,
               phone: fbUser.phoneNumber || pendingPhone,
               firebase_uid: fbUser.uid,
             };
           } catch {
-            currentUser = {
-              id: fbUser.uid,
-              phone: fbUser.phoneNumber || pendingPhone,
-              firebase_uid: fbUser.uid,
-              profile: { full_name: "Customer" },
-            };
+            try {
+              const meRes = await window.NailsApi.getCurrentUser();
+              currentUser = (meRes && meRes.user) || {
+                id: fbUser.uid,
+                phone: fbUser.phoneNumber || pendingPhone,
+                firebase_uid: fbUser.uid,
+              };
+            } catch {
+              currentUser = {
+                id: fbUser.uid,
+                phone: fbUser.phoneNumber || pendingPhone,
+                firebase_uid: fbUser.uid,
+                profile: { full_name: "Customer" },
+              };
+            }
           }
         } else {
           currentUser = {
