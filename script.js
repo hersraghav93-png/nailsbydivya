@@ -1832,12 +1832,48 @@ function initDivvStylist() {
     return now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
 
-  const formatTextWithBreaks = (text) => {
+  const formatDivvMarkdown = (text) => {
     if (!text) return "";
-    return text
+
+    // 1. Strict HTML Entity Escaping (Prevents XSS / script injection)
+    let safe = String(text)
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+
+    // 2. Inline Code: `code`
+    safe = safe.replace(/`([^`\n]+)`/g, "<code>$1</code>");
+
+    // 3. Bold: **text** or __text__
+    safe = safe.replace(/\*\*([^*\n]+?)\*\*/g, "<strong>$1</strong>");
+    safe = safe.replace(/__([^_]+?)__/g, "<strong>$1</strong>");
+
+    // 4. Italic: *text* or _text_ (excluding previously processed <strong> tags)
+    safe = safe.replace(/(^|[^*])\*([^*\n]+?)\*(?!\*)/g, "$1<em>$2</em>");
+    safe = safe.replace(/(^|[^_])_([^_ \n]+?)_(?!_)/g, "$1<em>$2</em>");
+
+    // 5. Line-by-line formatting for lists and breaks
+    const lines = safe.split("\n");
+    const formattedLines = lines.map((line) => {
+      const trimmed = line.trim();
+      // Bullet list: * item or - item or • item
+      const bulletMatch = trimmed.match(/^[-*•]\s+(.+)$/);
+      if (bulletMatch) {
+        return `• ${bulletMatch[1]}`;
+      }
+      // Numbered list: 1. item
+      const numMatch = trimmed.match(/^(\d+)\.\s+(.+)$/);
+      if (numMatch) {
+        return `${numMatch[1]}. ${numMatch[2]}`;
+      }
+      return line;
+    });
+
+    // 6. Paragraphs and line breaks
+    return formattedLines
+      .join("\n")
       .replace(/\n\n+/g, "<br><br>")
       .replace(/\n/g, "<br>");
   };
@@ -1947,7 +1983,7 @@ function initDivvStylist() {
   const renderMessages = () => {
     bodyEl.innerHTML = sessionHistory.map((turn) => {
       const isUser = turn.role === "user";
-      const formattedContent = formatTextWithBreaks(turn.content);
+      const formattedContent = formatDivvMarkdown(turn.content);
       const handoffKeywordRegex = /(chat directly with divya|please chat directly|chat with the artist|personal guidance|divya will personally assist)/i;
       const showHandoff = !isUser && (turn.hasHandoff || handoffKeywordRegex.test(turn.content));
 
@@ -2045,6 +2081,10 @@ function initDivvStylist() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
+
+      if (!res.ok) {
+        throw new Error(`[Divv API HTTP ${res.status}] Service temporarily unavailable.`);
+      }
 
       const data = await res.json();
       hideTyping();
