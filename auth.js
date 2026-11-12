@@ -208,6 +208,14 @@
     },
 
     /**
+     * Indicates whether the client is operating in a local development environment.
+     * @returns {boolean}
+     */
+    isLocalEnvironment() {
+      return isLocalEnvironment();
+    },
+
+    /**
      * Indicates whether real Firebase Auth credentials are active.
      * @returns {boolean}
      */

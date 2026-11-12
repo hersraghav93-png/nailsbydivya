@@ -236,7 +236,16 @@ function initMobileNav() {
   };
 
   navToggle.addEventListener("click", () => toggleMenu());
-  backdrop.addEventListener("click", () => toggleMenu(false));
+
+  const onBackdropDismiss = (e) => {
+    if (e) {
+      if (typeof e.preventDefault === "function") e.preventDefault();
+      if (typeof e.stopPropagation === "function") e.stopPropagation();
+    }
+    toggleMenu(false);
+  };
+  backdrop.addEventListener("click", onBackdropDismiss);
+  backdrop.addEventListener("touchstart", onBackdropDismiss, { passive: false });
 
   navLinks.querySelectorAll("a").forEach((link) => {
     link.addEventListener("click", () => toggleMenu(false));

@@ -275,6 +275,23 @@
   }
 
   /**
+   * Displays a prominent, user-friendly maintenance banner when SMS auth is offline.
+   */
+  function showMaintenanceNotice() {
+    if (!errorBannerEl) return;
+    errorBannerEl.innerHTML = `
+      <div class="auth-maintenance-notice" style="display: flex; flex-direction: column; gap: 0.45rem;">
+        <span style="font-weight: 700; color: #9b1c1c;">Online Client Accounts Notice</span>
+        <span>SMS authentication is currently undergoing maintenance. Online accounts are temporarily offline, but you can complete your order as a guest or contact Nails by Divya on WhatsApp.</span>
+        <a href="https://wa.me/917827437985?text=Hi%20Divya!%20I%20have%20an%20enquiry%20about%20my%20order." target="_blank" rel="noopener" style="display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; margin-top: 0.25rem; padding: 0.45rem 0.85rem; background: #25D366; color: #ffffff; border-radius: 6px; font-weight: 600; font-size: 0.84rem; text-decoration: none;">
+          <span>💬 Contact on WhatsApp</span>
+        </a>
+      </div>
+    `;
+    errorBannerEl.style.display = "block";
+  }
+
+  /**
    * Clears the error banner.
    */
   function clearError() {
@@ -440,6 +457,22 @@
     bindDialogEvents();
     clearError();
     showStep("phone");
+
+    const isConfigured = window.NailsAuth && typeof window.NailsAuth.isConfigured === "function" && window.NailsAuth.isConfigured();
+    const isLocal = window.NailsAuth && typeof window.NailsAuth.isLocalEnvironment === "function" ? window.NailsAuth.isLocalEnvironment() : false;
+
+    if (!isConfigured && !isLocal) {
+      showMaintenanceNotice();
+      if (sendOtpBtn) {
+        sendOtpBtn.disabled = true;
+        sendOtpBtn.title = "SMS authentication is currently undergoing maintenance.";
+      }
+    } else {
+      if (sendOtpBtn) {
+        sendOtpBtn.disabled = false;
+        sendOtpBtn.title = "";
+      }
+    }
 
     if (phoneInputEl && initialPhone) {
       phoneInputEl.value = initialPhone.replace(/\D/g, "").slice(-10);
