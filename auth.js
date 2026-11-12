@@ -528,6 +528,11 @@
       currentToken = null;
       confirmationResult = null;
       pendingPhone = null;
+      try {
+        if (typeof sessionStorage !== "undefined") {
+          sessionStorage.removeItem("nbd_admin_token");
+        }
+      } catch {}
       persistSession();
       notifyAuthChange(null);
     },
