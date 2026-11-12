@@ -21,6 +21,23 @@
       <p class="auth-tagline">Studio Administration &amp; Operations</p>
 
       <form id="admin-login-form" onsubmit="return false;">
+        <!-- Firebase Configuration & Studio Status -->
+        <div id="firebase-status-notice" style="background: rgba(197, 160, 89, 0.12); border: 1px solid rgba(197, 160, 89, 0.3); border-radius: 6px; padding: 0.65rem 0.85rem; margin-bottom: 1.25rem; text-align: left; font-size: 0.78rem; color: var(--text-primary); line-height: 1.45;">
+          <strong>🔐 Studio Security Gate:</strong> Enter your verified Administrator Access Token or Operator Key to sign in.
+          <span id="firebase-setup-detail" style="display: block; font-size: 0.74rem; color: var(--text-muted); margin-top: 0.25rem;">
+            (Firebase Client credentials remain optional and unconfigured in <code>firebase-config.js</code>)
+          </span>
+        </div>
+
+        <!-- Optional Storefront Session Sync -->
+        <div id="storefront-auth-sync-box" style="display: none; background: rgba(46, 125, 50, 0.08); border: 1px solid rgba(46, 125, 50, 0.25); border-radius: 6px; padding: 0.65rem 0.85rem; margin-bottom: 1.25rem; text-align: left; font-size: 0.82rem;">
+          <span style="font-weight: 600; color: #2e7d32;">Active Storefront Session Detected:</span>
+          <p id="storefront-auth-user-label" style="margin: 0.2rem 0 0.5rem; font-size: 0.78rem; color: var(--text-primary);"></p>
+          <button type="button" id="btn-sync-storefront-auth" class="btn btn-secondary" style="width: 100%; padding: 0.45rem; font-size: 0.8rem;">
+            Authenticate with Current Session &rarr;
+          </button>
+        </div>
+
         <div class="form-group" style="text-align: left;">
           <label class="form-label" for="admin-token-input">Administrator Access Token</label>
           <input type="password" id="admin-token-input" class="form-input" placeholder="Enter Firebase ID token or Operator key..." autocomplete="current-password" required>

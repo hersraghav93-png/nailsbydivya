@@ -5,6 +5,99 @@
  * ==========================================================================
  */
 
+/**
+ * ==============================================================================
+ * PRIVACY-FIRST LIGHTWEIGHT ANALYTICS EVENT BUS (`window.NBD_Analytics`)
+ * Nails by Divya Platform — Phase 5.2
+ *
+ * Implements a local, client-side event bus for conversion & funnel tracking:
+ * - product_view, add_to_cart, checkout_start, order_submission,
+ *   booking_submission, whatsapp_click
+ * - Strictly strips all customer PII (names, phones, emails, addresses, notes)
+ * - Zero external paid trackers or third-party cookies
+ * ==============================================================================
+ */
+window.NBD_Analytics = (function () {
+  const subscribers = [];
+  const eventHistory = [];
+
+  function sanitize(data) {
+    if (!data || typeof data !== "object") return {};
+    const clean = { ...data };
+    const piiKeys = [
+      "customer", "name", "customerName", "phone", "customerPhone",
+      "email", "customerEmail", "address", "shippingAddress", "serviceAddress",
+      "notes", "customerNotes", "token", "password", "idToken",
+      "addressLine1", "address_line1", "address_line2"
+    ];
+    piiKeys.forEach((k) => delete clean[k]);
+    return clean;
+  }
+
+  function track(eventName, payload = {}) {
+    const properties = sanitize(payload);
+    const eventRecord = {
+      event: eventName,
+      timestamp: new Date().toISOString(),
+      properties,
+    };
+
+    eventHistory.push(eventRecord);
+    if (eventHistory.length > 50) eventHistory.shift();
+
+    const host = (typeof window !== "undefined" && window.location ? window.location.hostname : "") || "";
+    if (host === "localhost" || host === "127.0.0.1" || host.includes("staging") || host.includes("preview")) {
+      console.log(`[NBD Analytics] ${eventName}:`, properties);
+    }
+
+    try {
+      if (typeof window !== "undefined" && typeof window.dispatchEvent === "function") {
+        window.dispatchEvent(new CustomEvent("nbd_analytics", { detail: eventRecord }));
+      }
+    } catch {}
+
+    subscribers.forEach((fn) => {
+      try {
+        fn(eventRecord);
+      } catch (err) {
+        console.warn("[Analytics Subscriber Error]:", err);
+      }
+    });
+
+    return eventRecord;
+  }
+
+  function subscribe(fn) {
+    if (typeof fn === "function") subscribers.push(fn);
+  }
+
+  function getHistory() {
+    return [...eventHistory];
+  }
+
+  return {
+    track,
+    subscribe,
+    getHistory,
+  };
+})();
+
+// Global delegated listener for WhatsApp interaction analytics
+if (typeof document !== "undefined") {
+  document.addEventListener("click", (e) => {
+    const waTarget = e.target.closest('a[href*="wa.me"], button.whatsapp-button, .whatsapp-floating-btn, #floating-whatsapp-btn');
+    if (waTarget && window.NBD_Analytics) {
+      const href = waTarget.getAttribute("href") || "";
+      const source = waTarget.id || waTarget.className || "whatsapp_link";
+      const context = waTarget.getAttribute("data-wa-context") || (href.includes("text=") ? "custom_inquiry" : "general_inquiry");
+      window.NBD_Analytics.track("whatsapp_click", {
+        source,
+        context,
+      });
+    }
+  });
+}
+
 // ---------------------------------------------------------------------------
 // 01. SINGLE SOURCE OF TRUTH — PRODUCT PRICING & SKU REGISTRY
 // ---------------------------------------------------------------------------
@@ -237,6 +330,21 @@ function initMobileNav() {
 
   navToggle.addEventListener("click", () => toggleMenu());
 
+  // Close button inside mobile drawer
+  const closeBtn = document.getElementById("mobile-drawer-close");
+  if (closeBtn) {
+    closeBtn.addEventListener("click", () => toggleMenu(false));
+  }
+
+  // Quick Cart trigger on mobile header
+  const mobileCartBtn = document.getElementById("mobile-nav-cart-btn");
+  if (mobileCartBtn) {
+    mobileCartBtn.addEventListener("click", () => {
+      toggleMenu(false);
+      openCartDrawer();
+    });
+  }
+
   const onBackdropDismiss = (e) => {
     if (e) {
       if (typeof e.preventDefault === "function") e.preventDefault();
@@ -247,12 +355,14 @@ function initMobileNav() {
   backdrop.addEventListener("click", onBackdropDismiss);
   backdrop.addEventListener("touchstart", onBackdropDismiss, { passive: false });
 
-  navLinks.querySelectorAll("a").forEach((link) => {
-    link.addEventListener("click", () => toggleMenu(false));
+  // Auto-close menu when clicking any nav item or action in drawer
+  navLinks.querySelectorAll("a, button").forEach((item) => {
+    if (item.id === "mobile-drawer-close") return;
+    item.addEventListener("click", () => toggleMenu(false));
   });
 
   window.addEventListener("resize", () => {
-    if (window.innerWidth > 768 && navLinks.classList.contains("is-open")) {
+    if (window.innerWidth > 980 && navLinks.classList.contains("is-open")) {
       toggleMenu(false);
     }
   }, { passive: true });
@@ -811,6 +921,16 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
   const originalPrice = sku && PRODUCT_PRICES[sku] ? PRODUCT_PRICES[sku] : null;
   const effectivePrice = FESTIVE_OFFER_CONFIG.getEffectivePrice(sku) || "₹599";
 
+  // Privacy-first product view analytics tracking
+  if (window.NBD_Analytics) {
+    window.NBD_Analytics.track("product_view", {
+      sku: sku || "WED-005",
+      title: title || "Press-On Set",
+      category: category || "Handmade Collection",
+      price: effectivePrice || "₹599",
+    });
+  }
+
   if (priceEl) {
     if (originalPrice && FESTIVE_OFFER_CONFIG.isEligible(sku)) {
       priceEl.classList.add("festive-pricing");
@@ -896,11 +1016,11 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
   function renderSizingGuide() {
     if (!sizingGuideText) return;
     if (activeSize === "Custom") {
-      sizingGuideText.innerHTML = `Selected: <strong>Custom Sizing</strong> &bull; Tailored fit. Enter measurements or share photo on WhatsApp before crafting!`;
+      sizingGuideText.innerHTML = `Selected: <strong>Custom Sizing</strong> &bull; Tailored to your natural nail beds. Enter your millimeter measurements below or share photos with measuring tape on WhatsApp before crafting. Divya verifies everything directly!`;
       if (customBox) customBox.style.display = "block";
     } else {
       const detail = SIZING_INFO[activeSize] || "";
-      sizingGuideText.innerHTML = `Reference size: <strong>${activeSize}</strong> &bull; ${detail}. Sizing verified directly with Divya before hand-painting!`;
+      sizingGuideText.innerHTML = `Selected Size: <strong>${activeSize}</strong> &bull; ${detail}.<br><span style="color: var(--accent-strong); font-weight: 600;">✦ Sizing Guarantee:</span> Divya confirms your exact nail measurements directly on WhatsApp before hand-painting your set!`;
       if (customBox) customBox.style.display = "none";
     }
   }
@@ -951,6 +1071,19 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
           custom_measurements,
           quantity: 1,
         });
+
+        // Track add to cart event
+        if (window.NBD_Analytics) {
+          window.NBD_Analytics.track("add_to_cart", {
+            sku: targetSku,
+            title: title || "Press-On Set",
+            shape: activeShape,
+            length: activeLength,
+            size: activeSize,
+            hasCustomMeasurements: !!custom_measurements,
+            quantity: 1,
+          });
+        }
 
         if (feedbackEl) {
           feedbackEl.textContent = `✓ "${title}" added to your bag (${activeShape}, ${activeLength}, Size ${activeSize})`;
@@ -1206,6 +1339,18 @@ async function openServiceModal(title, description) {
         const result = await window.NailsApi.createBooking(bookingPayload);
         const bookingNum = result.booking?.bookingNumber || "NBD-BKG-CONFIRMED";
 
+        // Privacy-first booking submission analytics (strictly zero customer PII)
+        if (window.NBD_Analytics) {
+          window.NBD_Analytics.track("booking_submission", {
+            bookingNumber: bookingNum,
+            serviceId: matchedService.id,
+            serviceTitle: title,
+            requestedDate: reqDate,
+            requestedTimeSlot: activeSlot,
+            addonCount: selectedAddons.length,
+          });
+        }
+
         formEl.style.display = "none";
         if (confirmationView) {
           confirmationView.style.display = "flex";
@@ -1264,7 +1409,7 @@ async function refreshCartBadge() {
     const res = await window.NailsApi.getCart();
     activeCartData = res;
     const count = (res.items || []).reduce((acc, it) => acc + (it.quantity || 1), 0);
-    const badges = document.querySelectorAll("#nav-cart-count, #cart-drawer-count");
+    const badges = document.querySelectorAll("#nav-cart-count, #cart-drawer-count, #mobile-cart-count");
     badges.forEach((b) => {
       b.textContent = count;
       b.style.display = count > 0 ? "inline-block" : "none";
@@ -1420,6 +1565,15 @@ async function openCheckoutModal() {
 
   const totals = (activeCartData && activeCartData.totals) || {};
 
+  // Track checkout initiation analytics
+  if (window.NBD_Analytics) {
+    window.NBD_Analytics.track("checkout_start", {
+      itemCount: items.length,
+      subtotalAmount: totals.subtotalAmount || 599,
+      totalAmount: totals.totalAmount || 599,
+    });
+  }
+
   // Render items snippet
   if (itemsListEl) {
     itemsListEl.innerHTML = items.map((it) => `
@@ -1529,6 +1683,16 @@ async function openCheckoutModal() {
         const result = await window.NailsApi.createOrder(orderPayload);
         const orderNum = result.order?.orderNumber || "NBD-ORD-CONFIRMED";
         const orderTotal = result.order?.totalAmount || totals.totalAmount || 599;
+
+        // Privacy-first order submission analytics (strictly zero customer PII)
+        if (window.NBD_Analytics) {
+          window.NBD_Analytics.track("order_submission", {
+            orderNumber: orderNum,
+            totalAmount: orderTotal,
+            itemCount: (result.order?.items || []).length || (activeCartData?.items || []).length || 1,
+            hasDiscount: (totals.discountAmount || 0) > 0,
+          });
+        }
 
         // Clear bag
         await window.NailsApi.clearCart().catch(() => {});

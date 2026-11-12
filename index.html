@@ -91,25 +91,23 @@
        ========================================================================= -->
   <header class="site-header" id="site-header">
     <nav class="navbar" aria-label="Main Navigation">
+      <!-- Brand Submark & Name -->
       <a class="brand" href="index.html#home" aria-label="Nails by Divya Homepage">
         <img src="assets/branding/icon1submark%20gold.png" alt="" class="brand-icon" aria-hidden="true">
         <span class="brand-name">Nails by Divya</span>
       </a>
-      
-      <button class="nav-toggle" aria-expanded="false" aria-label="Toggle navigation menu">
-        <span></span>
-        <span></span>
-        <span></span>
-      </button>
 
-      <div class="nav-links" id="nav-links">
+      <!-- Primary Editorial Navigation (5 Focused Links) -->
+      <div class="nav-primary" id="nav-primary">
         <a href="#home" class="nav-link is-active">Home</a>
-        <a href="#about" class="nav-link">Meet Divya</a>
-        <a href="#shop" class="nav-link">Press-On Nails</a>
+        <a href="#shop" class="nav-link">Press-on Nails</a>
         <a href="#services" class="nav-link">At-Home Services</a>
-        <a href="#custom" class="nav-link">Custom Set</a>
         <a href="#portfolio" class="nav-link">Lookbook</a>
-        <a href="#trust" class="nav-link">Why Us</a>
+        <a href="#about" class="nav-link">About Divya</a>
+      </div>
+
+      <!-- Essential Right-Side Action Suite -->
+      <div class="nav-actions" id="nav-actions">
         <a href="#divv" class="nav-divv-btn" id="nav-divv-btn" aria-label="Open Ask Divv AI Stylist">Ask Divv 💅🏻</a>
         <button type="button" class="nav-auth-btn" id="nav-auth-btn" aria-label="Sign In or View Account">
           <span class="nav-auth-icon" aria-hidden="true">👤</span>
@@ -120,7 +118,68 @@
           <span class="nav-cart-label">Bag</span>
           <span class="nav-cart-badge" id="nav-cart-count" style="display: none;">0</span>
         </button>
-        <a href="#contact" class="nav-cta-link">Book / Enquire</a>
+        <a href="#contact" class="nav-cta-link" id="nav-book-btn">Book / Enquire</a>
+      </div>
+
+      <!-- Mobile Quick Actions & Hamburger Toggle -->
+      <div class="nav-mobile-bar">
+        <button type="button" class="nav-cart-btn mobile-cart-trigger" id="mobile-nav-cart-btn" aria-label="View Shopping Bag">
+          <span class="nav-cart-icon" aria-hidden="true">🛍️</span>
+          <span class="nav-cart-badge" id="mobile-cart-count" style="display: none;">0</span>
+        </button>
+        <button class="nav-toggle" aria-expanded="false" aria-label="Toggle navigation menu">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+      </div>
+
+      <!-- Slide-in Mobile Drawer (Maintains #nav-links for script compatibility) -->
+      <div class="nav-links" id="nav-links" role="dialog" aria-modal="true" aria-label="Mobile Navigation Menu">
+        <div class="mobile-drawer-header">
+          <div class="mobile-drawer-brand">
+            <img src="assets/branding/icon1submark%20gold.png" alt="" class="brand-icon" aria-hidden="true">
+            <span class="brand-name">Nails by Divya</span>
+          </div>
+          <button type="button" class="mobile-drawer-close" id="mobile-drawer-close" aria-label="Close menu">&times;</button>
+        </div>
+
+        <div class="mobile-drawer-nav">
+          <div class="mobile-nav-section">
+            <span class="mobile-nav-label">Studio Navigation</span>
+            <a href="#home" class="nav-link is-active">Home</a>
+            <a href="#shop" class="nav-link">Press-on Nails</a>
+            <a href="#services" class="nav-link">At-Home Services</a>
+            <a href="#portfolio" class="nav-link">Lookbook</a>
+            <a href="#about" class="nav-link">About Divya</a>
+          </div>
+
+          <div class="mobile-nav-section">
+            <span class="mobile-nav-label">Bespoke &amp; Studio Care</span>
+            <a href="#custom" class="nav-link">Custom Set Consultation</a>
+            <a href="#trust" class="nav-link">Why Nails by Divya</a>
+            <a href="#reviews" class="nav-link">Client Reviews</a>
+            <a href="#faq" class="nav-link">Frequently Asked Questions</a>
+            <a href="account.html" class="nav-link">My Account &amp; Sizing</a>
+          </div>
+        </div>
+
+        <div class="mobile-drawer-actions">
+          <a href="#divv" class="button secondary-button mobile-divv-action" id="mobile-drawer-divv-btn">
+            <span>Ask Divv AI Stylist 💅🏻</span>
+          </a>
+          <a href="#contact" class="button primary-button mobile-book-action" id="mobile-drawer-book-btn">
+            <span>Book / Enquire &rarr;</span>
+          </a>
+          <button type="button" class="button secondary-button nav-auth-btn mobile-auth-action" id="mobile-drawer-auth-btn" style="width: 100%; justify-content: center;">
+            <span class="nav-auth-icon" aria-hidden="true">👤</span>
+            <span class="nav-auth-label">Sign In / Account</span>
+          </button>
+        </div>
+
+        <div class="mobile-drawer-footer">
+          <span>Handmade in Delhi NCR &bull; Pan-India Delivery</span>
+        </div>
       </div>
     </nav>
   </header>
@@ -1290,8 +1349,11 @@
       <div class="modal-sizing-box">
         <div class="modal-sizing-header">
           <span class="modal-sizing-title">Select Nail Size</span>
-          <span class="modal-sizing-badge">10 Custom Nails</span>
+          <span class="modal-sizing-badge">10 Bespoke Soft Gel Nails</span>
         </div>
+        <p style="font-size: 0.78rem; color: var(--accent-strong); margin: 0 0 0.5rem 0; font-weight: 600;">
+          ✦ Perfect Fit Guarantee: Divya personally confirms your exact nail sizes on WhatsApp before crafting.
+        </p>
         <div class="modal-size-chips" role="radiogroup" aria-label="Select nail size">
           <button type="button" class="size-chip" data-size="XS" role="radio" aria-checked="false">XS (14/11/12/10/8mm)</button>
           <button type="button" class="size-chip" data-size="S" role="radio" aria-checked="false">S (15/12/13/11/8mm)</button>
@@ -1471,6 +1533,19 @@
         <div style="font-size: 0.85rem; color: var(--text-muted);">
           Status: <strong class="status-pill status-requested">REQUESTED</strong>
         </div>
+
+        <!-- Practical Next-Steps Guidance -->
+        <div class="confirmation-next-steps" style="background: rgba(250, 237, 240, 0.45); border: 1px solid rgba(217, 137, 155, 0.35); border-radius: var(--radius-md); padding: 0.85rem 1rem; text-align: left; width: 100%; max-width: 420px; margin: 0.5rem 0;">
+          <h4 style="font-size: 0.86rem; font-weight: 700; color: var(--heading); margin: 0 0 0.35rem 0; display: flex; align-items: center; gap: 0.4rem;">
+            <span>🗓️</span> Next Steps for Appointment Confirmation
+          </h4>
+          <ol style="font-size: 0.8rem; color: var(--text); margin: 0; padding-left: 1.2rem; line-height: 1.55;">
+            <li><strong>Manual Schedule Check:</strong> Divya personally checks studio schedule &amp; Delhi NCR travel logistics.</li>
+            <li><strong>WhatsApp Confirmation:</strong> Divya messages you on WhatsApp to confirm or propose slot timing.</li>
+            <li><strong>No Online Payment:</strong> Payment is collected in person only after your appointment is completed.</li>
+          </ol>
+        </div>
+
         <div style="display: flex; flex-direction: column; gap: 0.65rem; width: 100%; max-width: 380px; margin-top: 0.5rem;">
           <a href="#" target="_blank" rel="noopener noreferrer" id="service-confirmation-whatsapp-btn" class="button primary-button">
             <span>Message Divya on WhatsApp &rarr;</span>
@@ -1663,6 +1738,19 @@
         <div style="font-size: 0.85rem; color: var(--text-muted);">
           Order Status: <strong class="status-pill status-pending">PENDING</strong> &bull; Payment: <strong class="status-pill status-pending">PENDING</strong>
         </div>
+
+        <!-- Practical Next-Steps Guidance -->
+        <div class="confirmation-next-steps" style="background: rgba(250, 237, 240, 0.45); border: 1px solid rgba(217, 137, 155, 0.35); border-radius: var(--radius-md); padding: 0.85rem 1rem; text-align: left; width: 100%; max-width: 420px; margin: 0.5rem 0;">
+          <h4 style="font-size: 0.86rem; font-weight: 700; color: var(--heading); margin: 0 0 0.35rem 0; display: flex; align-items: center; gap: 0.4rem;">
+            <span>📋</span> What happens next?
+          </h4>
+          <ol style="font-size: 0.8rem; color: var(--text); margin: 0; padding-left: 1.2rem; line-height: 1.55;">
+            <li><strong>Measurement Verification:</strong> Divya reaches out on WhatsApp to double-check your nail sizes.</li>
+            <li><strong>Studio UPI Payment:</strong> We share our studio QR code for payment confirmation.</li>
+            <li><strong>Bespoke Crafting:</strong> Your set is individually hand-painted with soft gel and dispatched via express courier.</li>
+          </ol>
+        </div>
+
         <p style="font-size: 0.82rem; color: var(--text-muted); max-width: 420px; margin: 0;">
           Our concierge will contact you on WhatsApp to confirm your nail sizing, arrange delivery details, and share studio UPI payment details.
         </p>
@@ -1823,15 +1911,16 @@
           </div>
         </div>
 
-        <!-- Col 2: The Three Journeys -->
+        <!-- Col 2: The Three Journeys & Studio Discovery -->
         <div class="footer-col">
           <h4 class="footer-col-title">Explore</h4>
           <ul class="footer-nav-list">
-            <li><a href="press-on-nails-india.html">Shop Press-On Nails</a></li>
-            <li><a href="nail-extensions.html">At-Home Services (Delhi NCR)</a></li>
-            <li><a href="nail-art.html">Custom Nail Art Lookbook</a></li>
-            <li><a href="#custom">Match the Moment (Custom Sets)</a></li>
-            <li><a href="#portfolio">Recent Client Work</a></li>
+            <li><a href="#shop">Shop Press-On Nails</a></li>
+            <li><a href="#services">At-Home Services (Delhi NCR)</a></li>
+            <li><a href="#custom">Custom Set Consultation</a></li>
+            <li><a href="#portfolio">Lookbook &amp; Client Work</a></li>
+            <li><a href="#about">About Divya (Meet the Artist)</a></li>
+            <li><a href="#trust">Why Choose Nails by Divya</a></li>
             <li><a href="#divv" class="footer-divv-trigger">Ask Divv AI Stylist 💅🏻</a></li>
           </ul>
         </div>
@@ -1843,8 +1932,9 @@
             <li><a href="account.html">My Account &amp; Sizing Profile</a></li>
             <li><a href="#sizing-guide">How to Measure Nail Size</a></li>
             <li><a href="#trust">Hygiene &amp; Safety Protocol</a></li>
-            <li><a href="#faq">Frequently Asked Questions</a></li>
             <li><a href="#reviews">Client Reviews</a></li>
+            <li><a href="#faq">Frequently Asked Questions</a></li>
+            <li><a href="admin.html">Studio Admin Portal</a></li>
           </ul>
         </div>
 

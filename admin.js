@@ -91,6 +91,17 @@
   // 1. AUTHENTICATION & IDENTITY DERIVATION
   // ---------------------------------------------------------------------------
   async function checkAuth() {
+    // Check if user is logged into storefront via NailsAuth
+    if (!state.token && typeof NailsAuth !== "undefined" && typeof NailsAuth.isLoggedIn === "function" && NailsAuth.isLoggedIn()) {
+      const user = NailsAuth.getUser ? NailsAuth.getUser() : null;
+      const syncBox = document.getElementById("storefront-auth-sync-box");
+      const userLabel = document.getElementById("storefront-auth-user-label");
+      if (syncBox && user) {
+        syncBox.style.display = "block";
+        if (userLabel) userLabel.textContent = `Client: ${user.phone || user.id || "Authenticated Session"}`;
+      }
+    }
+
     if (!state.token) {
       showAuthView();
       return;
@@ -138,6 +149,22 @@
     showAuthView();
   }
 
+  // Handle Storefront Session Sync Button
+  const syncBtn = document.getElementById("btn-sync-storefront-auth");
+  if (syncBtn) {
+    syncBtn.addEventListener("click", async () => {
+      if (typeof NailsAuth !== "undefined" && typeof NailsAuth.getToken === "function") {
+        const token = await NailsAuth.getToken();
+        if (token) {
+          const tokenInput = document.getElementById("admin-token-input");
+          if (tokenInput) tokenInput.value = token;
+          const loginForm = document.getElementById("admin-login-form");
+          if (loginForm) loginForm.dispatchEvent(new Event("submit"));
+        }
+      }
+    });
+  }
+
   // Handle Login Form Submission
   const loginForm = document.getElementById("admin-login-form");
   if (loginForm) {
@@ -167,7 +194,16 @@
           statusMsg.style.display = "block";
           statusMsg.style.background = "var(--danger-light)";
           statusMsg.style.color = "var(--danger)";
-          statusMsg.textContent = err.message || "Invalid administrative credentials or insufficient privileges.";
+
+          let friendlyMsg = err.message || "Invalid administrative credentials or insufficient privileges.";
+          if (err.status === 401) {
+            friendlyMsg = "Authentication Required: The provided administrator token is invalid or has expired.";
+          } else if (err.status === 403 || err.code === "FORBIDDEN_ROLE") {
+            friendlyMsg = "Access Denied: Your account does not have administrator privileges for Nails by Divya. Required roles: artist_divya or super_operator.";
+          } else if (err.message && (err.message.includes("Failed to fetch") || err.message.includes("NetworkError"))) {
+            friendlyMsg = "Connection Error: Unable to contact the Nails by Divya API server. Please check your internet connection or server status.";
+          }
+          statusMsg.textContent = friendlyMsg;
         }
       } finally {
         submitBtn.disabled = false;
