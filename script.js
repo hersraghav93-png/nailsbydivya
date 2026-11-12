@@ -56,6 +56,29 @@ window.NBD_Analytics = (function () {
       }
     } catch {}
 
+    // Asynchronous privacy-safe persistence to backend
+    try {
+      const apiUrl = (window.NAILS_CONFIG && window.NAILS_CONFIG.apiUrl) || "";
+      const endpoint = `${apiUrl}/api/analytics/events`;
+      const body = JSON.stringify({
+        event: eventName,
+        timestamp: eventRecord.timestamp,
+        properties,
+      });
+
+      if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
+        const blob = new Blob([body], { type: "application/json" });
+        navigator.sendBeacon(endpoint, blob);
+      } else if (typeof fetch === "function") {
+        fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body,
+          keepalive: true,
+        }).catch(() => {});
+      }
+    } catch {}
+
     subscribers.forEach((fn) => {
       try {
         fn(eventRecord);
@@ -144,19 +167,27 @@ const FESTIVE_OFFER_CONFIG = {
 
   /**
    * Identifies whether a SKU qualifies for the festive press-on promotional price.
+   * Matches backend pricingEngine: active promotion applies to eligible press-on sets where basePrice > 599.
    */
-  isEligible(sku) {
-    return Boolean(this.active && sku && PRODUCT_PRICES[sku]);
+  isEligible(sku, productObj = null) {
+    if (!this.active || !sku) return false;
+    if (productObj && (productObj.is_promotional === false || productObj.is_festive_eligible === false)) {
+      return false;
+    }
+    const priceStr = PRODUCT_PRICES[sku] || (productObj && productObj.base_price ? `₹${productObj.base_price}` : null);
+    if (!priceStr) return false;
+    const baseNum = parseInt(String(priceStr).replace(/[^0-9]/g, ""), 10);
+    return !isNaN(baseNum) && baseNum > 599;
   },
 
   /**
    * Returns the current active offer price for quotation and checkout.
    */
-  getEffectivePrice(sku) {
-    if (this.isEligible(sku)) {
+  getEffectivePrice(sku, productObj = null) {
+    if (this.isEligible(sku, productObj)) {
       return this.promoPrice;
     }
-    return sku && PRODUCT_PRICES[sku] ? PRODUCT_PRICES[sku] : null;
+    return (sku && PRODUCT_PRICES[sku]) || (productObj && productObj.base_price ? `₹${productObj.base_price}` : null);
   }
 };
 
@@ -165,7 +196,7 @@ const FESTIVE_OFFER_CONFIG = {
 // ---------------------------------------------------------------------------
 const CHECKOUT_CONFIG = {
   activeMethod: "whatsapp", // Options: "whatsapp" | "shopify_redirect"
-  whatsappNumber: "917827437985",
+  whatsappNumber: (typeof window !== "undefined" && window.NAILS_CONFIG && window.NAILS_CONFIG.business && window.NAILS_CONFIG.business.phoneRaw) || "918447391310",
   brandName: "Nails by Divya",
 
   /**
@@ -276,7 +307,11 @@ function initProductPrices() {
       `;
     } else {
       priceEl.classList.remove("festive-pricing");
-      priceEl.textContent = originalPrice;
+      priceEl.innerHTML = `
+        <div class="product-price-row">
+          <span class="product-price-regular" style="font-size: 1.15rem; font-weight: 700; color: var(--accent-strong);">${originalPrice}</span>
+        </div>
+      `;
     }
 
     const orderBtn = card.querySelector("button[data-action='order']");
@@ -919,7 +954,8 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
   if (feedbackEl) { feedbackEl.textContent = ""; feedbackEl.style.display = "none"; }
 
   const originalPrice = sku && PRODUCT_PRICES[sku] ? PRODUCT_PRICES[sku] : null;
-  const effectivePrice = FESTIVE_OFFER_CONFIG.getEffectivePrice(sku) || "₹599";
+  const isEligible = FESTIVE_OFFER_CONFIG.isEligible(sku);
+  const effectivePrice = FESTIVE_OFFER_CONFIG.getEffectivePrice(sku) || (originalPrice || "₹999");
 
   // Privacy-first product view analytics tracking
   if (window.NBD_Analytics) {
@@ -927,12 +963,12 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
       sku: sku || "WED-005",
       title: title || "Press-On Set",
       category: category || "Handmade Collection",
-      price: effectivePrice || "₹599",
+      price: effectivePrice,
     });
   }
 
   if (priceEl) {
-    if (originalPrice && FESTIVE_OFFER_CONFIG.isEligible(sku)) {
+    if (originalPrice && isEligible) {
       priceEl.classList.add("festive-pricing");
       priceEl.innerHTML = `
         <div class="product-price-row">
@@ -944,7 +980,11 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
       priceEl.style.display = "flex";
     } else if (originalPrice) {
       priceEl.classList.remove("festive-pricing");
-      priceEl.textContent = originalPrice;
+      priceEl.innerHTML = `
+        <div class="product-price-row">
+          <span class="product-price-regular" style="font-size: 1.25rem; font-weight: 700; color: var(--accent-strong);">${originalPrice}</span>
+        </div>
+      `;
       priceEl.style.display = "block";
     } else {
       priceEl.style.display = "none";
@@ -1020,7 +1060,7 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
       if (customBox) customBox.style.display = "block";
     } else {
       const detail = SIZING_INFO[activeSize] || "";
-      sizingGuideText.innerHTML = `Selected Size: <strong>${activeSize}</strong> &bull; ${detail}.<br><span style="color: var(--accent-strong); font-weight: 600;">✦ Sizing Guarantee:</span> Divya confirms your exact nail measurements directly on WhatsApp before hand-painting your set!`;
+      sizingGuideText.innerHTML = `Selected Size: <strong>${activeSize}</strong> &bull; ${detail}.<br><span style="color: var(--accent-strong); font-weight: 600;">✦ Sizing Verification:</span> Divya confirms your exact nail measurements directly on WhatsApp before hand-painting your set!`;
       if (customBox) customBox.style.display = "none";
     }
   }
@@ -1360,7 +1400,7 @@ async function openServiceModal(title, description) {
           const waBtn = document.getElementById("service-confirmation-whatsapp-btn");
           if (waBtn) {
             const waText = encodeURIComponent(`Hi Divya! I have submitted appointment request *${bookingNum}* for *${title}* on ${reqDate} (${activeSlot}) in Delhi NCR. Please confirm your availability.`);
-            waBtn.href = `https://wa.me/917827437985?text=${waText}`;
+            waBtn.href = `https://wa.me/${CHECKOUT_CONFIG.whatsappNumber}?text=${waText}`;
           }
 
           const closeBtn = document.getElementById("service-confirmation-close-btn");
@@ -1707,7 +1747,7 @@ async function openCheckoutModal() {
           const waBtn = document.getElementById("checkout-confirmation-whatsapp-btn");
           if (waBtn) {
             const waText = encodeURIComponent(`Hi Divya! I have placed order *${orderNum}* for ₹${orderTotal} with delivery to ${city}. Please verify my nail measurements and share studio UPI payment details.`);
-            waBtn.href = `https://wa.me/917827437985?text=${waText}`;
+            waBtn.href = `https://wa.me/${CHECKOUT_CONFIG.whatsappNumber}?text=${waText}`;
           }
         }
       } catch (err) {
@@ -2163,7 +2203,7 @@ function initDivvStylist() {
       let handoffMarkup = "";
       if (showHandoff) {
         handoffMarkup = `
-          <a href="https://wa.me/917827437985?text=Hi%20Divya!%20I%20was%20chatting%20with%20Divv%20and%20I'd%20love%20some%20help%20with%20my%20nails." target="_blank" rel="noopener noreferrer" class="divv-handoff-btn">
+          <a href="https://wa.me/${CHECKOUT_CONFIG.whatsappNumber}?text=Hi%20Divya!%20I%20was%20chatting%20with%20Divv%20and%20I'd%20love%20some%20help%20with%20my%20nails." target="_blank" rel="noopener noreferrer" class="divv-handoff-btn">
             <span>💬 Chat with the Artist</span>
           </a>
         `;

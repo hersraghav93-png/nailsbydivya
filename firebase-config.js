@@ -67,6 +67,16 @@
       // Backend Express API URL (Local, Staging, or Production)
       apiUrl: resolvedApiUrl,
 
+      // Dedicated Nails by Divya Business Configuration (Single Source of Truth)
+      business: {
+        phone: "+91 84473 91310",
+        phoneRaw: "918447391310",
+        phoneFormatted: "+91 84473 91310",
+        whatsappUrl: "https://wa.me/918447391310",
+        email: "Nailsbydivyaa@gmail.com",
+        brandName: "Nails by Divya",
+      },
+
       // Firebase Web App Configuration (Populate from Firebase Console in staging/prod)
       firebase: {
         apiKey: "",

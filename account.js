@@ -374,8 +374,9 @@
       else if (orderStatus === "COMPLETED") { statusClass = "status-delivered"; statusLabel = "Completed"; }
       else if (orderStatus === "CANCELLED") { statusClass = "status-cancelled"; statusLabel = "Cancelled"; }
 
+      const businessPhone = (window.NAILS_CONFIG && window.NAILS_CONFIG.business && window.NAILS_CONFIG.business.phoneRaw) || "918447391310";
       const waText = encodeURIComponent(`Hi Divya! Regarding my press-on order *${orderNum}* (₹${totalAmount}): please let me know the current status and payment/sizing verification.`);
-      const waUrl = `https://wa.me/917827437985?text=${waText}`;
+      const waUrl = `https://wa.me/${businessPhone}?text=${waText}`;
 
       return `
         <article class="order-history-card">
@@ -454,8 +455,9 @@
       else if (bookingStatus === "DECLINED" || bookingStatus.includes("CANCEL")) { statusClass = "status-declined"; statusLabel = "Declined / Cancelled"; }
       else if (bookingStatus === "COMPLETED") { statusClass = "status-delivered"; statusLabel = "Completed"; }
 
+      const businessPhone = (window.NAILS_CONFIG && window.NAILS_CONFIG.business && window.NAILS_CONFIG.business.phoneRaw) || "918447391310";
       const waText = encodeURIComponent(`Hi Divya! Regarding my at-home appointment *${bookingNum}* for *${serviceName}* on ${requestedDate} (${requestedSlot}): please let me know your availability.`);
-      const waUrl = `https://wa.me/917827437985?text=${waText}`;
+      const waUrl = `https://wa.me/${businessPhone}?text=${waText}`;
 
       return `
         <article class="booking-history-card">
@@ -549,7 +551,7 @@
             <strong>Studio Concierge Note:</strong> All handmade press-on sets are hand-painted by Divya. Payment instructions and sizing double-checks are completed directly via WhatsApp before production.
           </div>
 
-          <a href="https://wa.me/917827437985?text=${encodeURIComponent(`Hi Divya! Regarding my order ${o.orderNumber}: I am checking in on sizing and payment confirmation.`)}" target="_blank" rel="noopener noreferrer" class="button primary-button" style="width: 100%; text-align: center;">
+          <a href="https://wa.me/${(window.NAILS_CONFIG && window.NAILS_CONFIG.business && window.NAILS_CONFIG.business.phoneRaw) || '918447391310'}?text=${encodeURIComponent(`Hi Divya! Regarding my order ${o.orderNumber}: I am checking in on sizing and payment confirmation.`)}" target="_blank" rel="noopener noreferrer" class="button primary-button" style="width: 100%; text-align: center;">
             Contact Studio Concierge on WhatsApp &rarr;
           </a>
         `;
@@ -614,7 +616,7 @@
             <strong>Travel &amp; Scheduling Protocol:</strong> Divya personally confirms appointment slots based on travel logistics across Delhi NCR. No prepayment is taken online.
           </div>
 
-          <a href="https://wa.me/917827437985?text=${encodeURIComponent(`Hi Divya! Regarding my appointment ${b.bookingNumber} for ${b.serviceName} on ${b.requestedDate}: let me know your availability.`)}" target="_blank" rel="noopener noreferrer" class="button primary-button" style="width: 100%; text-align: center;">
+          <a href="https://wa.me/${(window.NAILS_CONFIG && window.NAILS_CONFIG.business && window.NAILS_CONFIG.business.phoneRaw) || '918447391310'}?text=${encodeURIComponent(`Hi Divya! Regarding my appointment ${b.bookingNumber} for ${b.serviceName} on ${b.requestedDate}: let me know your availability.`)}" target="_blank" rel="noopener noreferrer" class="button primary-button" style="width: 100%; text-align: center;">
             Confirm Appointment via WhatsApp &rarr;
           </a>
         `;

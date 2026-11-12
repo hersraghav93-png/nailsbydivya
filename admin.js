@@ -22,7 +22,7 @@
 
   // State Management
   const state = {
-    token: localStorage.getItem("nbd_admin_token") || null,
+    token: sessionStorage.getItem("nbd_admin_token") || null,
     adminUser: null,
     currentTab: "overview",
     orders: [],
@@ -145,7 +145,7 @@
   function logout() {
     state.token = null;
     state.adminUser = null;
-    localStorage.removeItem("nbd_admin_token");
+    sessionStorage.removeItem("nbd_admin_token");
     showAuthView();
   }
 
@@ -184,7 +184,7 @@
         state.token = token;
         const data = await adminFetch("/api/admin/me");
         state.adminUser = data.admin;
-        localStorage.setItem("nbd_admin_token", token);
+        sessionStorage.setItem("nbd_admin_token", token);
         renderAdminUserPill();
         showAppView();
         loadActiveTabData();

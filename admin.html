@@ -23,9 +23,9 @@
       <form id="admin-login-form" onsubmit="return false;">
         <!-- Firebase Configuration & Studio Status -->
         <div id="firebase-status-notice" style="background: rgba(197, 160, 89, 0.12); border: 1px solid rgba(197, 160, 89, 0.3); border-radius: 6px; padding: 0.65rem 0.85rem; margin-bottom: 1.25rem; text-align: left; font-size: 0.78rem; color: var(--text-primary); line-height: 1.45;">
-          <strong>🔐 Studio Security Gate:</strong> Enter your verified Administrator Access Token or Operator Key to sign in.
+          <strong>🔐 Studio Security Gate:</strong> Enter your verified Firebase Administrator ID Token to sign in.
           <span id="firebase-setup-detail" style="display: block; font-size: 0.74rem; color: var(--text-muted); margin-top: 0.25rem;">
-            (Firebase Client credentials remain optional and unconfigured in <code>firebase-config.js</code>)
+            (Requires authenticated Firebase session with <code>artist_divya</code> or <code>super_operator</code> role in PostgreSQL)
           </span>
         </div>
 
@@ -39,10 +39,10 @@
         </div>
 
         <div class="form-group" style="text-align: left;">
-          <label class="form-label" for="admin-token-input">Administrator Access Token</label>
-          <input type="password" id="admin-token-input" class="form-input" placeholder="Enter Firebase ID token or Operator key..." autocomplete="current-password" required>
+          <label class="form-label" for="admin-token-input">Firebase Administrator ID Token</label>
+          <input type="password" id="admin-token-input" class="form-input" placeholder="Paste verified Firebase Administrator ID Token..." autocomplete="current-password" required>
           <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem;">
-            Authenticate with verified operator credentials or Firebase token.
+            Cryptographically verified against Google Firebase Admin SDK and PostgreSQL RBAC.
           </p>
         </div>
 
@@ -199,7 +199,7 @@
                 <span class="metric-icon">🚚</span>
               </div>
               <div class="metric-value" id="metric-awaiting-dispatch">-</div>
-              <div class="metric-subtext">Sets ready for express courier</div>
+              <div class="metric-subtext">Sets ready for courier dispatch</div>
             </div>
           </div>
 
