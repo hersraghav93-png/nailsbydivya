@@ -139,10 +139,8 @@
         const user = NailsAuth.getUser ? NailsAuth.getUser() : null;
         const syncBox = document.getElementById("storefront-auth-sync-box");
         const userLabel = document.getElementById("storefront-auth-user-label");
-        if (syncBox && user) {
-          syncBox.style.display = "block";
-          if (userLabel) userLabel.textContent = `Studio Artist: ${user.phone || user.id || "Authenticated Session"}`;
-        }
+        const custBox = document.getElementById("admin-customer-session-box");
+        const custPhone = document.getElementById("customer-session-phone");
 
         // Attempt seamless auto-login with existing session token
         try {
@@ -161,7 +159,15 @@
           state.token = null;
           console.debug("[Admin Auth] Seamless auto-login notice:", autoErr.message);
           if (autoErr.status === 403 || autoErr.code === "FORBIDDEN_ROLE") {
+            if (custBox) {
+              custBox.style.display = "block";
+              if (custPhone && user) custPhone.textContent = user.phone || user.id || "+91 Mobile";
+            }
+            if (syncBox) syncBox.style.display = "none";
             showAuthStatus("Access Denied: The active session does not have administrator privileges (requires artist_divya or super_operator).", true);
+          } else if (syncBox && user) {
+            syncBox.style.display = "block";
+            if (userLabel) userLabel.textContent = `Studio User: ${user.phone || user.id || "Authenticated Session"}`;
           }
         }
       }
@@ -184,13 +190,23 @@
     if (!state.adminUser) return;
     const nameEl = document.getElementById("user-display-name");
     const roleEl = document.getElementById("user-role-tag");
-    if (nameEl) nameEl.textContent = state.adminUser.displayName || state.adminUser.phone || "Admin";
-    if (roleEl) {
-      const roles = state.adminUser.roles || [];
-      roleEl.textContent = roles.includes("super_operator")
-        ? "Super Operator"
-        : (roles.includes("artist_divya") ? "Lead Artist (Divya)" : roles[0] || "Staff");
+    const roles = state.adminUser.roles || [];
+    const isOwner = roles.includes("super_operator");
+    const isArtist = roles.includes("artist_divya");
+
+    if (nameEl) {
+      nameEl.textContent = state.adminUser.displayName || (isOwner ? "Raghav (Owner)" : (isArtist ? "Divya (Artist)" : state.adminUser.phone || "Admin"));
     }
+    if (roleEl) {
+      roleEl.textContent = isOwner
+        ? "Owner / Super Operator"
+        : (isArtist ? "Lead Artist (Divya)" : (roles[0] || "Staff"));
+    }
+
+    // Toggle Owner-only navigation items
+    document.querySelectorAll(".owner-only-nav").forEach((el) => {
+      el.style.display = isOwner ? "" : "none";
+    });
   }
 
   function logout() {
@@ -243,6 +259,17 @@
           syncBtn.innerHTML = originalText;
         }
       }
+    });
+  }
+
+  // Handle Customer Session Switch Button
+  const custSwitchBtn = document.getElementById("btn-customer-logout-switch");
+  if (custSwitchBtn) {
+    custSwitchBtn.addEventListener("click", () => {
+      logout();
+      const custBox = document.getElementById("admin-customer-session-box");
+      if (custBox) custBox.style.display = "none";
+      clearAuthStatus();
     });
   }
 
@@ -441,6 +468,15 @@
   // 2. TAB NAVIGATION
   // ---------------------------------------------------------------------------
   window.adminNavigateTo = function (tabId) {
+    const ownerOnlyTabs = ["staff", "settings", "audit-logs"];
+    if (ownerOnlyTabs.includes(tabId)) {
+      const roles = (state.adminUser && state.adminUser.roles) || [];
+      if (!roles.includes("super_operator")) {
+        alert("Access Restricted: This section is restricted to the Owner (super_operator).");
+        return;
+      }
+    }
+
     state.currentTab = tabId;
 
     document.querySelectorAll(".nav-link").forEach((btn) => {
@@ -462,6 +498,9 @@
         portfolio: "Nail Art Lookbook CMS",
         reviews: "Review Moderation",
         communications: "WhatsApp Dispatch Queue",
+        staff: "Staff & Role Permissions",
+        settings: "Studio Operational Settings",
+        "audit-logs": "Security Audit Trail",
       };
       titleEl.textContent = titles[tabId] || "Dashboard";
     }
@@ -520,6 +559,15 @@
         break;
       case "communications":
         loadCommunications();
+        break;
+      case "staff":
+        loadStaff();
+        break;
+      case "settings":
+        loadSettings();
+        break;
+      case "audit-logs":
+        loadAuditLogs();
         break;
     }
   }
@@ -1659,6 +1707,117 @@
       alert("Failed to retry notification: " + err.message);
     }
   };
+
+  // ---------------------------------------------------------------------------
+  // 11B. OWNER OPERATIONS: STAFF, SETTINGS, AUDIT LOGS (super_operator)
+  // ---------------------------------------------------------------------------
+  async function loadStaff() {
+    const tbody = document.getElementById("staff-table-body");
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">Loading staff accounts...</td></tr>`;
+
+    try {
+      const data = await adminFetch("/api/admin/staff");
+      const staff = data.staff || [];
+      if (staff.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">No administrative staff records found.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = staff.map((s) => {
+        const rolePillClass = s.roleId === "super_operator" ? "badge-verified" : (s.roleId === "artist_divya" ? "badge-pending" : "badge-outline");
+        const statusClass = s.isActive ? "badge-verified" : "badge-failed";
+        const perms = Array.isArray(s.permissions) ? s.permissions : [];
+        const permSnippet = perms.slice(0, 3).join(", ") + (perms.length > 3 ? ` +${perms.length - 3} more` : "");
+
+        return `
+          <tr>
+            <td><strong>${escapeHtml(s.displayName || "Admin User")}</strong></td>
+            <td><code style="font-size: 0.82rem;">${escapeHtml(s.phone || "—")}</code></td>
+            <td><span class="badge ${rolePillClass}">${escapeHtml(s.roleName || s.roleId)}</span></td>
+            <td style="font-size: 0.76rem; color: var(--text-sidebar-muted); max-width: 320px;" title="${escapeHtml(perms.join(', '))}">
+              ${escapeHtml(permSnippet || "None")}
+            </td>
+            <td><span class="badge ${statusClass}">${s.isActive ? "Active" : "Inactive"}</span></td>
+          </tr>
+        `;
+      }).join("");
+    } catch (err) {
+      console.error("[Staff Load Error]:", err.message);
+      tbody.innerHTML = `<tr><td colspan="5" style="color: #c62828; text-align: center; padding: 1.5rem;">Failed to load staff accounts: ${escapeHtml(err.message)}</td></tr>`;
+    }
+  }
+
+  async function loadSettings() {
+    const tbody = document.getElementById("settings-table-body");
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 2rem; color: var(--text-muted);">Loading studio configuration...</td></tr>`;
+
+    try {
+      const data = await adminFetch("/api/admin/settings");
+      const settings = data.settings || [];
+      if (settings.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 2rem; color: var(--text-muted);">No configuration settings found.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = settings.map((st) => {
+        const valStr = typeof st.value === "object" ? JSON.stringify(st.value, null, 2) : String(st.value);
+        const updatedStr = st.updatedAt ? new Date(st.updatedAt).toLocaleDateString("en-IN") : "—";
+
+        return `
+          <tr>
+            <td><strong style="font-family: monospace; font-size: 0.82rem; color: var(--gold-primary);">${escapeHtml(st.key)}</strong></td>
+            <td style="font-size: 0.8rem; color: var(--text-light); max-width: 260px;">${escapeHtml(st.description || "—")}</td>
+            <td>
+              <pre style="margin: 0; font-size: 0.72rem; background: rgba(0,0,0,0.25); padding: 0.4rem 0.6rem; border-radius: 4px; max-width: 380px; max-height: 120px; overflow: auto; color: var(--text-sidebar-muted); font-family: monospace;">${escapeHtml(valStr)}</pre>
+            </td>
+            <td style="font-size: 0.78rem; color: var(--text-sidebar-muted);">${updatedStr}</td>
+          </tr>
+        `;
+      }).join("");
+    } catch (err) {
+      console.error("[Settings Load Error]:", err.message);
+      tbody.innerHTML = `<tr><td colspan="4" style="color: #c62828; text-align: center; padding: 1.5rem;">Failed to load configuration settings: ${escapeHtml(err.message)}</td></tr>`;
+    }
+  }
+
+  async function loadAuditLogs() {
+    const tbody = document.getElementById("audit-table-body");
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">Loading immutable audit logs...</td></tr>`;
+
+    try {
+      const data = await adminFetch("/api/admin/audit-logs?limit=50");
+      const logs = data.logs || [];
+      if (logs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">No security audit events recorded.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = logs.map((l) => {
+        const tsStr = l.createdAt ? new Date(l.createdAt).toLocaleString("en-IN") : "—";
+        const actor = l.actorPhone || (l.actorUserId ? l.actorUserId.slice(0, 8) : "System");
+        const detailsStr = typeof l.details === "object" ? JSON.stringify(l.details) : String(l.details || "");
+
+        return `
+          <tr>
+            <td style="font-size: 0.78rem; white-space: nowrap;">${tsStr}</td>
+            <td><code style="font-size: 0.82rem;">${escapeHtml(actor)}</code></td>
+            <td><span class="badge badge-outline">${escapeHtml(l.action)}</span></td>
+            <td><strong style="font-size: 0.82rem;">${escapeHtml(l.targetEntity || "—")}</strong></td>
+            <td><code style="font-size: 0.76rem;">${escapeHtml(l.targetId ? l.targetId.slice(0, 8) : "—")}</code></td>
+            <td style="font-size: 0.74rem; color: var(--text-sidebar-muted); max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(detailsStr)}">
+              ${escapeHtml(detailsStr || "—")}
+            </td>
+          </tr>
+        `;
+      }).join("");
+    } catch (err) {
+      console.error("[Audit Logs Load Error]:", err.message);
+      tbody.innerHTML = `<tr><td colspan="6" style="color: #c62828; text-align: center; padding: 1.5rem;">Failed to load security audit logs: ${escapeHtml(err.message)}</td></tr>`;
+    }
+  }
 
   // ---------------------------------------------------------------------------
   // 12. FILE UPLOADER (TEMPORARY STAGING STORAGE)

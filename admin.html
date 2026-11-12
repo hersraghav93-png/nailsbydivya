@@ -31,8 +31,27 @@
         </div>
         <p id="storefront-auth-user-label" style="margin: 0 0 0.75rem; font-size: 0.82rem; color: var(--text-primary);"></p>
         <button type="button" id="btn-sync-storefront-auth" class="btn btn-primary" style="width: 100%; padding: 0.65rem;">
-          <span>Enter Studio Dashboard as Divya &rarr;</span>
+          <span>Enter Studio Dashboard &rarr;</span>
         </button>
+      </div>
+
+      <!-- 1B. CLIENT ACCOUNT DETECTED NOTICE -->
+      <div id="admin-customer-session-box" style="display: none; background: rgba(197, 160, 89, 0.1); border: 1px solid rgba(197, 160, 89, 0.3); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.25rem; text-align: left;">
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem;">
+          <span style="font-size: 1.1rem;">💅🏻</span>
+          <strong style="color: var(--gold-primary); font-size: 0.95rem;">Client Account Detected</strong>
+        </div>
+        <p style="font-size: 0.82rem; color: var(--text-light); margin: 0 0 0.85rem; line-height: 1.45;">
+          You are signed in with a client account (<strong id="customer-session-phone">+91...</strong>). Studio Operations is reserved for Nails by Divya artists and management.
+        </p>
+        <div style="display: flex; gap: 0.65rem; flex-wrap: wrap;">
+          <a href="account.html" class="btn btn-primary btn-sm" style="flex: 1; text-align: center; text-decoration: none; padding: 0.55rem;">
+            <span>Go to My Client Account &rarr;</span>
+          </a>
+          <button type="button" id="btn-customer-logout-switch" class="btn btn-secondary btn-sm" style="flex: 1; padding: 0.55rem;">
+            <span>Sign Out &amp; Switch</span>
+          </button>
+        </div>
       </div>
 
       <!-- 2. DIRECT PHONE SMS OTP AUTHENTICATION -->
@@ -44,10 +63,10 @@
             <label class="form-label" for="admin-phone-input">Studio Mobile Number</label>
             <div style="display: flex; gap: 0.5rem; align-items: center;">
               <span style="padding: 0.65rem 0.85rem; background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 6px; font-weight: 600; font-size: 0.9rem; color: var(--text-primary);">+91</span>
-              <input type="tel" id="admin-phone-input" class="form-input" placeholder="84473 91310" value="8447391310" maxlength="10" inputmode="numeric" style="flex: 1;" required>
+              <input type="tel" id="admin-phone-input" class="form-input" placeholder="84473 91310 or 78274 37985" value="8447391310" maxlength="10" inputmode="numeric" style="flex: 1;" required>
             </div>
             <p style="font-size: 0.74rem; color: var(--text-muted); margin-top: 0.35rem;">
-              Authorized studio admin number: <strong>+91 84473 91310</strong>
+              Authorized studio administrators: <strong>+91 84473 91310 (Divya - Artist)</strong> or <strong>+91 78274 37985 (Raghav - Owner)</strong>
             </p>
           </div>
 
@@ -165,6 +184,26 @@
         <button type="button" class="nav-link" data-tab="communications">
           <span>📱</span>
           <span>WhatsApp Queue</span>
+        </button>
+
+        <!-- OWNER ONLY SECTION -->
+        <div class="sidebar-section-divider owner-only-nav" id="owner-nav-divider" style="display: none;">
+          <span>Owner Operations</span>
+        </div>
+
+        <button type="button" class="nav-link owner-only-nav" data-tab="staff" id="nav-staff" style="display: none;">
+          <span>👥</span>
+          <span>Staff &amp; Access</span>
+        </button>
+
+        <button type="button" class="nav-link owner-only-nav" data-tab="settings" id="nav-settings" style="display: none;">
+          <span>⚙️</span>
+          <span>Studio Settings</span>
+        </button>
+
+        <button type="button" class="nav-link owner-only-nav" data-tab="audit-logs" id="nav-audit-logs" style="display: none;">
+          <span>🛡️</span>
+          <span>Security Audit Logs</span>
         </button>
       </nav>
 
@@ -605,6 +644,120 @@
                 <tbody id="comms-table-body">
                   <tr>
                     <td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">Loading notifications...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===================================================================
+             PANEL 9: STAFF & ACCESS CONTROLS (OWNER ONLY)
+             =================================================================== -->
+        <section class="tab-content" id="panel-staff">
+          <div class="panel-card">
+            <div class="panel-header">
+              <div>
+                <h3 class="panel-title">Administrative Staff &amp; Role Permissions</h3>
+                <p class="panel-subtitle">
+                  Managed accounts, role assignments, and granted system permissions across the platform.
+                </p>
+              </div>
+              <span class="status-badge" style="background: rgba(197, 160, 89, 0.15); color: var(--gold-primary); font-weight: 600; padding: 0.35rem 0.75rem; border-radius: 9999px; font-size: 0.78rem;">
+                Owner Only (super_operator)
+              </span>
+            </div>
+
+            <div class="table-responsive">
+              <table class="data-table" id="staff-table">
+                <thead>
+                  <tr>
+                    <th>Display Name</th>
+                    <th>Phone</th>
+                    <th>Role</th>
+                    <th>Granted Permissions</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="staff-table-body">
+                  <tr>
+                    <td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">Loading staff accounts...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===================================================================
+             PANEL 10: STUDIO BUSINESS SETTINGS (OWNER ONLY)
+             =================================================================== -->
+        <section class="tab-content" id="panel-settings">
+          <div class="panel-card">
+            <div class="panel-header">
+              <div>
+                <h3 class="panel-title">Studio Operational Configuration</h3>
+                <p class="panel-subtitle">
+                  Ground-truth system settings: shipping policy, cancellation windows, DPDP compliance, and booking tokens.
+                </p>
+              </div>
+              <span class="status-badge" style="background: rgba(197, 160, 89, 0.15); color: var(--gold-primary); font-weight: 600; padding: 0.35rem 0.75rem; border-radius: 9999px; font-size: 0.78rem;">
+                Owner Only (super_operator)
+              </span>
+            </div>
+
+            <div class="table-responsive">
+              <table class="data-table" id="settings-table">
+                <thead>
+                  <tr>
+                    <th>Setting Key</th>
+                    <th>Description</th>
+                    <th>Active Value / Status</th>
+                    <th>Last Updated</th>
+                  </tr>
+                </thead>
+                <tbody id="settings-table-body">
+                  <tr>
+                    <td colspan="4" style="text-align: center; padding: 2rem; color: var(--text-muted);">Loading settings...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===================================================================
+             PANEL 11: SECURITY AUDIT LOGS (OWNER ONLY)
+             =================================================================== -->
+        <section class="tab-content" id="panel-audit-logs">
+          <div class="panel-card">
+            <div class="panel-header">
+              <div>
+                <h3 class="panel-title">Immutable Security Audit Trail</h3>
+                <p class="panel-subtitle">
+                  Tamper-evident record of administrative operations, catalog edits, payment verifications, and status changes.
+                </p>
+              </div>
+              <span class="status-badge" style="background: rgba(197, 160, 89, 0.15); color: var(--gold-primary); font-weight: 600; padding: 0.35rem 0.75rem; border-radius: 9999px; font-size: 0.78rem;">
+                Owner Only (super_operator)
+              </span>
+            </div>
+
+            <div class="table-responsive">
+              <table class="data-table" id="audit-table">
+                <thead>
+                  <tr>
+                    <th>Timestamp</th>
+                    <th>Actor (Phone)</th>
+                    <th>Action</th>
+                    <th>Target Entity</th>
+                    <th>Target ID</th>
+                    <th>Details</th>
+                  </tr>
+                </thead>
+                <tbody id="audit-table-body">
+                  <tr>
+                    <td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">Loading audit logs...</td>
                   </tr>
                 </tbody>
               </table>
