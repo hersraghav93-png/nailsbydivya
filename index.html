@@ -1025,11 +1025,11 @@
 
         <!-- Filter Tabs -->
         <div class="gallery-filter-tabs" role="tablist" aria-label="Lookbook categories">
-          <button type="button" class="filter-tab is-active" data-filter="all" role="tab" aria-selected="true">All Art</button>
-          <button type="button" class="filter-tab" data-filter="french" role="tab" aria-selected="false">French &amp; Minimal</button>
+          <button type="button" class="filter-tab is-active" data-filter="all" role="tab" aria-selected="true">All Designs</button>
           <button type="button" class="filter-tab" data-filter="chrome" role="tab" aria-selected="false">Chrome &amp; Metallic</button>
-          <button type="button" class="filter-tab" data-filter="floral" role="tab" aria-selected="false">Floral &amp; Hand-Painted</button>
-          <button type="button" class="filter-tab" data-filter="3d" role="tab" aria-selected="false">3D &amp; Textured</button>
+          <button type="button" class="filter-tab" data-filter="bridal" role="tab" aria-selected="false">Bridal &amp; Festive</button>
+          <button type="button" class="filter-tab" data-filter="nude" role="tab" aria-selected="false">Minimalist Nude</button>
+          <button type="button" class="filter-tab" data-filter="art" role="tab" aria-selected="false">Hand-Painted Art</button>
         </div>
 
         <!-- Lookbook Grid -->
@@ -1687,9 +1687,9 @@
       <button type="button" class="modal-close" id="review-modal-close" aria-label="Close Review Form">&times;</button>
       
       <div id="review-form-view">
-        <span class="modal-category-tag">Verified Client Feedback</span>
+        <span class="modal-category-tag">Client Feedback</span>
         <h3 class="modal-title" id="review-modal-title" style="font-size: 1.75rem; margin-bottom: 0.25rem;">Share Your Experience</h3>
-        <p class="modal-desc" style="margin-bottom: 1.25rem;">Your genuine feedback helps us uphold the highest standard of nail craftsmanship and at-home service.</p>
+        <p class="modal-desc" style="margin-bottom: 1.25rem;">Your genuine feedback helps us uphold the highest standard of nail craftsmanship and at-home service. All submissions are moderated by the studio before publication.</p>
 
         <form id="client-review-form" onsubmit="return false;">
           <div style="display: flex; flex-direction: column; gap: 1rem;">
@@ -1713,6 +1713,11 @@
                   <option value="Custom 3D Nail Art">Custom 3D Nail Art</option>
                 </select>
               </div>
+            </div>
+
+            <div>
+              <label for="rev-order-id" style="display: block; font-size: 0.82rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.35rem; color: var(--heading);">Order ID (Optional for Verified Client Badge)</label>
+              <input type="text" id="rev-order-id" placeholder="e.g. Order UUID from your delivery confirmation" style="width: 100%; padding: 0.65rem 0.85rem; border: 1px solid rgba(44, 38, 35, 0.2); border-radius: 8px; font-family: inherit; font-size: 0.95rem; background: #FFF;">
             </div>
 
             <div>

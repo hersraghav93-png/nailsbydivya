@@ -1270,13 +1270,22 @@
       const stars = "★".repeat(Math.min(Math.max(r.rating || 5, 1), 5));
       const statusBadge = r.is_approved ? '<span class="badge badge-verified">Approved</span>' : (r.moderated_at ? '<span class="badge badge-failed">Rejected</span>' : '<span class="badge badge-pending">Pending</span>');
 
+      const verificationBadge = r.order_id
+        ? '<span style="display:inline-block; margin-top: 4px; font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; background: rgba(40, 167, 69, 0.12); color: #218838; font-weight: 600;">✓ Verified Order</span>'
+        : (r.booking_id
+            ? '<span style="display:inline-block; margin-top: 4px; font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; background: rgba(40, 167, 69, 0.12); color: #218838; font-weight: 600;">✓ Verified Appointment</span>'
+            : '<span style="display:inline-block; margin-top: 4px; font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; background: rgba(108, 117, 125, 0.12); color: #6c757d; font-weight: 500;">Storefront Feedback</span>');
+
       return `
         <tr>
           <td>${dateStr}</td>
           <td><strong>${escapeHtml(r.customer_name)}</strong></td>
           <td>${r.customer_phone || "-"}</td>
           <td><span style="color: var(--gold-primary); font-size: 1.1rem;">${stars}</span></td>
-          <td>${escapeHtml(r.service_or_product_tag || "-")}</td>
+          <td>
+            ${escapeHtml(r.service_or_product_tag || "-")}
+            <br>${verificationBadge}
+          </td>
           <td>
             <div style="max-width: 280px; font-size: 0.85rem; line-height: 1.4;">
               ${escapeHtml(r.review_text)}

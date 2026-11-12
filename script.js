@@ -2202,6 +2202,8 @@ function initReviewsEngine() {
       const rating = parseInt(ratingInput?.value, 10) || 5;
       const text = document.getElementById("rev-review-text")?.value.trim();
 
+      const orderIdVal = document.getElementById("rev-order-id")?.value.trim();
+
       if (!name || name.length < 2) {
         showStatus("Please enter your name (minimum 2 characters).", true);
         return;
@@ -2216,16 +2218,21 @@ function initReviewsEngine() {
 
       try {
         const baseUrl = typeof NailsApi !== "undefined" && NailsApi.getBaseUrl ? NailsApi.getBaseUrl() : "https://nailsbydivya-staging-api.onrender.com";
+        const payload = {
+          customer_name: name,
+          customer_phone: phone || undefined,
+          service_or_product_tag: tag,
+          rating,
+          review_text: text,
+        };
+        if (orderIdVal) {
+          payload.order_id = orderIdVal;
+        }
+
         const res = await fetch(`${baseUrl}/api/reviews`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            customer_name: name,
-            customer_phone: phone,
-            service_or_product_tag: tag,
-            rating,
-            review_text: text,
-          }),
+          body: JSON.stringify(payload),
         });
 
         const data = await res.json();
@@ -2276,16 +2283,19 @@ function initReviewsEngine() {
 
       reviewsContainer.innerHTML = reviews.map((r) => {
         const stars = "★".repeat(Math.min(Math.max(r.rating || 5, 1), 5));
-        const author = r.customer_name ? r.customer_name.replace(/(\w+)\s+(.)\w*/, "$1 $2.") : "Verified Client";
+        const author = r.customer_name ? r.customer_name.replace(/(\w+)\s+(.)\w*/, "$1 $2.") : "Client";
         const metaTag = r.service_or_product_tag || "Studio Service";
         const cleanText = (r.review_text || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const verifiedTag = r.is_verified_purchase
+          ? '<span style="display:inline-block; margin-left: 6px; font-size: 0.72rem; color: #D4AF37; font-weight: 600; letter-spacing: 0.04em;">✓ Verified Purchase</span>'
+          : "";
 
         return `
           <div class="review-card">
             <div class="review-stars">${stars}</div>
             <p class="review-quote">&ldquo;${cleanText}&rdquo;</p>
             <div class="review-author">
-              <span class="author-client">${author}</span>
+              <span class="author-client">${author}${verifiedTag}</span>
               <span class="author-location">${metaTag}</span>
             </div>
           </div>
@@ -2299,9 +2309,102 @@ function initReviewsEngine() {
   loadApprovedReviews();
 }
 
+// ---------------------------------------------------------------------------
+// 13. DYNAMIC LOOKBOOK & PORTFOLIO ENGINE (PHASE 5.1B.1)
+// ---------------------------------------------------------------------------
+function initLookbookEngine() {
+  const grid = document.getElementById("lookbook-grid");
+  const galleryTabs = document.querySelectorAll(".gallery-filter-tabs .filter-tab");
+  if (!grid) return;
+
+  function bindCardFilters() {
+    const cards = grid.querySelectorAll(".lookbook-card, .portfolio-card");
+    galleryTabs.forEach((tab) => {
+      tab.onclick = () => {
+        galleryTabs.forEach((t) => {
+          t.classList.remove("is-active");
+          t.setAttribute("aria-selected", "false");
+        });
+        tab.classList.add("is-active");
+        tab.setAttribute("aria-selected", "true");
+
+        const filter = (tab.getAttribute("data-filter") || "all").toLowerCase().trim();
+
+        cards.forEach((card) => {
+          const cat = (card.getAttribute("data-category") || "").toLowerCase().trim();
+          const match =
+            filter === "all" ||
+            cat === filter ||
+            (filter === "chrome" && (cat === "chrome" || cat === "3d")) ||
+            (filter === "nude" && (cat === "nude" || cat === "french")) ||
+            (filter === "bridal" && (cat === "bridal" || cat === "wedding")) ||
+            (filter === "art" && (cat === "art" || cat === "floral"));
+
+          card.style.display = match ? "block" : "none";
+        });
+      };
+    });
+
+    cards.forEach((card) => {
+      card.onclick = () => {
+        const caption = card.querySelector(".lookbook-caption .lookbook-title");
+        if (caption && typeof openProductModal === "function") {
+          openProductModal({
+            title: caption.textContent.trim(),
+            category: "Bespoke Art",
+            price: "Custom Quotation",
+            desc: "Bespoke nail art handcrafted by Divya. Available as custom-sized press-ons or at-home salon extensions.",
+          });
+        }
+      };
+    });
+  }
+
+  async function loadPortfolioDesigns() {
+    try {
+      const baseUrl = typeof NailsApi !== "undefined" && NailsApi.getBaseUrl ? NailsApi.getBaseUrl() : "https://nailsbydivya-staging-api.onrender.com";
+      const res = await fetch(`${baseUrl}/api/portfolio?limit=60`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const artworks = data.artworks || [];
+      if (!Array.isArray(artworks) || artworks.length === 0) return;
+
+      grid.innerHTML = artworks.map((art) => {
+        const cat = art.category_id || "chrome";
+        const catName = art.category_name || cat;
+        const cleanName = (art.name || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const cleanAlt = (art.alt_text || art.name || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+        return `
+          <div class="lookbook-card portfolio-card" data-category="${cat}" tabindex="0">
+            <img src="${art.image_url}" alt="${cleanAlt}" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">${catName}</span>
+              <span class="lookbook-title">${cleanName}</span>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      bindCardFilters();
+    } catch (err) {
+      console.warn("Could not load dynamic lookbook, using static gallery:", err.message);
+    }
+  }
+
+  // Bind initial static fallback cards first
+  bindCardFilters();
+  // Fetch live lookbook designs from backend
+  loadPortfolioDesigns();
+}
+
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", initReviewsEngine);
+  document.addEventListener("DOMContentLoaded", () => {
+    initReviewsEngine();
+    initLookbookEngine();
+  });
 } else {
   initReviewsEngine();
+  initLookbookEngine();
 }
 
