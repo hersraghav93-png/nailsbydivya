@@ -2135,3 +2135,173 @@ function initDivvStylist() {
   });
 }
 
+// ---------------------------------------------------------------------------
+// 12. GENUINE REVIEWS & COMMUNITY FEEDBACK CONTROLLER (PHASE 5.1B)
+// ---------------------------------------------------------------------------
+function initReviewsEngine() {
+  const reviewsContainer = document.getElementById("reviews-container");
+  const openModalBtn = document.getElementById("btn-open-review-modal");
+  const modal = document.getElementById("review-modal");
+  const closeBtn = document.getElementById("review-modal-close");
+  const form = document.getElementById("client-review-form");
+  const formView = document.getElementById("review-form-view");
+  const successView = document.getElementById("review-success-view");
+  const submitBtn = document.getElementById("btn-submit-review");
+  const statusEl = document.getElementById("rev-submit-status");
+  const starBtns = document.querySelectorAll("#rev-star-rating-selector .star-btn");
+  const ratingInput = document.getElementById("rev-selected-rating");
+  const closeSuccessBtn = document.getElementById("btn-close-review-success");
+
+  // Star selector interaction
+  starBtns.forEach((star) => {
+    star.addEventListener("click", () => {
+      const val = parseInt(star.getAttribute("data-rating"), 10) || 5;
+      if (ratingInput) ratingInput.value = val;
+      starBtns.forEach((s) => {
+        const sVal = parseInt(s.getAttribute("data-rating"), 10) || 1;
+        s.style.opacity = sVal <= val ? "1" : "0.3";
+      });
+    });
+  });
+
+  // Modal open / close
+  const openModal = () => {
+    if (modal) {
+      modal.setAttribute("aria-hidden", "false");
+      modal.classList.add("is-visible");
+      document.body.style.overflow = "hidden";
+      if (formView) formView.style.display = "block";
+      if (successView) successView.style.display = "none";
+      if (statusEl) statusEl.style.display = "none";
+    }
+  };
+
+  const closeModal = () => {
+    if (modal) {
+      modal.setAttribute("aria-hidden", "true");
+      modal.classList.remove("is-visible");
+      document.body.style.overflow = "";
+    }
+  };
+
+  if (openModalBtn) openModalBtn.addEventListener("click", openModal);
+  if (closeBtn) closeBtn.addEventListener("click", closeModal);
+  if (closeSuccessBtn) closeSuccessBtn.addEventListener("click", closeModal);
+  if (modal) {
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) closeModal();
+    });
+  }
+
+  // Submit genuine review
+  if (submitBtn) {
+    submitBtn.addEventListener("click", async () => {
+      const name = document.getElementById("rev-customer-name")?.value.trim();
+      const phone = document.getElementById("rev-customer-phone")?.value.trim();
+      const tag = document.getElementById("rev-service-tag")?.value;
+      const rating = parseInt(ratingInput?.value, 10) || 5;
+      const text = document.getElementById("rev-review-text")?.value.trim();
+
+      if (!name || name.length < 2) {
+        showStatus("Please enter your name (minimum 2 characters).", true);
+        return;
+      }
+      if (!text || text.length < 10) {
+        showStatus("Please enter your feedback (minimum 10 characters).", true);
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = "<span>Submitting...</span>";
+
+      try {
+        const baseUrl = typeof NailsApi !== "undefined" && NailsApi.getBaseUrl ? NailsApi.getBaseUrl() : "https://nailsbydivya-staging-api.onrender.com";
+        const res = await fetch(`${baseUrl}/api/reviews`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            customer_name: name,
+            customer_phone: phone,
+            service_or_product_tag: tag,
+            rating,
+            review_text: text,
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || "Failed to submit review.");
+        }
+
+        if (formView) formView.style.display = "none";
+        if (successView) successView.style.display = "block";
+        if (form) form.reset();
+      } catch (err) {
+        showStatus(err.message || "Failed to submit review. Please try again.", true);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = "<span>Submit Feedback for Verification &rarr;</span>";
+      }
+    });
+  }
+
+  function showStatus(msg, isError) {
+    if (!statusEl) return;
+    statusEl.style.display = "block";
+    statusEl.style.background = isError ? "rgba(220, 53, 69, 0.1)" : "rgba(40, 167, 69, 0.1)";
+    statusEl.style.color = isError ? "#c82333" : "#218838";
+    statusEl.style.border = isError ? "1px solid rgba(220, 53, 69, 0.3)" : "1px solid rgba(40, 167, 69, 0.3)";
+    statusEl.textContent = msg;
+  }
+
+  // Load genuine approved reviews from API
+  async function loadApprovedReviews() {
+    if (!reviewsContainer) return;
+    try {
+      const baseUrl = typeof NailsApi !== "undefined" && NailsApi.getBaseUrl ? NailsApi.getBaseUrl() : "https://nailsbydivya-staging-api.onrender.com";
+      const res = await fetch(`${baseUrl}/api/reviews?limit=6`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const reviews = data.reviews || [];
+
+      if (reviews.length === 0) {
+        reviewsContainer.innerHTML = `
+          <div class="review-empty-state" style="grid-column: 1 / -1; text-align: center; padding: 2.5rem 1.5rem; background: rgba(250, 247, 242, 0.6); border: 1px dashed rgba(212, 175, 55, 0.4); border-radius: 12px; max-width: 680px; margin: 0 auto;">
+            <p style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 1.35rem; color: #2C2623; margin: 0 0 0.5rem 0;">Curated Client Voices</p>
+            <p style="font-size: 0.95rem; color: var(--text-muted); line-height: 1.6; margin: 0;">Our verified client reviews are published exclusively from genuine appointments and press-on deliveries. We never fabricate ratings or publish unverified testimonials.</p>
+          </div>
+        `;
+        return;
+      }
+
+      reviewsContainer.innerHTML = reviews.map((r) => {
+        const stars = "★".repeat(Math.min(Math.max(r.rating || 5, 1), 5));
+        const author = r.customer_name ? r.customer_name.replace(/(\w+)\s+(.)\w*/, "$1 $2.") : "Verified Client";
+        const metaTag = r.service_or_product_tag || "Studio Service";
+        const cleanText = (r.review_text || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+        return `
+          <div class="review-card">
+            <div class="review-stars">${stars}</div>
+            <p class="review-quote">&ldquo;${cleanText}&rdquo;</p>
+            <div class="review-author">
+              <span class="author-client">${author}</span>
+              <span class="author-location">${metaTag}</span>
+            </div>
+          </div>
+        `;
+      }).join("");
+    } catch (err) {
+      console.warn("Could not fetch reviews:", err.message);
+    }
+  }
+
+  loadApprovedReviews();
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initReviewsEngine);
+} else {
+  initReviewsEngine();
+}
+

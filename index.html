@@ -1179,33 +1179,14 @@
           <p class="section-subtext">Genuine feedback from at-home salon appointments across Delhi NCR and press-on clients across India.</p>
         </div>
 
-        <div class="reviews-grid">
-          <div class="review-card">
-            <div class="review-stars">★★★★★</div>
-            <p class="review-quote">&ldquo;Divya came to my home in Gurgaon for my engagement extensions. The level of hygiene, patience with cuticle prep, and precision on the French line was salon perfection without any travel stress.&rdquo;</p>
-            <div class="review-author">
-              <span class="author-client">Pooja M.</span>
-              <span class="author-location">Gurgaon &bull; At-Home Extensions</span>
-            </div>
-          </div>
+        <div class="reviews-grid" id="reviews-container">
+          <!-- Dynamically populated from /api/reviews with approved genuine reviews -->
+        </div>
 
-          <div class="review-card">
-            <div class="review-stars">★★★★★</div>
-            <p class="review-quote">&ldquo;Ordered the Royal Maroon set for a destination wedding. The custom mm sizing fit my small nail beds like a glove, and they stayed intact throughout the sangeet and wedding!&rdquo;</p>
-            <div class="review-author">
-              <span class="author-client">Aanya S.</span>
-              <span class="author-location">Mumbai &bull; Handmade Press-Ons</span>
-            </div>
-          </div>
-
-          <div class="review-card">
-            <div class="review-stars">★★★★★</div>
-            <p class="review-quote">&ldquo;The liquid silver ripple design is breathtaking in person. Divya is a true artist who takes pride in every detail. Will definitely be ordering my holiday sets from here!&rdquo;</p>
-            <div class="review-author">
-              <span class="author-client">Sneha R.</span>
-              <span class="author-location">South Delhi &bull; Custom Nail Art</span>
-            </div>
-          </div>
+        <div style="text-align: center; margin-top: 2.5rem;">
+          <button type="button" class="btn btn-outline" id="btn-open-review-modal" style="border: 1px solid #D4AF37; color: #2C2623; background: #FAF7F2; padding: 0.75rem 2rem; border-radius: 9999px; font-weight: 500; font-size: 0.95rem; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+            ✦ Share Your Experience with Divya
+          </button>
         </div>
       </div>
     </section>
@@ -1699,6 +1680,82 @@
   </div>
 
   <!-- =========================================================================
+       GENUINE CLIENT REVIEW SUBMISSION MODAL
+       ========================================================================= -->
+  <div class="modal-overlay" id="review-modal" aria-hidden="true" role="dialog" aria-labelledby="review-modal-title">
+    <div class="modal-card review-modal-card" style="max-width: 520px;">
+      <button type="button" class="modal-close" id="review-modal-close" aria-label="Close Review Form">&times;</button>
+      
+      <div id="review-form-view">
+        <span class="modal-category-tag">Verified Client Feedback</span>
+        <h3 class="modal-title" id="review-modal-title" style="font-size: 1.75rem; margin-bottom: 0.25rem;">Share Your Experience</h3>
+        <p class="modal-desc" style="margin-bottom: 1.25rem;">Your genuine feedback helps us uphold the highest standard of nail craftsmanship and at-home service.</p>
+
+        <form id="client-review-form" onsubmit="return false;">
+          <div style="display: flex; flex-direction: column; gap: 1rem;">
+            <div>
+              <label for="rev-customer-name" style="display: block; font-size: 0.82rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.35rem; color: var(--heading);">Your Name *</label>
+              <input type="text" id="rev-customer-name" required placeholder="e.g. Radhika Sharma" style="width: 100%; padding: 0.65rem 0.85rem; border: 1px solid rgba(44, 38, 35, 0.2); border-radius: 8px; font-family: inherit; font-size: 0.95rem; background: #FFF;">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+              <div>
+                <label for="rev-customer-phone" style="display: block; font-size: 0.82rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.35rem; color: var(--heading);">Phone (Optional)</label>
+                <input type="tel" id="rev-customer-phone" placeholder="+91..." style="width: 100%; padding: 0.65rem 0.85rem; border: 1px solid rgba(44, 38, 35, 0.2); border-radius: 8px; font-family: inherit; font-size: 0.95rem; background: #FFF;">
+              </div>
+              <div>
+                <label for="rev-service-tag" style="display: block; font-size: 0.82rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.35rem; color: var(--heading);">Experience Type</label>
+                <select id="rev-service-tag" style="width: 100%; padding: 0.65rem 0.85rem; border: 1px solid rgba(44, 38, 35, 0.2); border-radius: 8px; font-family: inherit; font-size: 0.95rem; background: #FFF;">
+                  <option value="At-Home Gel Extensions">At-Home Gel Extensions</option>
+                  <option value="Natural Nail Overlay">Natural Nail Overlay</option>
+                  <option value="Signature Manicure">Signature Manicure</option>
+                  <option value="Handmade Press-On Nails">Handmade Press-On Nails</option>
+                  <option value="Custom 3D Nail Art">Custom 3D Nail Art</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label style="display: block; font-size: 0.82rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.35rem; color: var(--heading);">Your Rating *</label>
+              <div id="rev-star-rating-selector" style="display: flex; gap: 0.5rem; font-size: 1.5rem; color: #D4AF37; cursor: pointer;">
+                <span class="star-btn" data-rating="1">★</span>
+                <span class="star-btn" data-rating="2">★</span>
+                <span class="star-btn" data-rating="3">★</span>
+                <span class="star-btn" data-rating="4">★</span>
+                <span class="star-btn" data-rating="5">★</span>
+              </div>
+              <input type="hidden" id="rev-selected-rating" value="5">
+            </div>
+
+            <div>
+              <label for="rev-review-text" style="display: block; font-size: 0.82rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.35rem; color: var(--heading);">Your Feedback *</label>
+              <textarea id="rev-review-text" rows="4" required placeholder="Tell us about the hygiene, finish, longevity, or custom sizing of your nails..." style="width: 100%; padding: 0.65rem 0.85rem; border: 1px solid rgba(44, 38, 35, 0.2); border-radius: 8px; font-family: inherit; font-size: 0.95rem; background: #FFF; resize: vertical;"></textarea>
+            </div>
+
+            <div id="rev-submit-status" style="display: none; font-size: 0.88rem; padding: 0.75rem; border-radius: 6px;"></div>
+
+            <button type="button" id="btn-submit-review" class="button primary-button" style="width: 100%; margin-top: 0.5rem;">
+              <span>Submit Feedback for Verification &rarr;</span>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div id="review-success-view" style="display: none; text-align: center; padding: 1.5rem 0.5rem;">
+        <div style="width: 50px; height: 50px; border-radius: 50%; background: #FAF7F2; border: 2px solid #D4AF37; color: #D4AF37; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; margin: 0 auto 1rem auto;">✓</div>
+        <h4 style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 1.6rem; margin-bottom: 0.5rem; color: var(--heading);">Thank You!</h4>
+        <p style="font-size: 0.95rem; color: var(--text-muted); line-height: 1.6; max-width: 400px; margin: 0 auto 1.5rem auto;">
+          Your feedback has been submitted to Divya. Once verified by the studio, your review will appear on our client lookbook.
+        </p>
+        <button type="button" class="btn btn-outline" id="btn-close-review-success" style="border: 1px solid rgba(44, 38, 35, 0.3); padding: 0.6rem 1.5rem; border-radius: 9999px; cursor: pointer;">
+          Close Window
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- =========================================================================
        11. DIVV AI NAIL STYLIST (LUXURY INTERACTIVE ADVISOR)
        ========================================================================= -->
   <button class="divv-floating-trigger" id="divv-floating-trigger" aria-label="Open Ask Divv AI Nail Stylist">
@@ -1810,6 +1867,8 @@
           <span>Handmade in Delhi NCR</span>
           <span>&bull;</span>
           <span>Delivered Pan-India</span>
+          <span>&bull;</span>
+          <a href="admin.html" style="color: inherit; text-decoration: none; opacity: 0.7;">Studio Portal</a>
         </div>
       </div>
     </div>
