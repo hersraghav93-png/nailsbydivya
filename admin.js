@@ -1271,9 +1271,9 @@
       const statusBadge = r.is_approved ? '<span class="badge badge-verified">Approved</span>' : (r.moderated_at ? '<span class="badge badge-failed">Rejected</span>' : '<span class="badge badge-pending">Pending</span>');
 
       const verificationBadge = r.order_id
-        ? '<span style="display:inline-block; margin-top: 4px; font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; background: rgba(40, 167, 69, 0.12); color: #218838; font-weight: 600;">✓ Verified Order</span>'
+        ? '<span style="display:inline-block; margin-top: 4px; font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; background: rgba(40, 167, 69, 0.12); color: #218838; font-weight: 600;">Contact-Matched Order Feedback</span>'
         : (r.booking_id
-            ? '<span style="display:inline-block; margin-top: 4px; font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; background: rgba(40, 167, 69, 0.12); color: #218838; font-weight: 600;">✓ Verified Appointment</span>'
+            ? '<span style="display:inline-block; margin-top: 4px; font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; background: rgba(40, 167, 69, 0.12); color: #218838; font-weight: 600;">Contact-Matched Appointment Feedback</span>'
             : '<span style="display:inline-block; margin-top: 4px; font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; background: rgba(108, 117, 125, 0.12); color: #6c757d; font-weight: 500;">Storefront Feedback</span>');
 
       return `
@@ -1403,10 +1403,13 @@
   };
 
   // ---------------------------------------------------------------------------
-  // 12. FILE UPLOADER (ZERO-COST STORAGE)
+  // 12. FILE UPLOADER (TEMPORARY STAGING STORAGE)
   // ---------------------------------------------------------------------------
   async function uploadFile(file) {
     if (!file) throw new Error("No file selected.");
+    if (file.size > 2 * 1024 * 1024) {
+      throw new Error("Image exceeds maximum allowed size of 2MB.");
+    }
 
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
