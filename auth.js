@@ -48,12 +48,26 @@
   }
 
   /**
+   * Helper to safely access browser localStorage.
+   */
+  function getLocalStorage() {
+    try {
+      if (typeof window !== "undefined" && window.localStorage) return window.localStorage;
+      if (typeof localStorage !== "undefined") return localStorage;
+    } catch {}
+    return null;
+  }
+
+  /**
    * Saves current session snapshot to localStorage.
    */
   function persistSession() {
+    const storage = getLocalStorage();
+    if (!storage) return;
+
     if (currentUser && currentToken) {
       try {
-        localStorage.setItem(
+        storage.setItem(
           STORAGE_KEY,
           JSON.stringify({
             user: currentUser,
@@ -65,7 +79,9 @@
         console.warn("Could not save session to localStorage:", err);
       }
     } else {
-      localStorage.removeItem(STORAGE_KEY);
+      try {
+        storage.removeItem(STORAGE_KEY);
+      } catch {}
     }
   }
 
@@ -73,8 +89,11 @@
    * Restores cached session from localStorage on startup.
    */
   function restoreCachedSession() {
+    const storage = getLocalStorage();
+    if (!storage) return;
+
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = storage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed && parsed.user && parsed.token) {
@@ -84,7 +103,9 @@
         }
       }
     } catch {
-      localStorage.removeItem(STORAGE_KEY);
+      try {
+        storage.removeItem(STORAGE_KEY);
+      } catch {}
     }
   }
 
@@ -114,6 +135,11 @@
    * Initializes the Firebase client SDK if credentials are provided.
    */
   function init() {
+    // Prevent duplicate Firebase initialization
+    if (isConfigured && firebaseApp && firebaseAuth) {
+      return;
+    }
+
     const config = window.NAILS_CONFIG && window.NAILS_CONFIG.firebase;
 
     // Check if real Firebase config is provided
@@ -133,6 +159,9 @@
         }
         firebaseAuth = window.firebase.auth();
         isConfigured = true;
+
+        // Restore cached session immediately from localStorage for instant UI responsiveness
+        restoreCachedSession();
 
         // Listen to Firebase auth state changes
         firebaseAuth.onAuthStateChanged(async (fbUser) => {
@@ -228,6 +257,14 @@
      * @returns {boolean}
      */
     isAuthenticated() {
+      return Boolean(currentUser);
+    },
+
+    /**
+     * Alias for isAuthenticated() for admin/storefront session compatibility.
+     * @returns {boolean}
+     */
+    isLoggedIn() {
       return Boolean(currentUser);
     },
 

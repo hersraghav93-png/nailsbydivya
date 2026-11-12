@@ -63,9 +63,17 @@
   );
 
   if (typeof window !== "undefined") {
-    window.NAILS_CONFIG = window.NAILS_CONFIG || {
+    const env =
+      (typeof window !== "undefined" && (window.__ENV__ || (window.process && window.process.env))) ||
+      {};
+    const existingConfig = (typeof window !== "undefined" && window.NAILS_CONFIG) || {};
+    const existingFirebase = existingConfig.firebase || {};
+
+    window.NAILS_CONFIG = {
+      ...existingConfig,
+
       // Backend Express API URL (Local, Staging, or Production)
-      apiUrl: resolvedApiUrl,
+      apiUrl: existingConfig.apiUrl || resolvedApiUrl,
 
       // Dedicated Nails by Divya Business Configuration (Single Source of Truth)
       business: {
@@ -75,16 +83,29 @@
         whatsappUrl: "https://wa.me/918447391310",
         email: "Nailsbydivyaa@gmail.com",
         brandName: "Nails by Divya",
+        ...(existingConfig.business || {}),
       },
 
-      // Firebase Web App Configuration (Populate from Firebase Console in staging/prod)
+      // Firebase Web App Configuration (Public Web Client Identifiers)
       firebase: {
-        apiKey: "",
-        authDomain: "",
-        projectId: "",
-        storageBucket: "",
-        messagingSenderId: "",
-        appId: "",
+        apiKey:
+          (typeof window !== "undefined" && window.__ENV__ && window.__ENV__.FIREBASE_API_KEY) ||
+          existingFirebase.apiKey ||
+          "AIzaSyDGxiI91qUyV4d9yegCPBg9lrWqKocaXX4",
+        authDomain:
+          existingFirebase.authDomain || "nails-by-divya.firebaseapp.com",
+        projectId:
+          existingFirebase.projectId || "nails-by-divya",
+        storageBucket:
+          existingFirebase.storageBucket || "nails-by-divya.firebasestorage.app",
+        messagingSenderId:
+          existingFirebase.messagingSenderId || "868470074827",
+        appId:
+          (typeof window !== "undefined" && window.__ENV__ && window.__ENV__.FIREBASE_APP_ID) ||
+          existingFirebase.appId ||
+          "1:868470074827:web:5dcfc99ffee2a4bc6c1a4e",
+        measurementId:
+          existingFirebase.measurementId || "G-WD4KQWS8DX",
       },
     };
   }

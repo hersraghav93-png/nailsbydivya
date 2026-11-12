@@ -92,13 +92,18 @@
   // ---------------------------------------------------------------------------
   async function checkAuth() {
     // Check if user is logged into storefront via NailsAuth
-    if (!state.token && typeof NailsAuth !== "undefined" && typeof NailsAuth.isLoggedIn === "function" && NailsAuth.isLoggedIn()) {
-      const user = NailsAuth.getUser ? NailsAuth.getUser() : null;
-      const syncBox = document.getElementById("storefront-auth-sync-box");
-      const userLabel = document.getElementById("storefront-auth-user-label");
-      if (syncBox && user) {
-        syncBox.style.display = "block";
-        if (userLabel) userLabel.textContent = `Client: ${user.phone || user.id || "Authenticated Session"}`;
+    if (!state.token && typeof NailsAuth !== "undefined") {
+      if (typeof NailsAuth.init === "function") {
+        NailsAuth.init();
+      }
+      if (typeof NailsAuth.isLoggedIn === "function" && NailsAuth.isLoggedIn()) {
+        const user = NailsAuth.getUser ? NailsAuth.getUser() : null;
+        const syncBox = document.getElementById("storefront-auth-sync-box");
+        const userLabel = document.getElementById("storefront-auth-user-label");
+        if (syncBox && user) {
+          syncBox.style.display = "block";
+          if (userLabel) userLabel.textContent = `Client: ${user.phone || user.id || "Authenticated Session"}`;
+        }
       }
     }
 
@@ -149,66 +154,101 @@
     showAuthView();
   }
 
+  // Subscribe to NailsAuth state changes for real-time storefront session synchrony
+  if (typeof NailsAuth !== "undefined" && typeof NailsAuth.onAuthChange === "function") {
+    NailsAuth.onAuthChange((user) => {
+      const syncBox = document.getElementById("storefront-auth-sync-box");
+      const userLabel = document.getElementById("storefront-auth-user-label");
+      if (syncBox && user && !state.token) {
+        syncBox.style.display = "block";
+        if (userLabel) userLabel.textContent = `Client: ${user.phone || user.id || "Authenticated Session"}`;
+      } else if (syncBox && !user) {
+        syncBox.style.display = "none";
+      }
+    });
+  }
+
   // Handle Storefront Session Sync Button
   const syncBtn = document.getElementById("btn-sync-storefront-auth");
   if (syncBtn) {
     syncBtn.addEventListener("click", async () => {
       if (typeof NailsAuth !== "undefined" && typeof NailsAuth.getToken === "function") {
-        const token = await NailsAuth.getToken();
-        if (token) {
-          const tokenInput = document.getElementById("admin-token-input");
-          if (tokenInput) tokenInput.value = token;
-          const loginForm = document.getElementById("admin-login-form");
-          if (loginForm) loginForm.dispatchEvent(new Event("submit"));
+        syncBtn.disabled = true;
+        const originalText = syncBtn.innerHTML;
+        syncBtn.innerHTML = "<span>Retrieving Session Token...</span>";
+        try {
+          const token = await NailsAuth.getToken();
+          if (token) {
+            const tokenInput = document.getElementById("admin-token-input");
+            if (tokenInput) tokenInput.value = token;
+            await handleAdminLogin();
+          } else {
+            alert("No active Firebase session token found. Please sign in on the storefront first.");
+          }
+        } catch (err) {
+          console.error("Token sync error:", err);
+        } finally {
+          syncBtn.disabled = false;
+          syncBtn.innerHTML = originalText;
         }
       }
     });
   }
 
-  // Handle Login Form Submission
-  const loginForm = document.getElementById("admin-login-form");
-  if (loginForm) {
-    loginForm.addEventListener("submit", async () => {
-      const tokenInput = document.getElementById("admin-token-input");
-      const statusMsg = document.getElementById("auth-status-msg");
-      const submitBtn = document.getElementById("btn-admin-login");
-      const token = tokenInput ? tokenInput.value.trim() : "";
+  // Handle Login Execution
+  async function handleAdminLogin() {
+    const tokenInput = document.getElementById("admin-token-input");
+    const statusMsg = document.getElementById("auth-status-msg");
+    const submitBtn = document.getElementById("btn-admin-login");
+    const token = tokenInput ? tokenInput.value.trim() : "";
 
-      if (!token) return;
+    if (!token) return;
 
+    if (submitBtn) {
       submitBtn.disabled = true;
       submitBtn.innerHTML = "<span>Verifying Credentials...</span>";
-      if (statusMsg) statusMsg.style.display = "none";
+    }
+    if (statusMsg) statusMsg.style.display = "none";
 
-      try {
-        state.token = token;
-        const data = await adminFetch("/api/admin/me");
-        state.adminUser = data.admin;
-        sessionStorage.setItem("nbd_admin_token", token);
-        renderAdminUserPill();
-        showAppView();
-        loadActiveTabData();
-      } catch (err) {
-        state.token = null;
-        if (statusMsg) {
-          statusMsg.style.display = "block";
-          statusMsg.style.background = "var(--danger-light)";
-          statusMsg.style.color = "var(--danger)";
+    try {
+      state.token = token;
+      const data = await adminFetch("/api/admin/me");
+      state.adminUser = data.admin;
+      sessionStorage.setItem("nbd_admin_token", token);
+      renderAdminUserPill();
+      showAppView();
+      loadActiveTabData();
+    } catch (err) {
+      state.token = null;
+      if (statusMsg) {
+        statusMsg.style.display = "block";
+        statusMsg.style.background = "var(--danger-light)";
+        statusMsg.style.color = "var(--danger)";
 
-          let friendlyMsg = err.message || "Invalid administrative credentials or insufficient privileges.";
-          if (err.status === 401) {
-            friendlyMsg = "Authentication Required: The provided administrator token is invalid or has expired.";
-          } else if (err.status === 403 || err.code === "FORBIDDEN_ROLE") {
-            friendlyMsg = "Access Denied: Your account does not have administrator privileges for Nails by Divya. Required roles: artist_divya or super_operator.";
-          } else if (err.message && (err.message.includes("Failed to fetch") || err.message.includes("NetworkError"))) {
-            friendlyMsg = "Connection Error: Unable to contact the Nails by Divya API server. Please check your internet connection or server status.";
-          }
-          statusMsg.textContent = friendlyMsg;
+        let friendlyMsg = err.message || "Invalid administrative credentials or insufficient privileges.";
+        if (err.status === 401) {
+          friendlyMsg = "Authentication Required: The provided administrator token is invalid or has expired.";
+        } else if (err.status === 403 || err.code === "FORBIDDEN_ROLE") {
+          friendlyMsg = "Access Denied: Your account does not have administrator privileges for Nails by Divya. Required roles: artist_divya or super_operator.";
+        } else if (err.message && (err.message.includes("Failed to fetch") || err.message.includes("NetworkError"))) {
+          friendlyMsg = "Connection Error: Unable to contact the Nails by Divya API server. Please check your internet connection or server status.";
         }
-      } finally {
+        statusMsg.textContent = friendlyMsg;
+      }
+    } finally {
+      if (submitBtn) {
         submitBtn.disabled = false;
         submitBtn.innerHTML = "<span>Sign In to Admin Portal &rarr;</span>";
       }
+    }
+  }
+
+  // Handle Login Form Submission
+  const loginForm = document.getElementById("admin-login-form");
+  if (loginForm) {
+    loginForm.addEventListener("submit", async (e) => {
+      if (e && typeof e.preventDefault === "function") e.preventDefault();
+      await handleAdminLogin();
     });
   }
 
