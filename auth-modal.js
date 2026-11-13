@@ -599,17 +599,6 @@
     }
   }
 
-    if (phoneInputEl && initialPhone) {
-      phoneInputEl.value = initialPhone.replace(/\D/g, "").slice(-10);
-    }
-
-    if (typeof dialogEl.showModal === "function") {
-      dialogEl.showModal();
-    } else {
-      dialogEl.setAttribute("open", "");
-    }
-  }
-
   /**
    * Closes the authentication dialog.
    */
