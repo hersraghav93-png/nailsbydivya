@@ -710,6 +710,130 @@
     },
 
     /**
+     * Signs in using email and password (for administrative accounts).
+     * @param {string} email
+     * @param {string} password
+     * @returns {Promise<{ success: boolean, user: object, token: string }>}
+     */
+    async signInWithEmail(email, password) {
+      if (!isConfigured || !firebaseAuth) {
+        throw new Error("Authentication service is not configured.");
+      }
+      const cleanEmail = (email || "").trim().toLowerCase();
+      if (!cleanEmail || !cleanEmail.includes("@")) {
+        throw new Error("Please enter a valid email address.");
+      }
+      if (!password || !password.trim()) {
+        throw new Error("Please enter your password.");
+      }
+
+      try {
+        const userCredential = await firebaseAuth.signInWithEmailAndPassword(cleanEmail, password);
+        const fbUser = userCredential.user;
+        currentToken = await fbUser.getIdToken();
+
+        if (window.NailsApi) {
+          try {
+            const syncRes = typeof window.NailsApi.verifyPhone === "function"
+              ? await window.NailsApi.verifyPhone(currentToken)
+              : await window.NailsApi.getCurrentUser();
+            currentUser = (syncRes && syncRes.user) || {
+              id: fbUser.uid,
+              email: fbUser.email,
+              firebase_uid: fbUser.uid,
+            };
+          } catch {
+            currentUser = {
+              id: fbUser.uid,
+              email: fbUser.email,
+              firebase_uid: fbUser.uid,
+            };
+          }
+        } else {
+          currentUser = {
+            id: fbUser.uid,
+            email: fbUser.email,
+            firebase_uid: fbUser.uid,
+          };
+        }
+
+        persistSession();
+        notifyAuthChange(currentUser);
+        return { success: true, user: currentUser, token: currentToken };
+      } catch (err) {
+        let msg = err.message || "Failed to sign in with email and password.";
+        if (err.code === "auth/user-not-found" || err.code === "auth/wrong-password" || err.code === "auth/invalid-credential") {
+          msg = "Invalid email or password. Please check your credentials.";
+        } else if (err.code === "auth/operation-not-allowed") {
+          msg = "Email/Password sign-in is not enabled in Firebase Console. Please enable Email/Password provider under Authentication -> Sign-in method.";
+        } else if (err.code === "auth/too-many-requests") {
+          msg = "Access to this account has been temporarily disabled due to many failed login attempts. Please try again later or reset your password.";
+        }
+        const error = new Error(msg);
+        error.code = err.code || "AUTH_FAILED";
+        error.originalError = err;
+        throw error;
+      }
+    },
+
+    /**
+     * Signs in using Google Authentication.
+     * @returns {Promise<{ success: boolean, user: object, token: string }>}
+     */
+    async signInWithGoogle() {
+      if (!isConfigured || !firebaseAuth) {
+        throw new Error("Authentication service is not configured.");
+      }
+      try {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: "select_account" });
+        const result = await firebaseAuth.signInWithPopup(provider);
+        const fbUser = result.user;
+        currentToken = await fbUser.getIdToken();
+
+        if (window.NailsApi) {
+          try {
+            const syncRes = typeof window.NailsApi.verifyPhone === "function"
+              ? await window.NailsApi.verifyPhone(currentToken)
+              : await window.NailsApi.getCurrentUser();
+            currentUser = (syncRes && syncRes.user) || {
+              id: fbUser.uid,
+              email: fbUser.email,
+              firebase_uid: fbUser.uid,
+            };
+          } catch {
+            currentUser = {
+              id: fbUser.uid,
+              email: fbUser.email,
+              firebase_uid: fbUser.uid,
+            };
+          }
+        } else {
+          currentUser = {
+            id: fbUser.uid,
+            email: fbUser.email,
+            firebase_uid: fbUser.uid,
+          };
+        }
+
+        persistSession();
+        notifyAuthChange(currentUser);
+        return { success: true, user: currentUser, token: currentToken };
+      } catch (err) {
+        let msg = err.message || "Google sign-in was cancelled or failed.";
+        if (err.code === "auth/popup-closed-by-user") {
+          msg = "Google sign-in popup was closed before completing.";
+        } else if (err.code === "auth/operation-not-allowed") {
+          msg = "Google Sign-in is not enabled in Firebase Console. Please enable Google provider under Authentication -> Sign-in method.";
+        }
+        const error = new Error(msg);
+        error.code = err.code || "AUTH_FAILED";
+        error.originalError = err;
+        throw error;
+      }
+    },
+
+    /**
      * Signs out the user and clears all cached sessions.
      * @returns {Promise<void>}
      */

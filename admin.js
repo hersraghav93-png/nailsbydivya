@@ -273,6 +273,147 @@
     });
   }
 
+  // --- AUTH METHOD TABS (EMAIL vs PHONE) ---
+  const tabEmail = document.getElementById("tab-admin-email");
+  const tabPhone = document.getElementById("tab-admin-phone");
+  const emailAuthContainer = document.getElementById("admin-email-auth-container");
+  const phoneAuthContainer = document.getElementById("admin-phone-auth-container");
+
+  if (tabEmail && tabPhone) {
+    tabEmail.addEventListener("click", () => {
+      clearAuthStatus();
+      tabEmail.classList.add("is-active");
+      tabEmail.style.background = "var(--bg-surface)";
+      tabEmail.style.borderColor = "var(--border-light)";
+      tabEmail.style.color = "var(--text-primary)";
+      tabEmail.style.fontWeight = "600";
+
+      tabPhone.classList.remove("is-active");
+      tabPhone.style.background = "transparent";
+      tabPhone.style.borderColor = "transparent";
+      tabPhone.style.color = "var(--text-muted)";
+      tabPhone.style.fontWeight = "500";
+
+      if (emailAuthContainer) emailAuthContainer.style.display = "block";
+      if (phoneAuthContainer) phoneAuthContainer.style.display = "none";
+    });
+
+    tabPhone.addEventListener("click", () => {
+      clearAuthStatus();
+      tabPhone.classList.add("is-active");
+      tabPhone.style.background = "var(--bg-surface)";
+      tabPhone.style.borderColor = "var(--border-light)";
+      tabPhone.style.color = "var(--text-primary)";
+      tabPhone.style.fontWeight = "600";
+
+      tabEmail.classList.remove("is-active");
+      tabEmail.style.background = "transparent";
+      tabEmail.style.borderColor = "transparent";
+      tabEmail.style.color = "var(--text-muted)";
+      tabEmail.style.fontWeight = "500";
+
+      if (phoneAuthContainer) phoneAuthContainer.style.display = "block";
+      if (emailAuthContainer) emailAuthContainer.style.display = "none";
+    });
+  }
+
+  // --- EMAIL & PASSWORD LOGIN CONTROLLER ---
+  const emailLoginBtn = document.getElementById("btn-admin-email-login");
+  const googleLoginBtn = document.getElementById("btn-admin-google-login");
+  const emailInput = document.getElementById("admin-email-input");
+  const passwordInput = document.getElementById("admin-password-input");
+
+  if (emailLoginBtn) {
+    emailLoginBtn.addEventListener("click", async () => {
+      clearAuthStatus();
+      const email = emailInput ? emailInput.value.trim() : "";
+      const password = passwordInput ? passwordInput.value : "";
+
+      if (!email || !email.includes("@")) {
+        showAuthStatus("Please enter your registered administrator email address.", true);
+        if (emailInput) emailInput.focus();
+        return;
+      }
+      if (!password) {
+        showAuthStatus("Please enter your administrator password.", true);
+        if (passwordInput) passwordInput.focus();
+        return;
+      }
+
+      emailLoginBtn.disabled = true;
+      const origHtml = emailLoginBtn.innerHTML;
+      emailLoginBtn.innerHTML = "<span>Authenticating...</span>";
+
+      try {
+        if (typeof NailsAuth === "undefined") {
+          throw new Error("Authentication service is not loaded.");
+        }
+        const res = await NailsAuth.signInWithEmail(email, password);
+        const token = res.token || (await NailsAuth.getToken());
+        if (!token) throw new Error("Failed to retrieve authentication token.");
+
+        state.token = token;
+        sessionStorage.setItem("nbd_admin_token", token);
+        const data = await adminFetch("/api/admin/me");
+        state.adminUser = data.admin;
+        renderAdminUserPill();
+        showAppView();
+        loadActiveTabData();
+      } catch (err) {
+        console.error("[Admin Auth Error]:", err);
+        showAuthStatus(err.message || "Failed to sign in. Please verify your email and password.", true);
+        state.token = null;
+        sessionStorage.removeItem("nbd_admin_token");
+      } finally {
+        emailLoginBtn.disabled = false;
+        emailLoginBtn.innerHTML = origHtml;
+      }
+    });
+  }
+
+  if (passwordInput && emailLoginBtn) {
+    passwordInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        emailLoginBtn.click();
+      }
+    });
+  }
+
+  if (googleLoginBtn) {
+    googleLoginBtn.addEventListener("click", async () => {
+      clearAuthStatus();
+      googleLoginBtn.disabled = true;
+      const origHtml = googleLoginBtn.innerHTML;
+      googleLoginBtn.innerHTML = "<span>Signing in with Google...</span>";
+
+      try {
+        if (typeof NailsAuth === "undefined") {
+          throw new Error("Authentication service is not loaded.");
+        }
+        const res = await NailsAuth.signInWithGoogle();
+        const token = res.token || (await NailsAuth.getToken());
+        if (!token) throw new Error("Failed to retrieve authentication token.");
+
+        state.token = token;
+        sessionStorage.setItem("nbd_admin_token", token);
+        const data = await adminFetch("/api/admin/me");
+        state.adminUser = data.admin;
+        renderAdminUserPill();
+        showAppView();
+        loadActiveTabData();
+      } catch (err) {
+        console.error("[Admin Google Auth Error]:", err);
+        showAuthStatus(err.message || "Google sign-in was not completed.", true);
+        state.token = null;
+        sessionStorage.removeItem("nbd_admin_token");
+      } finally {
+        googleLoginBtn.disabled = false;
+        googleLoginBtn.innerHTML = origHtml;
+      }
+    });
+  }
+
   // --- DIRECT PHONE SMS OTP CONTROLLER FOR ADMIN ---
   const sendOtpBtn = document.getElementById("btn-admin-send-otp");
   const verifyOtpBtn = document.getElementById("btn-admin-verify-otp");
