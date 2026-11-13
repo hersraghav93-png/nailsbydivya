@@ -81,8 +81,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   
   <!-- Master Stylesheets -->
-  <link rel="stylesheet" href="style.css?v=11">
-  <link rel="stylesheet" href="auth.css">
+  <link rel="stylesheet" href="style.css?v=12">
+  <link rel="stylesheet" href="auth.css?v=12">
 </head>
 <body>
 
@@ -97,13 +97,15 @@
         <span class="brand-name">Nails by Divya</span>
       </a>
 
-      <!-- Primary Editorial Navigation (5 Focused Links) -->
+      <!-- Primary Editorial Navigation (Focused Links) -->
       <div class="nav-primary" id="nav-primary">
         <a href="#home" class="nav-link is-active">Home</a>
-        <a href="#shop" class="nav-link">Press-on Nails</a>
-        <a href="#services" class="nav-link">At-Home Services</a>
+        <a href="#shop" class="nav-link">Press-ons</a>
+        <a href="#services" class="nav-link">At-Home</a>
+        <a href="#custom" class="nav-link">Custom</a>
         <a href="#portfolio" class="nav-link">Lookbook</a>
-        <a href="#about" class="nav-link">About Divya</a>
+        <a href="#about" class="nav-link">About</a>
+        <a href="#reviews" class="nav-link">Reviews</a>
       </div>
 
       <!-- Essential Right-Side Action Suite -->
@@ -118,7 +120,7 @@
           <span class="nav-cart-label">Bag</span>
           <span class="nav-cart-badge" id="nav-cart-count" style="display: none;">0</span>
         </button>
-        <a href="#contact" class="nav-cta-link" id="nav-book-btn">Book / Enquire</a>
+        <a href="#contact" class="nav-cta-link" id="nav-book-btn">Book Now</a>
       </div>
 
       <!-- Mobile Quick Actions & Hamburger Toggle -->
@@ -187,63 +189,43 @@
   <main id="main-content">
     
     <!-- =========================================================================
-         01. HERO — THE THREE PRIMARY CUSTOMER JOURNEYS
+         01. HERO — CINEMATIC ROTATING SHOWCASE
          ========================================================================= -->
     <section class="hero section" id="home">
-      <div class="hero-container">
-        <div class="hero-header">
-          <span class="editorial-label">Freelance Nail Artist &bull; Delhi NCR &bull; Pan-India Delivery</span>
-          <h1 class="hero-title">Bespoke Nail Artistry,<br>Crafted Around You.</h1>
-          <p class="hero-lead">
-            Experience artisanal nail craft by freelance artist Divya. Order collectible handmade press-on sets delivered fresh to your doorstep across India, or book a private at-home appointment across Delhi NCR.
+      <div class="hero-grid">
+        <div class="hero-copy fade-up">
+          <p class="eyebrow">At-Home Service in Delhi NCR &bull; Handmade Press-Ons Across India</p>
+          <h1>Nails by Divya</h1>
+          <p class="tagline">Beautiful nails, however you want them.</p>
+          <p class="hero-text">
+            Experience bespoke nail artistry by freelance artist Divya. Order collectible handmade press-on sets delivered fresh to your doorstep anywhere in India, or book a professional at-home appointment across Delhi NCR.
           </p>
+          
+          <div class="hero-actions">
+            <a class="button primary-button" href="#shop">
+              Explore Press-On Nails
+            </a>
+            <a class="button secondary-button" href="#services">
+              Book Appointment
+            </a>
+          </div>
+          <p class="hero-subnote">Every press-on set is handmade fresh after your order &bull; Never mass-produced</p>
         </div>
 
-        <!-- The 3 Primary Customer Journey Gateways -->
-        <div class="journey-grid">
-          
-          <!-- Journey 1: Shop Press-Ons -->
-          <a href="#shop" class="journey-card" aria-label="Journey 1: Shop Handmade Press-On Nails">
-            <div class="journey-card-image">
-              <img src="assets/portfolio/nail7.png" alt="Handmade press-on nails by Divya" loading="eager" fetchpriority="high">
-              <span class="journey-tag">Pan-India Delivery</span>
+        <div class="hero-visual fade-up">
+          <div class="hero-showcase" id="hero-showcase" role="region" aria-label="Craftsmanship rotating photography showcase">
+            <img src="assets/portfolio/nail7.png" alt="Editorial macro photography of custom hand-painted nail set by Divya" class="hero-slide is-active" decoding="sync" fetchpriority="high">
+            <img src="assets/portfolio/nail8.png" alt="Detail closeup of soft glam French tips" class="hero-slide" decoding="async">
+            <img src="assets/portfolio/nail1.png" alt="Sculpted gel extensions with natural nude shine" class="hero-slide" decoding="async">
+            <img src="assets/portfolio/newnail1.png" alt="Hand-painted rose floral artistry" class="hero-slide" decoding="async">
+            <img src="assets/portfolio/dv1.jpeg" alt="Imperial gold foil flecks over soft white gel" class="hero-slide" decoding="async">
+            <img src="assets/portfolio/dv2.jpeg" alt="Silver liquid chrome ripple texture nail art" class="hero-slide" decoding="async">
+            
+            <div class="floating-badge">
+              <span class="badge-dot"></span>
+              <span>Handcrafted with Care</span>
             </div>
-            <div class="journey-card-content">
-              <span class="journey-number">01</span>
-              <h2 class="journey-title">Shop Press-On Nails</h2>
-              <p class="journey-desc">Handmade fresh to order with salon-grade soft gel. Custom-sized to your exact natural nail beds.</p>
-              <span class="journey-link">Explore Collection &rarr;</span>
-            </div>
-          </a>
-
-          <!-- Journey 2: At-Home Services -->
-          <a href="#services" class="journey-card" aria-label="Journey 2: Book At-Home Salon Services in Delhi NCR">
-            <div class="journey-card-image">
-              <img src="assets/portfolio/nail1.png" alt="At-home nail extensions in Delhi NCR" loading="eager">
-              <span class="journey-tag">Delhi NCR At-Home</span>
-            </div>
-            <div class="journey-card-content">
-              <span class="journey-number">02</span>
-              <h2 class="journey-title">At-Home Salon Services</h2>
-              <p class="journey-desc">Sculpted extensions, overlays, and nail art brought directly to your home with sterile single-use kits.</p>
-              <span class="journey-link">View Service Menu &rarr;</span>
-            </div>
-          </a>
-
-          <!-- Journey 3: Custom Design -->
-          <a href="#custom" class="journey-card" aria-label="Journey 3: Request Custom Thematic Nail Design">
-            <div class="journey-card-image">
-              <img src="assets/custom%20sets/CUSTOM-SETS/spider-man-custom.png" alt="Custom thematic nail design" loading="eager">
-              <span class="journey-tag">Bespoke Creations</span>
-            </div>
-            <div class="journey-card-content">
-              <span class="journey-number">03</span>
-              <h2 class="journey-title">Request Custom Design</h2>
-              <p class="journey-desc">Bring your outfit, lehenga, jewellery motif, or Pinterest inspiration for a one-of-a-kind bespoke set.</p>
-              <span class="journey-link">Discuss Design &rarr;</span>
-            </div>
-          </a>
-
+          </div>
         </div>
       </div>
     </section>
@@ -317,7 +299,6 @@
               <span class="product-badge">Casual</span>
             </div>
             <div class="product-info">
-              <span class="product-sku">SKU: CAS-004</span>
               <h4>Molten Chrome Ripple</h4>
               <p class="product-description">Hand-formed 3D liquid silver ripples flowing over sheer blush gel. High texture and dimensional artistry.</p>
               <div class="product-price festive-pricing">
@@ -340,7 +321,6 @@
               <span class="product-badge">Casual</span>
             </div>
             <div class="product-info">
-              <span class="product-sku">SKU: CAS-005</span>
               <h4>Silver Petal</h4>
               <p class="product-description">Icy silver-blue chrome tips with 3D sculpted floral petals. A standout statement set handcrafted to your preferred length.</p>
               <div class="product-price festive-pricing">
@@ -363,7 +343,6 @@
               <span class="product-badge">Casual</span>
             </div>
             <div class="product-info">
-              <span class="product-sku">SKU: CAS-007</span>
               <h4>Celestial Opal 3D</h4>
               <p class="product-description">Opal-infused builder gel sculpted with organic water-droplet textures that catch light beautifully.</p>
               <div class="product-price festive-pricing">
@@ -386,7 +365,6 @@
               <span class="product-badge">Casual</span>
             </div>
             <div class="product-info">
-              <span class="product-sku">SKU: CAS-008</span>
               <h4>Glazed Aura Chrome</h4>
               <p class="product-description">Ultra-reflective chrome powder buffed over pink gel with hand-painted aura centers.</p>
               <div class="product-price festive-pricing">
@@ -409,7 +387,6 @@
               <span class="product-badge">Party</span>
             </div>
             <div class="product-info">
-              <span class="product-sku">SKU: PAR-003</span>
               <h4>Bordeaux Veil</h4>
               <p class="product-description">Deep wine red gel with precision gold metallic threadwork. Commands instant attention at evening celebrations and dinners.</p>
               <div class="product-price festive-pricing">
@@ -432,7 +409,6 @@
               <span class="product-badge">Party</span>
             </div>
             <div class="product-info">
-              <span class="product-sku">SKU: PAR-004</span>
               <h4>Midnight Chrome</h4>
               <p class="product-description">Sultry obsidian black gel topped with color-shifting emerald and sapphire mirror chrome.</p>
               <div class="product-price festive-pricing">
@@ -455,7 +431,6 @@
               <span class="product-badge">Party</span>
             </div>
             <div class="product-info">
-              <span class="product-sku">SKU: PAR-008</span>
               <h4>Crimson Glaze</h4>
               <p class="product-description">Vibrant ruby red jelly gel layered with ultra-gloss top coat for a high-fashion wet glass finish.</p>
               <div class="product-price festive-pricing">
@@ -478,7 +453,6 @@
               <span class="product-badge">Party</span>
             </div>
             <div class="product-info">
-              <span class="product-sku">SKU: PAR-009</span>
               <h4>Electric Lavender</h4>
               <p class="product-description">Bold violet cat-eye gel with mesmerizing silver aura highlights that shift with every movement.</p>
               <div class="product-price festive-pricing">
@@ -501,7 +475,6 @@
               <span class="product-badge">Party</span>
             </div>
             <div class="product-info">
-              <span class="product-sku">SKU: PAR-0010</span>
               <h4>Starlight Metallic</h4>
               <p class="product-description">Sheer nude base with hand-sculpted silver chrome stars and celestial constellations.</p>
               <div class="product-price festive-pricing">
@@ -524,7 +497,6 @@
               <span class="product-badge">Party</span>
             </div>
             <div class="product-info">
-              <span class="product-sku">SKU: PAR-0011</span>
               <h4>Leopard French</h4>
               <p class="product-description">A refined French set with hand-painted leopard detailing along the tips, kept soft and wearable over a natural nude base.</p>
               <div class="product-price festive-pricing">
@@ -547,7 +519,6 @@
               <span class="product-badge">Bridal</span>
             </div>
             <div class="product-info">
-              <span class="product-sku">SKU: WED-001</span>
               <h4>Pearl Blossom</h4>
               <p class="product-description">Translucent ivory gel infused with micro-pearl shimmer and sculpted 3D petal details for timeless elegance.</p>
               <div class="product-price festive-pricing">
@@ -570,7 +541,6 @@
               <span class="product-badge">Bridal</span>
             </div>
             <div class="product-info">
-              <span class="product-sku">SKU: WED-002</span>
               <h4>Golden Empress</h4>
               <p class="product-description">Intricate 24K gold metallic foil accents layered over sheer milky white gel. Designed for royal Indian festivities.</p>
               <div class="product-price festive-pricing">
@@ -593,7 +563,6 @@
               <span class="product-badge">Bridal</span>
             </div>
             <div class="product-info">
-              <span class="product-sku">SKU: WED-005</span>
               <h4>Rosewood Bloom</h4>
               <p class="product-description">Delicate white floral overlays hand-painted over sheer rosewood gel. Perfect for weddings and sangeet celebrations.</p>
               <div class="product-price festive-pricing">
@@ -616,7 +585,6 @@
               <span class="product-badge">Bridal</span>
             </div>
             <div class="product-info">
-              <span class="product-sku">SKU: WED-006</span>
               <h4>Blush Lace Symphony</h4>
               <p class="product-description">Soft blush ombré base with fine hand-painted French lace tips. An immaculate choice for receptions and engagements.</p>
               <div class="product-price festive-pricing">
@@ -639,7 +607,6 @@
               <span class="product-badge">Bridal</span>
             </div>
             <div class="product-info">
-              <span class="product-sku">SKU: WED-007</span>
               <h4>Champagne Aura</h4>
               <p class="product-description">Warm champagne chrome fade with encapsulated glitter dust. Radiant under evening chandelier lighting.</p>
               <div class="product-price festive-pricing">
@@ -662,7 +629,6 @@
               <span class="product-badge">Bridal</span>
             </div>
             <div class="product-info">
-              <span class="product-sku">SKU: WED-008</span>
               <h4>Maharaja Velvet</h4>
               <p class="product-description">Rich crimson cat-eye velvet gel with gold zari-inspired metallic borders. Bold, traditional, and captivating.</p>
               <div class="product-price festive-pricing">
@@ -685,7 +651,6 @@
               <span class="product-badge">Bridal</span>
             </div>
             <div class="product-info">
-              <span class="product-sku">SKU: WED-009</span>
               <h4>Ivory Diamond Veil</h4>
               <p class="product-description">Pristine ivory French tips encrusted with Swarovski-inspired crystal placements at the cuticle line.</p>
               <div class="product-price festive-pricing">
@@ -708,7 +673,6 @@
               <span class="product-badge">Daily</span>
             </div>
             <div class="product-info">
-              <span class="product-sku">SKU: WORK-002</span>
               <h4>Classic Micro French</h4>
               <p class="product-description">Natural pink camouflage gel paired with ultra-thin precision white smile lines. Understated and professional.</p>
               <div class="product-price festive-pricing">
@@ -731,7 +695,6 @@
               <span class="product-badge">Daily</span>
             </div>
             <div class="product-info">
-              <span class="product-sku">SKU: WORK-003</span>
               <h4>Milky Almond Cloud</h4>
               <p class="product-description">Translucent milky white gel in a flattering soft almond silhouette that lengthens fingers naturally.</p>
               <div class="product-price festive-pricing">
@@ -754,7 +717,6 @@
               <span class="product-badge">Daily</span>
             </div>
             <div class="product-info">
-              <span class="product-sku">SKU: WORK-004</span>
               <h4>Velvet Pearl</h4>
               <p class="product-description">Luminous glazed chrome over soft blush pink gel. Clean, sophisticated, and engineered for effortless everyday wear.</p>
               <div class="product-price festive-pricing">
@@ -777,7 +739,6 @@
               <span class="product-badge">Daily</span>
             </div>
             <div class="product-info">
-              <span class="product-sku">SKU: WORK-006</span>
               <h4>Rose Quartz Polish</h4>
               <p class="product-description">Semi-sheer rosy quartz gel with subtle internal marbling effect inspired by natural gemstones.</p>
               <div class="product-price festive-pricing">
@@ -800,7 +761,6 @@
               <span class="product-badge">Daily</span>
             </div>
             <div class="product-info">
-              <span class="product-sku">SKU: WORK-007</span>
               <h4>Soft Mauve Silk</h4>
               <p class="product-description">Muted dusty mauve gel with a velvety satin matte finish. Versatile and effortlessly chic.</p>
               <div class="product-price festive-pricing">
@@ -903,12 +863,12 @@
           <article class="service-card">
             <div class="service-card-header">
               <span class="service-number">01</span>
-              <span class="service-price">From ₹999</span>
+              <span class="service-price">From ₹1,499</span>
             </div>
             <h3>Nail Extensions</h3>
             <p>Sculpted soft gel and full-cover extension tips customized to your preferred length and shape (Almond, Square, Coffin, Stiletto, Oval).</p>
             <div class="service-card-action">
-              <button type="button" class="button secondary-button" data-action="service-book" data-service-title="Nail Extensions">Enquire Service &rarr;</button>
+              <button type="button" class="button secondary-button" data-action="service-book" data-service-title="Nail Extensions">Book Extensions &rarr;</button>
             </div>
           </article>
 
@@ -916,12 +876,12 @@
           <article class="service-card">
             <div class="service-card-header">
               <span class="service-number">02</span>
-              <span class="service-price">From ₹999</span>
+              <span class="service-price">From ₹1,199</span>
             </div>
             <h3>Natural Nail Overlay</h3>
             <p>Strengthen and reinforce your natural nail beds with structured builder gel, creating a durable, chip-resistant glossy surface.</p>
             <div class="service-card-action">
-              <button type="button" class="button secondary-button" data-action="service-book" data-service-title="Natural Nail Overlay">Enquire Service &rarr;</button>
+              <button type="button" class="button secondary-button" data-action="service-book" data-service-title="Natural Nail Overlay">Book Overlay &rarr;</button>
             </div>
           </article>
 
@@ -929,12 +889,12 @@
           <article class="service-card">
             <div class="service-card-header">
               <span class="service-number">03</span>
-              <span class="service-price">From ₹999</span>
+              <span class="service-price">From ₹899</span>
             </div>
             <h3>Power Polish / Shellac</h3>
             <p>A polished, high-gloss gel manicure service on natural nails for clients seeking long-lasting vibrant colour without tip extensions.</p>
             <div class="service-card-action">
-              <button type="button" class="button secondary-button" data-action="service-book" data-service-title="Power Polish / Shellac">Enquire Service &rarr;</button>
+              <button type="button" class="button secondary-button" data-action="service-book" data-service-title="Power Polish / Shellac">Book Gel Polish &rarr;</button>
             </div>
           </article>
 
@@ -942,12 +902,12 @@
           <article class="service-card">
             <div class="service-card-header">
               <span class="service-number">04</span>
-              <span class="service-price">Custom Quotation</span>
+              <span class="service-price">Bespoke Consultation</span>
             </div>
             <h3>3D &amp; Custom Nail Art</h3>
             <p>Sculptural dimensional finishes, liquid chrome ripples, freshwater micro-pearls, floral hand-painting, and outfit-matched motifs.</p>
             <div class="service-card-action">
-              <button type="button" class="button secondary-button" data-action="service-book" data-service-title="3D & Custom Nail Art">Enquire Service &rarr;</button>
+              <button type="button" class="button secondary-button" data-action="service-book" data-service-title="3D & Custom Nail Art">Enquire Art &rarr;</button>
             </div>
           </article>
 
@@ -955,12 +915,12 @@
           <article class="service-card">
             <div class="service-card-header">
               <span class="service-number">05</span>
-              <span class="service-price">Design Add-On</span>
+              <span class="service-price">From ₹399 Add-On</span>
             </div>
             <h3>French Nails</h3>
             <p>A signature design add-on featuring crisp micro-French, modern editorial double lines, coloured tips, or soft ombre baby boomer finishes on your preferred nail shape.</p>
             <div class="service-card-action">
-              <button type="button" class="button secondary-button" data-action="service-book" data-service-title="French Nails">Enquire Add-On &rarr;</button>
+              <button type="button" class="button secondary-button" data-action="service-book" data-service-title="French Nails">Book French Add-On &rarr;</button>
             </div>
           </article>
 
@@ -968,12 +928,12 @@
           <article class="service-card">
             <div class="service-card-header">
               <span class="service-number">06</span>
-              <span class="service-price">Price on Enquiry</span>
+              <span class="service-price">From ₹499</span>
             </div>
             <h3>Safe Extension Removal</h3>
             <p>Gentle, damage-free removal of existing extensions or overlays, finished with deep cuticle oil hydration and nail bed conditioning.</p>
             <div class="service-card-action">
-              <button type="button" class="button secondary-button" data-action="service-book" data-service-title="Safe Extension Removal">Enquire Service &rarr;</button>
+              <button type="button" class="button secondary-button" data-action="service-book" data-service-title="Safe Extension Removal">Book Removal &rarr;</button>
             </div>
           </article>
 

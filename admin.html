@@ -7,8 +7,8 @@
   <meta name="robots" content="noindex, nofollow">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,400&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="admin.css">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="admin.css?v=12">
 </head>
 <body>
 
@@ -36,12 +36,12 @@
       </div>
 
       <!-- 1B. CLIENT ACCOUNT DETECTED NOTICE -->
-      <div id="admin-customer-session-box" style="display: none; background: rgba(197, 160, 89, 0.1); border: 1px solid rgba(197, 160, 89, 0.3); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.25rem; text-align: left;">
+      <div id="admin-customer-session-box" style="display: none; background: rgba(231, 175, 184, 0.15); border: 1px solid rgba(217, 137, 155, 0.4); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.25rem; text-align: left;">
         <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem;">
           <span style="font-size: 1.1rem;">💅🏻</span>
-          <strong style="color: var(--gold-primary); font-size: 0.95rem;">Client Account Detected</strong>
+          <strong style="color: var(--heading, #3d2a2f); font-size: 0.95rem;">Client Account Detected</strong>
         </div>
-        <p style="font-size: 0.82rem; color: var(--text-light); margin: 0 0 0.85rem; line-height: 1.45;">
+        <p style="font-size: 0.82rem; color: var(--text-primary, #4e4446); margin: 0 0 0.85rem; line-height: 1.45;">
           You are signed in with a client account (<strong id="customer-session-phone">+91...</strong>). Studio Operations is reserved for Nails by Divya artists and management.
         </p>
         <div style="display: flex; gap: 0.65rem; flex-wrap: wrap;">
@@ -63,10 +63,10 @@
             <label class="form-label" for="admin-phone-input">Studio Mobile Number</label>
             <div style="display: flex; gap: 0.5rem; align-items: center;">
               <span style="padding: 0.65rem 0.85rem; background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 6px; font-weight: 600; font-size: 0.9rem; color: var(--text-primary);">+91</span>
-              <input type="tel" id="admin-phone-input" class="form-input" placeholder="84473 91310 or 78274 37985" value="8447391310" maxlength="10" inputmode="numeric" style="flex: 1;" required>
+              <input type="tel" id="admin-phone-input" class="form-input" placeholder="e.g. 98765 43210" maxlength="10" inputmode="numeric" style="flex: 1;" required>
             </div>
             <p style="font-size: 0.74rem; color: var(--text-muted); margin-top: 0.35rem;">
-              Authorized studio administrators: <strong>+91 84473 91310 (Divya - Artist)</strong> or <strong>+91 78274 37985 (Raghav - Owner)</strong>
+              Enter the registered 10-digit mobile number for your artist or owner administrator account.
             </p>
           </div>
 
@@ -83,12 +83,12 @@
           <div style="margin-bottom: 1rem;">
             <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.35rem;">
               <label class="form-label" for="admin-otp-input">6-Digit Verification Code</label>
-              <button type="button" id="btn-admin-change-phone" style="background: none; border: none; color: var(--gold-primary); font-size: 0.75rem; cursor: pointer; text-decoration: underline;">
+              <button type="button" id="btn-admin-change-phone" style="background: none; border: none; color: var(--accent-strong, #d9899b); font-size: 0.75rem; cursor: pointer; text-decoration: underline;">
                 Change Number
               </button>
             </div>
             <p id="admin-otp-subtext" style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.5rem;">
-              Enter the verification code sent to <strong id="admin-otp-phone-display">+91 84473 91310</strong>
+              Enter the verification code sent to <strong id="admin-otp-phone-display">+91...</strong>
             </p>
             <input type="text" id="admin-otp-input" class="form-input" placeholder="Enter 6-digit code..." maxlength="6" inputmode="numeric" autocomplete="one-time-code" style="letter-spacing: 0.25rem; font-size: 1.1rem; text-align: center; font-weight: 600;" required>
           </div>
