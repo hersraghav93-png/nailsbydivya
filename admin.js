@@ -285,9 +285,18 @@
   const otpInputEl = document.getElementById("admin-otp-input");
   const otpPhoneDisplay = document.getElementById("admin-otp-phone-display");
 
+  let isBillingDisabled = false;
+
   function startResendCountdown(seconds = 30) {
     if (adminResendInterval) clearInterval(adminResendInterval);
     if (!resendBtn || !resendTimerEl) return;
+
+    if (isBillingDisabled || (typeof NailsAuth !== "undefined" && NailsAuth.isBillingDisabled && NailsAuth.isBillingDisabled())) {
+      resendBtn.style.display = "none";
+      resendTimerEl.style.display = "inline";
+      resendTimerEl.textContent = "SMS verification unavailable";
+      return;
+    }
 
     resendBtn.style.display = "none";
     resendTimerEl.style.display = "inline";
@@ -299,11 +308,21 @@
       if (left <= 0) {
         clearInterval(adminResendInterval);
         resendTimerEl.style.display = "none";
-        resendBtn.style.display = "inline";
+        const isBillingOff = isBillingDisabled || (typeof NailsAuth !== "undefined" && NailsAuth.isBillingDisabled && NailsAuth.isBillingDisabled());
+        if (!isBillingOff) {
+          resendBtn.style.display = "inline";
+        }
       } else {
         resendTimerEl.textContent = `Resend SMS in ${left}s`;
       }
     }, 1000);
+  }
+
+  if (phoneInputEl) {
+    phoneInputEl.addEventListener("input", (e) => {
+      e.target.value = e.target.value.replace(/\D/g, "").slice(0, 10);
+      clearAuthStatus();
+    });
   }
 
   if (sendOtpBtn) {
@@ -317,6 +336,15 @@
         return;
       }
 
+      if (isBillingDisabled || (typeof NailsAuth !== "undefined" && NailsAuth.isBillingDisabled && NailsAuth.isBillingDisabled())) {
+        showAuthStatus(
+          "⚠️ Phone verification is temporarily unavailable: SMS billing (Blaze plan) is not enabled on the Firebase project. Verification codes cannot be sent to mobile devices (+91) at this time. Please use the ID Token sign-in below or contact Raghav.",
+          true
+        );
+        sendOtpBtn.disabled = true;
+        return;
+      }
+
       sendOtpBtn.disabled = true;
       const originalText = sendOtpBtn.innerHTML;
       sendOtpBtn.innerHTML = "<span>Sending SMS Code...</span>";
@@ -326,9 +354,18 @@
           throw new Error("Authentication service is not loaded.");
         }
         const res = await NailsAuth.sendOtp(rawPhone, "admin-recaptcha-container");
+        if (!res || !res.success) {
+          throw new Error("SMS verification was not confirmed by provider.");
+        }
+
+        // Only transition to OTP step after provider has successfully confirmed acceptance
         if (stepPhoneEl) stepPhoneEl.style.display = "none";
         if (stepOtpEl) stepOtpEl.style.display = "block";
         if (otpPhoneDisplay) otpPhoneDisplay.textContent = res.phone || `+91 ${digits}`;
+        const subtext = document.getElementById("admin-otp-subtext");
+        if (subtext) {
+          subtext.innerHTML = `Verification code sent to <strong id="admin-otp-phone-display">${res.phone || `+91 ${digits}`}</strong>`;
+        }
         if (otpInputEl) {
           otpInputEl.value = "";
           otpInputEl.focus();
@@ -336,10 +373,31 @@
         startResendCountdown(30);
       } catch (err) {
         console.error("Admin sendOtp error:", err);
-        showAuthStatus(err.message || "Failed to send SMS verification code.", true);
-      } finally {
-        sendOtpBtn.disabled = false;
-        sendOtpBtn.innerHTML = originalText;
+        // CRITICAL: Stay on phone step and keep phone number visible and editable
+        if (stepPhoneEl) stepPhoneEl.style.display = "block";
+        if (stepOtpEl) stepOtpEl.style.display = "none";
+        if (phoneInputEl) {
+          phoneInputEl.value = digits;
+          phoneInputEl.disabled = false;
+        }
+
+        const isBilling = err.isBillingDisabled || err.code === "BILLING_NOT_ENABLED" ||
+          (typeof NailsAuth !== "undefined" && NailsAuth.isBillingDisabled && NailsAuth.isBillingDisabled());
+
+        if (isBilling) {
+          isBillingDisabled = true;
+          sendOtpBtn.disabled = true;
+          sendOtpBtn.innerHTML = "<span>SMS Verification Unavailable</span>";
+          sendOtpBtn.title = "SMS billing is disabled on the Firebase project.";
+          showAuthStatus(
+            "⚠️ Phone verification is temporarily unavailable: SMS billing (Blaze plan) is not enabled on the Firebase project. Verification codes cannot be sent to mobile devices (+91) at this time. Please use the ID Token sign-in below or contact Raghav.",
+            true
+          );
+        } else {
+          sendOtpBtn.disabled = false;
+          sendOtpBtn.innerHTML = originalText;
+          showAuthStatus(err.message || "Failed to send verification code. Please try again.", true);
+        }
       }
     });
   }
@@ -393,7 +451,10 @@
       clearAuthStatus();
       if (stepOtpEl) stepOtpEl.style.display = "none";
       if (stepPhoneEl) stepPhoneEl.style.display = "block";
-      if (phoneInputEl) phoneInputEl.focus();
+      if (phoneInputEl) {
+        phoneInputEl.disabled = false;
+        phoneInputEl.focus();
+      }
     });
   }
 
@@ -401,11 +462,37 @@
     resendBtn.addEventListener("click", async () => {
       clearAuthStatus();
       const rawPhone = phoneInputEl ? phoneInputEl.value.trim() : "";
+
+      if (isBillingDisabled || (typeof NailsAuth !== "undefined" && NailsAuth.isBillingDisabled && NailsAuth.isBillingDisabled())) {
+        showAuthStatus("SMS verification is unavailable because billing is not enabled.", true);
+        resendBtn.disabled = true;
+        if (resendTimerEl) resendTimerEl.style.display = "none";
+        return;
+      }
+
+      resendBtn.disabled = true;
       try {
-        await NailsAuth.sendOtp(rawPhone, "admin-recaptcha-container");
+        const res = await NailsAuth.sendOtp(rawPhone, "admin-recaptcha-container");
+        if (!res || !res.success) {
+          throw new Error("Unable to confirm verification code dispatch.");
+        }
         startResendCountdown(30);
-        showAuthStatus("A new verification code has been dispatched via SMS.", false);
+        showAuthStatus("A new verification code has been dispatched.", false);
       } catch (err) {
+        const isBilling = err.isBillingDisabled || err.code === "BILLING_NOT_ENABLED" ||
+          (typeof NailsAuth !== "undefined" && NailsAuth.isBillingDisabled && NailsAuth.isBillingDisabled());
+
+        if (isBilling) {
+          isBillingDisabled = true;
+          resendBtn.disabled = true;
+          if (adminResendInterval) clearInterval(adminResendInterval);
+          if (resendTimerEl) {
+            resendTimerEl.textContent = "SMS verification unavailable";
+            resendTimerEl.style.display = "inline";
+          }
+        } else {
+          resendBtn.disabled = false;
+        }
         showAuthStatus(err.message || "Failed to resend verification code.", true);
       }
     });

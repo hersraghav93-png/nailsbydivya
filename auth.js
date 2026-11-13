@@ -21,11 +21,234 @@
   let recaptchaVerifier = null;
   let confirmationResult = null;
   let isConfigured = false;
+  let isBillingDisabledState = false;
   let currentUser = null;
   let currentToken = null;
   let pendingPhone = null;
 
   const authChangeListeners = [];
+
+  /**
+   * Centralized mapping of Firebase Auth and network errors to clean, truthful,
+   * human-readable messages. Never claims an SMS was sent when the request failed.
+   *
+   * @param {any} err
+   * @returns {{
+   *   code: string,
+   *   isBillingDisabled: boolean,
+   *   isBlockedPolicy: boolean,
+   *   isQuotaExceeded: boolean,
+   *   isRateLimited: boolean,
+   *   userMessage: string,
+   *   technicalDetail: string
+   * }}
+   */
+  function mapAuthError(err) {
+    if (!err) {
+      return {
+        code: "UNKNOWN_ERROR",
+        isBillingDisabled: false,
+        isBlockedPolicy: false,
+        isQuotaExceeded: false,
+        isRateLimited: false,
+        userMessage: "Phone verification is temporarily unavailable. Please try again later.",
+        technicalDetail: "",
+      };
+    }
+
+    const code = String(err.code || "");
+    const rawMsg = String(err.message || "");
+    const customData = err.customData || {};
+    const serverResponse = typeof customData.serverResponse === "string" ? customData.serverResponse : "";
+    let stringified = "";
+    try {
+      stringified = JSON.stringify(err);
+    } catch {}
+
+    const combinedUpper = `${code} ${rawMsg} ${serverResponse} ${stringified}`.toUpperCase();
+
+    // 1. BILLING NOT ENABLED (Google Cloud Identity Platform telecom billing requirement)
+    if (
+      err.isBillingDisabled ||
+      code === "BILLING_NOT_ENABLED" ||
+      code === "auth/billing-not-enabled" ||
+      combinedUpper.includes("BILLING_NOT_ENABLED") ||
+      combinedUpper.includes("BILLING-NOT-ENABLED") ||
+      combinedUpper.includes("BILLING NOT ENABLED")
+    ) {
+      return {
+        code: "BILLING_NOT_ENABLED",
+        isBillingDisabled: true,
+        isBlockedPolicy: false,
+        isQuotaExceeded: false,
+        isRateLimited: false,
+        userMessage:
+          "Phone verification is temporarily unavailable: SMS billing (Blaze plan) is not enabled on this environment. Verification codes cannot be sent at this time.",
+        technicalDetail: "Google Identity Platform returned 400 Bad Request BILLING_NOT_ENABLED.",
+      };
+    }
+
+    // 2. OPERATION NOT ALLOWED (e.g. Region not permitted or Phone Auth provider disabled)
+    if (
+      code === "auth/operation-not-allowed" ||
+      combinedUpper.includes("OPERATION_NOT_ALLOWED")
+    ) {
+      return {
+        code: "OPERATION_NOT_ALLOWED",
+        isBillingDisabled: false,
+        isBlockedPolicy: true,
+        isQuotaExceeded: false,
+        isRateLimited: false,
+        userMessage:
+          "Phone verification is temporarily unavailable for this region (+91) due to project policy. Please contact studio administration.",
+        technicalDetail: "Firebase SMS region policy or provider is disabled.",
+      };
+    }
+
+    // 3. QUOTA EXCEEDED
+    if (
+      code === "auth/quota-exceeded" ||
+      combinedUpper.includes("QUOTA_EXCEEDED") ||
+      combinedUpper.includes("EXCEEDED_QUOTA")
+    ) {
+      return {
+        code: "QUOTA_EXCEEDED",
+        isBillingDisabled: false,
+        isBlockedPolicy: false,
+        isQuotaExceeded: true,
+        isRateLimited: false,
+        userMessage:
+          "Daily SMS verification limit reached. No verification code was sent. Please try again tomorrow or contact studio administration.",
+        technicalDetail: "Firebase SMS daily tier quota exceeded.",
+      };
+    }
+
+    // 4. TOO MANY REQUESTS
+    if (
+      code === "auth/too-many-requests" ||
+      combinedUpper.includes("TOO_MANY_ATTEMPTS") ||
+      combinedUpper.includes("TOO_MANY_REQUESTS")
+    ) {
+      return {
+        code: "TOO_MANY_REQUESTS",
+        isBillingDisabled: false,
+        isBlockedPolicy: false,
+        isQuotaExceeded: false,
+        isRateLimited: true,
+        userMessage:
+          "Too many verification requests. Please wait a few minutes before requesting another code.",
+        technicalDetail: "Firebase rate limit triggered.",
+      };
+    }
+
+    // 5. INVALID PHONE NUMBER
+    if (
+      code === "auth/invalid-phone-number" ||
+      code === "INVALID_PHONE" ||
+      combinedUpper.includes("INVALID_PHONE_NUMBER")
+    ) {
+      return {
+        code: "INVALID_PHONE",
+        isBillingDisabled: false,
+        isBlockedPolicy: false,
+        isQuotaExceeded: false,
+        isRateLimited: false,
+        userMessage: "The mobile number format is invalid. Please enter a valid 10-digit Indian phone number.",
+        technicalDetail: rawMsg,
+      };
+    }
+
+    // 6. CAPTCHA / RECAPTCHA FAILED
+    if (
+      code === "auth/captcha-check-failed" ||
+      combinedUpper.includes("CAPTCHA_CHECK_FAILED")
+    ) {
+      return {
+        code: "CAPTCHA_CHECK_FAILED",
+        isBillingDisabled: false,
+        isBlockedPolicy: false,
+        isQuotaExceeded: false,
+        isRateLimited: false,
+        userMessage: "Security verification (reCAPTCHA) could not be completed. Please refresh the page and try again.",
+        technicalDetail: rawMsg,
+      };
+    }
+
+    // 7. NETWORK / CONNECTIVITY ERROR
+    if (
+      code === "auth/network-request-failed" ||
+      combinedUpper.includes("NETWORK_REQUEST_FAILED")
+    ) {
+      return {
+        code: "NETWORK_ERROR",
+        isBillingDisabled: false,
+        isBlockedPolicy: false,
+        isQuotaExceeded: false,
+        isRateLimited: false,
+        userMessage: "Network connection error. Unable to connect to verification servers. Please check your internet connection.",
+        technicalDetail: rawMsg,
+      };
+    }
+
+    // 8. INVALID OTP CODE
+    if (
+      code === "auth/invalid-verification-code" ||
+      combinedUpper.includes("INVALID_VERIFICATION_CODE")
+    ) {
+      return {
+        code: "INVALID_OTP",
+        isBillingDisabled: false,
+        isBlockedPolicy: false,
+        isQuotaExceeded: false,
+        isRateLimited: false,
+        userMessage: "Incorrect verification code. Please check the 6-digit code and try again.",
+        technicalDetail: rawMsg,
+      };
+    }
+
+    // 9. CODE / SESSION EXPIRED
+    if (
+      code === "auth/code-expired" ||
+      code === "auth/session-expired" ||
+      combinedUpper.includes("CODE_EXPIRED") ||
+      combinedUpper.includes("SESSION_EXPIRED")
+    ) {
+      return {
+        code: "CODE_EXPIRED",
+        isBillingDisabled: false,
+        isBlockedPolicy: false,
+        isQuotaExceeded: false,
+        isRateLimited: false,
+        userMessage: "The verification code or session has expired. Please enter your number to request a new code.",
+        technicalDetail: rawMsg,
+      };
+    }
+
+    // 10. AUTH UNAVAILABLE (Maintenance / unconfigured)
+    if (code === "AUTH_UNAVAILABLE" || combinedUpper.includes("MAINTENANCE")) {
+      return {
+        code: "AUTH_UNAVAILABLE",
+        isBillingDisabled: false,
+        isBlockedPolicy: false,
+        isQuotaExceeded: false,
+        isRateLimited: false,
+        userMessage:
+          "Phone verification is temporarily offline for maintenance. Please reach out to Nails by Divya directly via WhatsApp for enquiries and bookings.",
+        technicalDetail: rawMsg,
+      };
+    }
+
+    // Default
+    return {
+      code: code || "AUTH_FAILED",
+      isBillingDisabled: false,
+      isBlockedPolicy: false,
+      isQuotaExceeded: false,
+      isRateLimited: false,
+      userMessage: rawMsg || "Phone verification is temporarily unavailable. Please try again later.",
+      technicalDetail: rawMsg,
+    };
+  }
 
   /**
    * Dispatches auth change notification to all registered listeners and window events.
@@ -323,10 +546,12 @@
 
     /**
      * Sends verification SMS OTP to Indian phone number.
+     * Only resolves successfully if Firebase confirms acceptance of the SMS request.
+     * Never claims an SMS was sent if the provider rejected or failed.
      *
      * @param {string} rawPhone 10-digit phone number or E.164
      * @param {HTMLElement|string} [recaptchaContainer] Container element or ID for Recaptcha
-     * @returns {Promise<{ success: boolean, isDemo: boolean, phone: string }>}
+     * @returns {Promise<{ success: boolean, isDemo: boolean, phone: string, confirmationResult: object }>}
      */
     async sendOtp(rawPhone, recaptchaContainer = "recaptcha-container") {
       const formatted = this.formatPhone(rawPhone);
@@ -335,6 +560,21 @@
       if (!/^[6-9]\d{9}$/.test(cleanDigits)) {
         const err = new Error("Please enter a valid 10-digit Indian mobile number.");
         err.code = "INVALID_PHONE";
+        throw err;
+      }
+
+      // Auto-initialize if not yet configured
+      if (!isConfigured) {
+        init();
+      }
+
+      // Safeguard: Prevent repeated futile requests if billing was already reported disabled
+      if (isBillingDisabledState) {
+        const err = new Error(
+          "Phone verification is temporarily unavailable: SMS billing (Blaze plan) is not enabled on this environment. Verification codes cannot be sent at this time."
+        );
+        err.code = "BILLING_NOT_ENABLED";
+        err.isBillingDisabled = true;
         throw err;
       }
 
@@ -353,7 +593,10 @@
           }
 
           confirmationResult = await firebaseAuth.signInWithPhoneNumber(formatted, recaptchaVerifier);
-          return { success: true, isDemo: false, phone: formatted };
+          if (!confirmationResult || typeof confirmationResult.confirm !== "function") {
+            throw new Error("SMS verification request was not confirmed by provider.");
+          }
+          return { success: true, isDemo: false, phone: formatted, confirmationResult };
         } catch (fbErr) {
           if (recaptchaVerifier && typeof recaptchaVerifier.clear === "function") {
             try {
@@ -364,62 +607,29 @@
             }
           }
 
-          let message = fbErr.message || "Failed to send SMS verification code.";
-          if (fbErr.code === "auth/operation-not-allowed") {
-            message = "SMS delivery blocked by Firebase project policy: Region India (+91) must be enabled in Firebase Console (Authentication > Settings > SMS region policy), or this number must be added under Test Phone Numbers.";
-          } else if (fbErr.code === "auth/quota-exceeded") {
-            message = "Firebase SMS daily limit (10 SMS/day) reached. Please wait for daily reset or configure this phone as a Test Phone Number in Firebase Console.";
-          } else if (fbErr.code === "auth/too-many-requests") {
-            message = "Too many SMS requests. Please wait a few minutes before requesting another code.";
-          } else if (fbErr.code === "auth/invalid-phone-number") {
-            message = "The phone number format is invalid. Please enter a valid 10-digit Indian mobile number.";
-          } else if (fbErr.code === "auth/captcha-check-failed") {
-            message = "reCAPTCHA verification failed or timed out. Please refresh and try again.";
+          const mapped = mapAuthError(fbErr);
+          if (mapped.isBillingDisabled) {
+            isBillingDisabledState = true;
           }
 
-          const err = new Error(message);
-          err.code = fbErr.code || "SEND_OTP_FAILED";
+          const err = new Error(mapped.userMessage);
+          err.code = mapped.code;
+          err.isBillingDisabled = mapped.isBillingDisabled;
+          err.isBlockedPolicy = mapped.isBlockedPolicy;
+          err.isQuotaExceeded = mapped.isQuotaExceeded;
+          err.isRateLimited = mapped.isRateLimited;
+          err.technicalDetail = mapped.technicalDetail;
+          err.originalError = fbErr;
           throw err;
         }
       }
 
-      // 2. Demo / Simulator Mode (strictly restricted to local development)
-      if (!isLocalEnvironment()) {
-        const err = new Error(
-          "SMS authentication is currently undergoing maintenance. Please reach out to Nails by Divya directly via WhatsApp for enquiries and bookings."
-        );
-        err.code = "AUTH_UNAVAILABLE";
-        throw err;
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, 600)); // Simulate brief network delay
-      confirmationResult = {
-        isDemo: true,
-        phone: formatted,
-        async confirm(code) {
-          if (!isLocalEnvironment()) {
-            const err = new Error("Simulator authentication is strictly prohibited outside of local development.");
-            err.code = "auth/operation-not-allowed";
-            throw err;
-          }
-          if (code === TEST_OTP_CODE || code === "123456") {
-            return {
-              user: {
-                uid: `demo_cust_${cleanDigits}`,
-                phoneNumber: formatted,
-                async getIdToken() {
-                  return `demo_token_for_${cleanDigits}`;
-                },
-              },
-            };
-          }
-          const err = new Error("Incorrect verification code. For local dev mode, enter '123456'.");
-          err.code = "auth/invalid-verification-code";
-          throw err;
-        },
-      };
-
-      return { success: true, isDemo: true, phone: formatted, testCode: TEST_OTP_CODE };
+      // 2. Unconfigured / offline environment: strictly fail closed with clear truthful message
+      const err = new Error(
+        "Phone verification is temporarily unavailable: authentication service is not configured. Please contact Nails by Divya directly via WhatsApp for enquiries and bookings."
+      );
+      err.code = "AUTH_UNAVAILABLE";
+      throw err;
     },
 
     /**
@@ -429,16 +639,9 @@
      * @returns {Promise<{ success: boolean, user: object }>}
      */
     async verifyOtp(code) {
-      if (!confirmationResult) {
-        const err = new Error("No active verification session. Please request a new code.");
+      if (!confirmationResult || typeof confirmationResult.confirm !== "function") {
+        const err = new Error("No active verification session. Please enter your mobile number to request a new code.");
         err.code = "NO_SESSION";
-        throw err;
-      }
-
-      // Security check: Simulator mode must never authenticate in production
-      if (confirmationResult.isDemo && !isLocalEnvironment()) {
-        const err = new Error("Simulator authentication is strictly prohibited outside of local development.");
-        err.code = "auth/operation-not-allowed";
         throw err;
       }
 
@@ -498,15 +701,10 @@
 
         return { success: true, user: currentUser };
       } catch (confirmErr) {
-        let message = confirmErr.message || "Invalid verification code.";
-        if (confirmErr.code === "auth/invalid-verification-code") {
-          message = "Incorrect verification code. Please check and try again.";
-        } else if (confirmErr.code === "auth/code-expired") {
-          message = "Verification code has expired. Please request a new code.";
-        }
-
-        const err = new Error(message);
-        err.code = confirmErr.code || "VERIFY_FAILED";
+        const mapped = mapAuthError(confirmErr);
+        const err = new Error(mapped.userMessage);
+        err.code = mapped.code;
+        err.originalError = confirmErr;
         throw err;
       }
     },
@@ -535,6 +733,35 @@
       } catch {}
       persistSession();
       notifyAuthChange(null);
+    },
+
+    /**
+     * Exposes current billing status.
+     * @returns {boolean}
+     */
+    isBillingDisabled() {
+      return isBillingDisabledState;
+    },
+
+    /**
+     * Programmatically sets or resets billing status (for tests/resets).
+     * @param {boolean} val
+     */
+    setBillingDisabled(val) {
+      isBillingDisabledState = Boolean(val);
+    },
+
+    /**
+     * Exposes error mapping utility.
+     */
+    mapAuthError,
+
+    /**
+     * Internal test helper for mock injection.
+     * @private
+     */
+    _setConfirmationResultForTesting(mock) {
+      confirmationResult = mock;
     },
   };
 

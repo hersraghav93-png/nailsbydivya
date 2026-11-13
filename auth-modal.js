@@ -78,7 +78,7 @@
             </form>
 
             <p class="auth-step-note">
-              <span>🔒</span> We'll send a 6-digit SMS code. No password required.
+              <span>🔒</span> We'll send a 6-digit verification code. No password required.
             </p>
           </div>
 
@@ -89,7 +89,7 @@
             </button>
             
             <h2 class="auth-step-title">Verify Verification Code</h2>
-            <p class="auth-step-subtitle">Enter the 6-digit code sent via SMS to your mobile.</p>
+            <p class="auth-step-subtitle" id="auth-otp-subtitle">Enter the 6-digit verification code sent to your mobile.</p>
 
             <form id="auth-otp-form" class="auth-form" onsubmit="return false;">
               <div class="auth-otp-grid" id="auth-otp-grid">
@@ -292,6 +292,24 @@
   }
 
   /**
+   * Displays a prominent, user-friendly notice when phone verification is unavailable due to disabled SMS billing.
+   */
+  function showBillingNotice() {
+    if (!errorBannerEl) return;
+    errorBannerEl.innerHTML = `
+      <div class="auth-maintenance-notice" style="display: flex; flex-direction: column; gap: 0.45rem;">
+        <span style="font-weight: 700; color: #9b1c1c;">⚠️ Phone Verification Temporarily Unavailable</span>
+        <span>SMS verification is currently unavailable because SMS delivery is not enabled for this project. No verification code was sent to your phone.</span>
+        <span style="font-size: 0.82rem; color: #4b5563;">You can complete bespoke press-on orders as a guest or reach out directly to Nails by Divya on WhatsApp for booking enquiries and custom sets.</span>
+        <a href="https://wa.me/918447391310?text=Hi%20Divya!%20I'd%20like%20to%20enquire%20about%20an%20order%20or%20booking." target="_blank" rel="noopener" style="display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; margin-top: 0.35rem; padding: 0.5rem 0.85rem; background: #25D366; color: #ffffff; border-radius: 6px; font-weight: 600; font-size: 0.84rem; text-decoration: none;">
+          <span>💬 Contact on WhatsApp</span>
+        </a>
+      </div>
+    `;
+    errorBannerEl.style.display = "block";
+  }
+
+  /**
    * Clears the error banner.
    */
   function clearError() {
@@ -328,6 +346,10 @@
     if (stepName === "otp") {
       const displayPhone = document.getElementById("auth-display-phone");
       if (displayPhone) displayPhone.textContent = currentPhone;
+      const subtitleEl = document.getElementById("auth-otp-subtitle");
+      if (subtitleEl) {
+        subtitleEl.textContent = `Enter the 6-digit code sent to ${currentPhone}.`;
+      }
       setTimeout(() => {
         otpInputs.forEach((b) => (b.value = ""));
         if (otpInputs[0]) otpInputs[0].focus();
@@ -335,9 +357,13 @@
       startResendCountdown();
     } else if (stepName === "phone") {
       clearInterval(countdownInterval);
-      setTimeout(() => {
-        if (phoneInputEl) phoneInputEl.focus();
-      }, 100);
+      if (phoneInputEl) {
+        if (!phoneInputEl.value && currentPhone) {
+          phoneInputEl.value = currentPhone.replace(/\D/g, "").slice(-10);
+        }
+        phoneInputEl.disabled = false;
+        setTimeout(() => phoneInputEl.focus(), 100);
+      }
     }
   }
 
@@ -362,7 +388,10 @@
       if (secondsLeft <= 0) {
         clearInterval(countdownInterval);
         if (resendTimerEl) resendTimerEl.style.display = "none";
-        if (resendBtn) resendBtn.style.display = "inline-block";
+        const isBillingOff = window.NailsAuth && typeof window.NailsAuth.isBillingDisabled === "function" && window.NailsAuth.isBillingDisabled();
+        if (resendBtn && !isBillingOff) {
+          resendBtn.style.display = "inline-block";
+        }
       } else {
         updateDisplay();
       }
@@ -371,45 +400,119 @@
 
   /**
    * Handles sending the OTP to the provided phone number.
+   * Ensures the OTP screen opens ONLY after Firebase confirms acceptance.
+   * Keeps phone number visible and editable if rejected.
    */
   async function handleSendOtp() {
     clearError();
     const phone = phoneInputEl ? phoneInputEl.value.trim() : "";
+    const cleanDigits = phone.replace(/\D/g, "");
 
-    if (!phone || phone.length !== 10) {
+    if (!cleanDigits || cleanDigits.length !== 10) {
       showError("Please enter your 10-digit mobile number.");
       if (phoneInputEl) phoneInputEl.focus();
+      return;
+    }
+
+    if (window.NailsAuth && typeof window.NailsAuth.isBillingDisabled === "function" && window.NailsAuth.isBillingDisabled()) {
+      showBillingNotice();
+      if (sendOtpBtn) {
+        sendOtpBtn.disabled = true;
+        sendOtpBtn.title = "Phone verification is temporarily unavailable (SMS billing disabled).";
+      }
       return;
     }
 
     setButtonLoading(sendOtpBtn, true);
 
     try {
-      const res = await window.NailsAuth.sendOtp(phone, "recaptcha-container");
+      const res = await window.NailsAuth.sendOtp(cleanDigits, "recaptcha-container");
+      if (!res || !res.success) {
+        throw new Error("Unable to confirm verification code dispatch.");
+      }
       currentPhone = res.phone;
+      // Only advance to OTP screen once Firebase has actually confirmed acceptance
       showStep("otp");
     } catch (err) {
-      showError(err.message || "Failed to send code. Please try again.");
+      // CRITICAL: Stay on phone step so phone number remains visible and editable
+      showStep("phone");
+      if (phoneInputEl) {
+        phoneInputEl.value = cleanDigits;
+        phoneInputEl.disabled = false;
+      }
+
+      const isBilling = err.isBillingDisabled || err.code === "BILLING_NOT_ENABLED" ||
+        (window.NailsAuth && typeof window.NailsAuth.isBillingDisabled === "function" && window.NailsAuth.isBillingDisabled());
+
+      if (isBilling) {
+        showBillingNotice();
+        if (sendOtpBtn) {
+          sendOtpBtn.disabled = true;
+          sendOtpBtn.title = "Phone verification is temporarily unavailable (SMS billing disabled).";
+        }
+      } else {
+        showError(err.message || "Phone verification is temporarily unavailable. Please try again later.");
+      }
     } finally {
-      setButtonLoading(sendOtpBtn, false);
+      const isBilling = window.NailsAuth && typeof window.NailsAuth.isBillingDisabled === "function" && window.NailsAuth.isBillingDisabled();
+      if (!isBilling) {
+        setButtonLoading(sendOtpBtn, false);
+      } else {
+        if (sendOtpBtn) {
+          sendOtpBtn.disabled = true;
+          const textEl = sendOtpBtn.querySelector(".auth-btn-text");
+          const spinnerEl = sendOtpBtn.querySelector(".auth-btn-spinner");
+          if (textEl) {
+            textEl.style.opacity = "0.7";
+            textEl.textContent = "SMS Unavailable";
+          }
+          if (spinnerEl) spinnerEl.style.display = "none";
+        }
+      }
     }
   }
 
   /**
    * Handles resending the OTP code.
+   * Prevents repeated attempts if billing is disabled.
    */
   async function handleResendOtp() {
     clearError();
     if (!currentPhone) return;
 
+    if (window.NailsAuth && typeof window.NailsAuth.isBillingDisabled === "function" && window.NailsAuth.isBillingDisabled()) {
+      showBillingNotice();
+      if (resendBtn) resendBtn.disabled = true;
+      if (resendTimerEl) {
+        resendTimerEl.textContent = "SMS verification unavailable";
+        resendTimerEl.style.display = "inline-block";
+      }
+      return;
+    }
+
     if (resendBtn) resendBtn.disabled = true;
     try {
-      await window.NailsAuth.sendOtp(currentPhone, "recaptcha-container");
+      const res = await window.NailsAuth.sendOtp(currentPhone, "recaptcha-container");
+      if (!res || !res.success) {
+        throw new Error("Unable to confirm verification code dispatch.");
+      }
       startResendCountdown();
     } catch (err) {
-      showError(err.message || "Could not resend code. Please try again later.");
-    } finally {
-      if (resendBtn) resendBtn.disabled = false;
+      const isBilling = err.isBillingDisabled || err.code === "BILLING_NOT_ENABLED" ||
+        (window.NailsAuth && typeof window.NailsAuth.isBillingDisabled === "function" && window.NailsAuth.isBillingDisabled());
+
+      if (isBilling) {
+        showBillingNotice();
+        if (resendBtn) resendBtn.disabled = true;
+        if (resendTimerEl) {
+          resendTimerEl.textContent = "SMS verification unavailable";
+          resendTimerEl.style.display = "inline-block";
+        }
+        clearInterval(countdownInterval);
+      } else {
+        showError(err.message || "Could not resend verification code. Please try again later.");
+        if (resendBtn) resendBtn.disabled = false;
+      }
     }
   }
 
@@ -462,10 +565,17 @@
     clearError();
     showStep("phone");
 
+    const isBilling = window.NailsAuth && typeof window.NailsAuth.isBillingDisabled === "function" && window.NailsAuth.isBillingDisabled();
     const isConfigured = window.NailsAuth && typeof window.NailsAuth.isConfigured === "function" && window.NailsAuth.isConfigured();
     const isLocal = window.NailsAuth && typeof window.NailsAuth.isLocalEnvironment === "function" ? window.NailsAuth.isLocalEnvironment() : false;
 
-    if (!isConfigured && !isLocal) {
+    if (isBilling) {
+      showBillingNotice();
+      if (sendOtpBtn) {
+        sendOtpBtn.disabled = true;
+        sendOtpBtn.title = "Phone verification is temporarily unavailable (SMS billing disabled).";
+      }
+    } else if (!isConfigured && !isLocal) {
       showMaintenanceNotice();
       if (sendOtpBtn) {
         sendOtpBtn.disabled = true;
@@ -477,6 +587,17 @@
         sendOtpBtn.title = "";
       }
     }
+
+    if (phoneInputEl && initialPhone) {
+      phoneInputEl.value = initialPhone.replace(/\D/g, "").slice(-10);
+    }
+
+    if (typeof dialogEl.showModal === "function") {
+      dialogEl.showModal();
+    } else {
+      dialogEl.setAttribute("open", "");
+    }
+  }
 
     if (phoneInputEl && initialPhone) {
       phoneInputEl.value = initialPhone.replace(/\D/g, "").slice(-10);
