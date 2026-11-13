@@ -2414,11 +2414,17 @@ function initDivvStylist() {
         history: sessionHistory.slice(0, -1)
       };
 
+      // 45-second timeout — generous enough for cold-start Render + Gemini response latency
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 45000);
+
       const res = await fetch(apiUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
 
       if (!res.ok) {
         throw new Error(`[Divv API HTTP ${res.status}] Service temporarily unavailable.`);
