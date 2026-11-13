@@ -5,6 +5,122 @@
  * ==========================================================================
  */
 
+/**
+ * ==============================================================================
+ * PRIVACY-FIRST LIGHTWEIGHT ANALYTICS EVENT BUS (`window.NBD_Analytics`)
+ * Nails by Divya Platform — Phase 5.2
+ *
+ * Implements a local, client-side event bus for conversion & funnel tracking:
+ * - product_view, add_to_cart, checkout_start, order_submission,
+ *   booking_submission, whatsapp_click
+ * - Strictly strips all customer PII (names, phones, emails, addresses, notes)
+ * - Zero external paid trackers or third-party cookies
+ * ==============================================================================
+ */
+window.NBD_Analytics = (function () {
+  const subscribers = [];
+  const eventHistory = [];
+
+  function sanitize(data) {
+    if (!data || typeof data !== "object") return {};
+    const clean = { ...data };
+    const piiKeys = [
+      "customer", "name", "customerName", "phone", "customerPhone",
+      "email", "customerEmail", "address", "shippingAddress", "serviceAddress",
+      "notes", "customerNotes", "token", "password", "idToken",
+      "addressLine1", "address_line1", "address_line2"
+    ];
+    piiKeys.forEach((k) => delete clean[k]);
+    return clean;
+  }
+
+  function track(eventName, payload = {}) {
+    const properties = sanitize(payload);
+    const eventRecord = {
+      event: eventName,
+      timestamp: new Date().toISOString(),
+      properties,
+    };
+
+    eventHistory.push(eventRecord);
+    if (eventHistory.length > 50) eventHistory.shift();
+
+    const host = (typeof window !== "undefined" && window.location ? window.location.hostname : "") || "";
+    if (host === "localhost" || host === "127.0.0.1" || host.includes("staging") || host.includes("preview")) {
+      console.log(`[NBD Analytics] ${eventName}:`, properties);
+    }
+
+    try {
+      if (typeof window !== "undefined" && typeof window.dispatchEvent === "function") {
+        window.dispatchEvent(new CustomEvent("nbd_analytics", { detail: eventRecord }));
+      }
+    } catch {}
+
+    // Asynchronous privacy-safe persistence to backend
+    try {
+      const apiUrl = (window.NAILS_CONFIG && window.NAILS_CONFIG.apiUrl) || "";
+      const endpoint = `${apiUrl}/api/analytics/events`;
+      const body = JSON.stringify({
+        event: eventName,
+        timestamp: eventRecord.timestamp,
+        properties,
+      });
+
+      if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
+        const blob = new Blob([body], { type: "application/json" });
+        navigator.sendBeacon(endpoint, blob);
+      } else if (typeof fetch === "function") {
+        fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body,
+          keepalive: true,
+        }).catch(() => {});
+      }
+    } catch {}
+
+    subscribers.forEach((fn) => {
+      try {
+        fn(eventRecord);
+      } catch (err) {
+        console.warn("[Analytics Subscriber Error]:", err);
+      }
+    });
+
+    return eventRecord;
+  }
+
+  function subscribe(fn) {
+    if (typeof fn === "function") subscribers.push(fn);
+  }
+
+  function getHistory() {
+    return [...eventHistory];
+  }
+
+  return {
+    track,
+    subscribe,
+    getHistory,
+  };
+})();
+
+// Global delegated listener for WhatsApp interaction analytics
+if (typeof document !== "undefined") {
+  document.addEventListener("click", (e) => {
+    const waTarget = e.target.closest('a[href*="wa.me"], button.whatsapp-button, .whatsapp-floating-btn, #floating-whatsapp-btn');
+    if (waTarget && window.NBD_Analytics) {
+      const href = waTarget.getAttribute("href") || "";
+      const source = waTarget.id || waTarget.className || "whatsapp_link";
+      const context = waTarget.getAttribute("data-wa-context") || (href.includes("text=") ? "custom_inquiry" : "general_inquiry");
+      window.NBD_Analytics.track("whatsapp_click", {
+        source,
+        context,
+      });
+    }
+  });
+}
+
 // ---------------------------------------------------------------------------
 // 01. SINGLE SOURCE OF TRUTH — PRODUCT PRICING & SKU REGISTRY
 // ---------------------------------------------------------------------------
@@ -47,23 +163,31 @@ const FESTIVE_OFFER_CONFIG = {
   active: true,
   promoPrice: "₹599",
   promoPriceDisplay: "₹599",
-  badgeText: "✦ FESTIVE OFFER · ENDING SOON",
+  badgeText: "✦ FESTIVE OFFER · ₹599",
 
   /**
    * Identifies whether a SKU qualifies for the festive press-on promotional price.
+   * Matches backend pricingEngine: active promotion applies to eligible press-on sets where basePrice > 599.
    */
-  isEligible(sku) {
-    return Boolean(this.active && sku && PRODUCT_PRICES[sku]);
+  isEligible(sku, productObj = null) {
+    if (!this.active || !sku) return false;
+    if (productObj && (productObj.is_promotional === false || productObj.is_festive_eligible === false)) {
+      return false;
+    }
+    const priceStr = PRODUCT_PRICES[sku] || (productObj && productObj.base_price ? `₹${productObj.base_price}` : null);
+    if (!priceStr) return false;
+    const baseNum = parseInt(String(priceStr).replace(/[^0-9]/g, ""), 10);
+    return !isNaN(baseNum) && baseNum > 599;
   },
 
   /**
    * Returns the current active offer price for quotation and checkout.
    */
-  getEffectivePrice(sku) {
-    if (this.isEligible(sku)) {
+  getEffectivePrice(sku, productObj = null) {
+    if (this.isEligible(sku, productObj)) {
       return this.promoPrice;
     }
-    return sku && PRODUCT_PRICES[sku] ? PRODUCT_PRICES[sku] : null;
+    return (sku && PRODUCT_PRICES[sku]) || (productObj && productObj.base_price ? `₹${productObj.base_price}` : null);
   }
 };
 
@@ -72,7 +196,7 @@ const FESTIVE_OFFER_CONFIG = {
 // ---------------------------------------------------------------------------
 const CHECKOUT_CONFIG = {
   activeMethod: "whatsapp", // Options: "whatsapp" | "shopify_redirect"
-  whatsappNumber: "917827437985",
+  whatsappNumber: (typeof window !== "undefined" && window.NAILS_CONFIG && window.NAILS_CONFIG.business && window.NAILS_CONFIG.business.phoneRaw) || "918447391310",
   brandName: "Nails by Divya",
 
   /**
@@ -82,7 +206,8 @@ const CHECKOUT_CONFIG = {
     if (this.activeMethod === "whatsapp") {
       const skuStr = sku ? ` [SKU: ${sku}]` : "";
       const priceStr = price ? ` • Price: *${price}*` : "";
-      const text = `Hi Divya! I would like to order the handmade press-on nail set: *${productName}*${skuStr} (${category})${priceStr}. ${customNote}\n\nPlease let me know how to share my nail measurements and confirm delivery across India.`;
+      const noteStr = customNote ? `\n• ${customNote}` : "";
+      const text = `Hi Divya! I would like to order the handmade press-on nail set: *${productName}*${skuStr} (${category})${priceStr}.${noteStr}\n\nPlease let me know how to share my nail measurements and confirm delivery across India.`;
       const encodedText = encodeURIComponent(text);
       return `https://wa.me/${this.whatsappNumber}?text=${encodedText}`;
     }
@@ -182,7 +307,11 @@ function initProductPrices() {
       `;
     } else {
       priceEl.classList.remove("festive-pricing");
-      priceEl.textContent = originalPrice;
+      priceEl.innerHTML = `
+        <div class="product-price-row">
+          <span class="product-price-regular" style="font-size: 1.15rem; font-weight: 700; color: var(--accent-strong);">${originalPrice}</span>
+        </div>
+      `;
     }
 
     const orderBtn = card.querySelector("button[data-action='order']");
@@ -226,23 +355,82 @@ function initMobileNav() {
   }
 
   const toggleMenu = (open) => {
-    const isExpanded = open !== undefined ? open : navToggle.getAttribute("aria-expanded") !== "true";
+    const isExpanded = open !== undefined ? open : !navLinks.classList.contains("is-open");
     navToggle.setAttribute("aria-expanded", isExpanded ? "true" : "false");
     navToggle.classList.toggle("is-active", isExpanded);
     navLinks.classList.toggle("is-open", isExpanded);
     backdrop.classList.toggle("is-open", isExpanded);
-    document.body.style.overflow = isExpanded ? "hidden" : "";
+
+    // Prevent background scrolling while open, restore cleanly when closed
+    if (isExpanded) {
+      document.body.style.overflow = "hidden";
+      document.documentElement.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+      document.documentElement.style.overflow = "";
+    }
   };
 
-  navToggle.addEventListener("click", () => toggleMenu());
-  backdrop.addEventListener("click", () => toggleMenu(false));
+  navToggle.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleMenu();
+  });
 
+  // Close button inside mobile drawer
+  const closeBtn = document.getElementById("mobile-drawer-close");
+  if (closeBtn) {
+    closeBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleMenu(false);
+    });
+  }
+
+  // Quick Cart trigger on mobile header
+  const mobileCartBtn = document.getElementById("mobile-nav-cart-btn");
+  if (mobileCartBtn) {
+    mobileCartBtn.addEventListener("click", () => {
+      toggleMenu(false);
+      if (typeof openCartDrawer === "function") openCartDrawer();
+    });
+  }
+
+  // Shopping Bag action inside mobile drawer
+  const drawerCartBtn = document.getElementById("mobile-drawer-cart-btn");
+  if (drawerCartBtn) {
+    drawerCartBtn.addEventListener("click", () => {
+      toggleMenu(false);
+      if (typeof openCartDrawer === "function") openCartDrawer();
+    });
+  }
+
+  // Dismiss on backdrop click or touch
+  const onBackdropDismiss = (e) => {
+    if (e) {
+      if (typeof e.preventDefault === "function") e.preventDefault();
+      if (typeof e.stopPropagation === "function") e.stopPropagation();
+    }
+    toggleMenu(false);
+  };
+  backdrop.addEventListener("click", onBackdropDismiss);
+  backdrop.addEventListener("touchstart", onBackdropDismiss, { passive: true });
+
+  // Auto-close menu when tapping navigation links
   navLinks.querySelectorAll("a").forEach((link) => {
     link.addEventListener("click", () => toggleMenu(false));
   });
 
+  // Escape-key closing
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && navLinks.classList.contains("is-open")) {
+      toggleMenu(false);
+    }
+  });
+
+  // Responsive guard on resize
   window.addEventListener("resize", () => {
-    if (window.innerWidth > 768 && navLinks.classList.contains("is-open")) {
+    if (window.innerWidth > 980 && navLinks.classList.contains("is-open")) {
       toggleMenu(false);
     }
   }, { passive: true });
@@ -513,39 +701,164 @@ function initLuxuryCarousels() {
 }
 
 // ---------------------------------------------------------------------------
-// 06. PRESS-ON COLLECTION CATEGORY FILTERS (`#shop`)
+// 06. PRESS-ON COLLECTION & LOOKBOOK CATEGORY FILTERS
 // ---------------------------------------------------------------------------
-function initShopFilters() {
-  const pills = document.querySelectorAll("[data-shop-filter]");
-  const cards = document.querySelectorAll("#shop-carousel-track .carousel-card");
-  const track = document.getElementById("shop-carousel-track");
+/**
+ * Progressive Disclosure for Mobile Press-On Collection
+ * Initially collapses product grid to first 3 designs on mobile,
+ * revealing the full collection smoothly upon tapping the floating CTA or any filter.
+ */
+/**
+ * Progressive Disclosure for Mobile Press-On Collection
+ * - Initially collapses product grid to first 3 designs on mobile with "Explore Our Entire Collection ↓"
+ * - Expands to reveal full 22-item collection upon tapping the floating CTA or any filter
+ * - Displays "↑ Show Featured Designs" at the very end of the expanded collection
+ * - Tapping collapse returns visitor smoothly to the beginning of the Press-On collection and collapses back to 3
+ * - Ensures expand and collapse controls never appear simultaneously
+ */
+function initMobileShopExpand() {
+  const grid = document.getElementById("product-grid");
+  const expandWrap = document.getElementById("shop-mobile-expand-wrap");
+  const expandBtn = document.getElementById("shop-mobile-expand-btn");
+  const collapseWrap = document.getElementById("shop-mobile-collapse-wrap");
+  const collapseBtn = document.getElementById("shop-mobile-collapse-btn");
+  if (!grid || !expandBtn) return;
 
-  if (!pills.length || !cards.length) return;
+  function isMobile() {
+    return window.innerWidth <= 640;
+  }
 
-  pills.forEach((pill) => {
-    pill.addEventListener("click", () => {
-      pills.forEach((p) => p.classList.remove("is-active"));
-      pill.classList.add("is-active");
-
-      const filter = pill.getAttribute("data-shop-filter");
-
-      cards.forEach((card) => {
-        const category = card.getAttribute("data-category");
-        if (filter === "all" || category === filter) {
-          card.classList.add("is-active");
-          card.style.display = "flex";
-        } else {
-          card.classList.remove("is-active");
-          card.style.display = "none";
-        }
-      });
-
-      if (track) {
-        track.scrollTo({ left: 0, behavior: "smooth" });
-        track.dispatchEvent(new Event("scroll"));
+  function expand(scrollIntoView = true) {
+    if (!grid.classList.contains("is-collapsed-mobile")) return;
+    grid.classList.remove("is-collapsed-mobile");
+    if (expandWrap) {
+      expandWrap.style.display = "none";
+    }
+    if (collapseWrap && isMobile()) {
+      collapseWrap.style.display = "flex";
+    }
+    expandBtn.setAttribute("aria-expanded", "true");
+    if (scrollIntoView) {
+      const fourthCard = grid.querySelector(".product-card:nth-child(4)");
+      if (fourthCard) {
+        fourthCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
       }
+    }
+  }
+
+  function collapse() {
+    grid.classList.add("is-collapsed-mobile");
+    if (collapseWrap) {
+      collapseWrap.style.display = "none";
+    }
+    if (expandWrap && isMobile()) {
+      expandWrap.style.display = "flex";
+    }
+    expandBtn.setAttribute("aria-expanded", "false");
+
+    // Smoothly return visitor to the beginning of the Press-On collection
+    const shopSection = document.getElementById("shop") || grid;
+    shopSection.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  expandBtn.addEventListener("click", () => {
+    expand(true);
+  });
+
+  if (collapseBtn) {
+    collapseBtn.addEventListener("click", () => {
+      collapse();
+    });
+  }
+
+  const shopTabs = document.querySelectorAll(".shop-category-nav .category-tab, [data-shop-filter]");
+  shopTabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      expand(false);
     });
   });
+
+  window.addEventListener("resize", () => {
+    if (!isMobile()) {
+      if (expandWrap) expandWrap.style.display = "none";
+      if (collapseWrap) collapseWrap.style.display = "none";
+    } else {
+      if (grid.classList.contains("is-collapsed-mobile")) {
+        if (expandWrap) expandWrap.style.display = "flex";
+        if (collapseWrap) collapseWrap.style.display = "none";
+      } else {
+        if (expandWrap) expandWrap.style.display = "none";
+        if (collapseWrap) collapseWrap.style.display = "flex";
+      }
+    }
+  });
+}
+
+function initShopFilters() {
+  initMobileShopExpand();
+  // Shop Category Tabs
+  const shopTabs = document.querySelectorAll(".shop-category-nav .category-tab, [data-shop-filter]");
+  const productCards = document.querySelectorAll(".product-card, .carousel-card");
+  const track = document.getElementById("shop-carousel-track");
+
+  if (shopTabs.length && productCards.length) {
+    shopTabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        shopTabs.forEach((t) => {
+          t.classList.remove("is-active");
+          t.setAttribute("aria-selected", "false");
+        });
+        tab.classList.add("is-active");
+        tab.setAttribute("aria-selected", "true");
+
+        const filter = tab.getAttribute("data-filter") || tab.getAttribute("data-shop-filter") || "all";
+
+        productCards.forEach((card) => {
+          const cat = card.getAttribute("data-category");
+          if (filter === "all" || cat === filter) {
+            card.classList.add("is-active");
+            card.style.display = "flex";
+          } else {
+            card.classList.remove("is-active");
+            card.style.display = "none";
+          }
+        });
+
+        if (track) {
+          track.scrollTo({ left: 0, behavior: "smooth" });
+          track.dispatchEvent(new Event("scroll"));
+        }
+      });
+    });
+  }
+
+  // Lookbook Gallery Filter Tabs
+  const galleryTabs = document.querySelectorAll(".gallery-filter-tabs .filter-tab");
+  const lookbookCards = document.querySelectorAll(".lookbook-card, .portfolio-card");
+
+  if (galleryTabs.length && lookbookCards.length) {
+    galleryTabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        galleryTabs.forEach((t) => {
+          t.classList.remove("is-active");
+          t.setAttribute("aria-selected", "false");
+        });
+        tab.classList.add("is-active");
+        tab.setAttribute("aria-selected", "true");
+
+        const filter = tab.getAttribute("data-filter") || "all";
+
+        lookbookCards.forEach((card) => {
+          const cat = card.getAttribute("data-category");
+          if (filter === "all" || cat === filter) {
+            card.style.display = "block";
+          } else {
+            card.style.display = "none";
+          }
+        });
+      });
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -554,12 +867,19 @@ function initShopFilters() {
 function initModals() {
   const productModal = document.getElementById("product-modal");
   const serviceModal = document.getElementById("service-modal");
+  const checkoutModal = document.getElementById("checkout-modal");
+  const cartDrawerOverlay = document.getElementById("cart-drawer-overlay");
+
   const productClose = document.getElementById("product-modal-close");
   const serviceClose = document.getElementById("service-modal-close");
+  const checkoutClose = document.getElementById("checkout-modal-close");
+  const cartDrawerClose = document.getElementById("cart-drawer-close");
 
   // Close triggers
   if (productClose) productClose.addEventListener("click", closeAllModals);
   if (serviceClose) serviceClose.addEventListener("click", closeAllModals);
+  if (checkoutClose) checkoutClose.addEventListener("click", closeAllModals);
+  if (cartDrawerClose) cartDrawerClose.addEventListener("click", closeCartDrawer);
 
   window.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closeAllModals();
@@ -577,17 +897,69 @@ function initModals() {
     });
   }
 
-  // 08A. PRODUCT CARD CLICK HANDLING (`.carousel-card`) -> PRODUCT MODAL ONLY
-  document.querySelectorAll(".carousel-card").forEach((card) => {
+  if (checkoutModal) {
+    checkoutModal.addEventListener("click", (e) => {
+      if (e.target === checkoutModal) closeAllModals();
+    });
+  }
+
+  if (cartDrawerOverlay) {
+    cartDrawerOverlay.addEventListener("click", (e) => {
+      if (e.target === cartDrawerOverlay) closeCartDrawer();
+    });
+  }
+
+  // Navigation Cart Button
+  const navCartBtn = document.getElementById("nav-cart-btn");
+  if (navCartBtn) {
+    navCartBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      openCartDrawer();
+    });
+  }
+
+  // Cart Drawer Checkout CTA
+  const cartCheckoutCta = document.getElementById("cart-checkout-cta");
+  if (cartCheckoutCta) {
+    cartCheckoutCta.addEventListener("click", () => {
+      openCheckoutModal();
+    });
+  }
+
+  // Cart Empty Shop CTA
+  const cartEmptyShopBtn = document.getElementById("cart-empty-shop-btn");
+  if (cartEmptyShopBtn) {
+    cartEmptyShopBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      closeCartDrawer();
+      const shopSec = document.getElementById("shop");
+      if (shopSec) shopSec.scrollIntoView({ behavior: "smooth" });
+    });
+  }
+
+  // Refresh cart badge on load and on custom cart updates
+  refreshCartBadge();
+  window.addEventListener("nbd_cart_updated", refreshCartBadge);
+
+  // 08A. PRODUCT CARD CLICK HANDLING (`.carousel-card, .product-card`) -> PRODUCT MODAL ONLY
+  document.querySelectorAll(".carousel-card, .product-card").forEach((card) => {
     card.addEventListener("click", (e) => {
       const track = card.closest(".luxury-carousel-track");
       if (track && track.dataset.hasDragged === "true") return;
 
-      // Check if button was clicked directly (handle directly)
+      // Check if button was clicked directly
       if (e.target.closest("button[data-action='order']")) return;
 
       openProductModalFromCard(card);
     });
+
+    const detailsBtn = card.querySelector("button[data-action='details']");
+    if (detailsBtn) {
+      detailsBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        openProductModalFromCard(card);
+      });
+    }
   });
 
   // Direct Order CTA Buttons inside Product Cards
@@ -636,7 +1008,10 @@ function initModals() {
     btn.addEventListener("click", (e) => {
       e.preventDefault();
       const title = btn.getAttribute("data-service-title") || "At-Home Appointment";
-      openServiceModal(title, "Relax in the privacy and comfort of your home across Delhi NCR while we bring salon-grade equipment, electric drills, LED lamps, and top-tier soft gel collections directly to your doorstep.");
+      const card = btn.closest(".service-card");
+      const cardDesc = card ? card.querySelector("p") : null;
+      const desc = cardDesc ? cardDesc.textContent.trim() : "Relax in the privacy and comfort of your home across Delhi NCR while we bring salon-grade equipment directly to your doorstep.";
+      openServiceModal(title, desc);
     });
   });
 
@@ -678,24 +1053,47 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
 
   const titleEl = document.getElementById("product-modal-title");
   const catEl = document.getElementById("product-modal-category");
+  const skuEl = document.getElementById("product-modal-sku");
   const imgEl = document.getElementById("product-modal-image");
   const descEl = document.getElementById("product-modal-desc");
   const priceEl = document.getElementById("product-modal-price");
+  const addBagBtn = document.getElementById("product-modal-add-bag");
+  const addBagLabel = document.getElementById("product-modal-add-label");
+  const checkoutBtn = document.getElementById("product-modal-checkout-btn");
   const actionBtn = document.getElementById("product-modal-action-btn");
+  const feedbackEl = document.getElementById("product-modal-feedback");
+  const sizingGuideText = document.getElementById("modal-sizing-guide-text");
+  const customBox = document.getElementById("modal-custom-measurements");
 
   if (titleEl) titleEl.textContent = title;
   if (catEl) catEl.textContent = category;
+  if (skuEl) skuEl.textContent = sku ? `SKU: ${sku}` : "";
   if (imgEl) {
     imgEl.src = imageSrc;
     imgEl.alt = imageAlt || title;
+    imgEl.onerror = () => {
+      imgEl.src = "assets/products/wedding/WED-005/herowedd5.png";
+    };
   }
   if (descEl) descEl.textContent = description;
+  if (feedbackEl) { feedbackEl.textContent = ""; feedbackEl.style.display = "none"; }
 
   const originalPrice = sku && PRODUCT_PRICES[sku] ? PRODUCT_PRICES[sku] : null;
-  const effectivePrice = FESTIVE_OFFER_CONFIG.getEffectivePrice(sku);
+  const isEligible = FESTIVE_OFFER_CONFIG.isEligible(sku);
+  const effectivePrice = FESTIVE_OFFER_CONFIG.getEffectivePrice(sku) || (originalPrice || "₹999");
+
+  // Privacy-first product view analytics tracking
+  if (window.NBD_Analytics) {
+    window.NBD_Analytics.track("product_view", {
+      sku: sku || "WED-005",
+      title: title || "Press-On Set",
+      category: category || "Handmade Collection",
+      price: effectivePrice,
+    });
+  }
 
   if (priceEl) {
-    if (originalPrice && FESTIVE_OFFER_CONFIG.isEligible(sku)) {
+    if (originalPrice && isEligible) {
       priceEl.classList.add("festive-pricing");
       priceEl.innerHTML = `
         <div class="product-price-row">
@@ -707,18 +1105,193 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
       priceEl.style.display = "flex";
     } else if (originalPrice) {
       priceEl.classList.remove("festive-pricing");
-      priceEl.textContent = originalPrice;
+      priceEl.innerHTML = `
+        <div class="product-price-row">
+          <span class="product-price-regular" style="font-size: 1.25rem; font-weight: 700; color: var(--accent-strong);">${originalPrice}</span>
+        </div>
+      `;
       priceEl.style.display = "block";
     } else {
       priceEl.style.display = "none";
     }
   }
 
-  if (actionBtn) {
-    actionBtn.onclick = () => {
-      window.open(CHECKOUT_CONFIG.getCheckoutUrl(title, category, effectivePrice, sku), "_blank", "noopener,noreferrer");
+  if (addBagLabel) {
+    addBagLabel.textContent = `Add to Bag • ${effectivePrice}`;
+  }
+
+  // Active attributes
+  let activeShape = "Almond";
+  let activeLength = "Medium";
+  let activeSize = "M";
+
+  // Wire shape pills
+  const shapePills = modal.querySelectorAll("#modal-shape-pills .option-pill");
+  shapePills.forEach((pill) => {
+    const isAlmond = pill.getAttribute("data-shape") === "Almond";
+    pill.classList.toggle("is-active", isAlmond);
+    pill.onclick = () => {
+      shapePills.forEach((p) => p.classList.remove("is-active"));
+      pill.classList.add("is-active");
+      activeShape = pill.getAttribute("data-shape") || "Almond";
+      updateOrderAction();
+    };
+  });
+
+  // Wire length pills
+  const lengthPills = modal.querySelectorAll("#modal-length-pills .option-pill");
+  lengthPills.forEach((pill) => {
+    const isMedium = pill.getAttribute("data-length") === "Medium";
+    pill.classList.toggle("is-active", isMedium);
+    pill.onclick = () => {
+      lengthPills.forEach((p) => p.classList.remove("is-active"));
+      pill.classList.add("is-active");
+      activeLength = pill.getAttribute("data-length") || "Medium";
+      updateOrderAction();
+    };
+  });
+
+  // Sizing chart details
+  const SIZING_INFO = {
+    "XS": "Thumb: 14mm, Index: 11mm, Middle: 12mm, Ring: 10mm, Pinky: 8mm",
+    "S": "Thumb: 15mm, Index: 12mm, Middle: 13mm, Ring: 11mm, Pinky: 8mm",
+    "M": "Thumb: 16mm, Index: 12mm, Middle: 13mm, Ring: 11mm, Pinky: 9mm",
+    "L": "Thumb: 17mm, Index: 13mm, Middle: 14mm, Ring: 12mm, Pinky: 10mm",
+    "Custom": "Tailored sizing — enter exact measurements below or share on WhatsApp",
+  };
+
+  const sizeChips = modal.querySelectorAll(".size-chip");
+
+  function getCustomMeasurements() {
+    if (activeSize !== "Custom") return null;
+    const thumb = parseFloat(document.getElementById("modal-measure-thumb")?.value);
+    const index = parseFloat(document.getElementById("modal-measure-index")?.value);
+    const middle = parseFloat(document.getElementById("modal-measure-middle")?.value);
+    const ring = parseFloat(document.getElementById("modal-measure-ring")?.value);
+    const pinky = parseFloat(document.getElementById("modal-measure-pinky")?.value);
+    const custom = {};
+    if (!isNaN(thumb)) custom.thumb = thumb;
+    if (!isNaN(index)) custom.index = index;
+    if (!isNaN(middle)) custom.middle = middle;
+    if (!isNaN(ring)) custom.ring = ring;
+    if (!isNaN(pinky)) custom.pinky = pinky;
+    return Object.keys(custom).length ? custom : null;
+  }
+
+  function renderSizingGuide() {
+    if (!sizingGuideText) return;
+    if (activeSize === "Custom") {
+      sizingGuideText.innerHTML = `Selected: <strong>Custom Sizing</strong> &bull; Tailored to your natural nail beds. Enter your millimeter measurements below or share photos with measuring tape on WhatsApp before crafting. Divya verifies everything directly!`;
+      if (customBox) customBox.style.display = "block";
+    } else {
+      const detail = SIZING_INFO[activeSize] || "";
+      sizingGuideText.innerHTML = `Selected Size: <strong>${activeSize}</strong> &bull; ${detail}.<br><span style="color: var(--accent-strong); font-weight: 600;">✦ Sizing Verification:</span> Divya confirms your exact nail measurements directly on WhatsApp before hand-painting your set!`;
+      if (customBox) customBox.style.display = "none";
+    }
+  }
+
+  function updateOrderAction() {
+    if (actionBtn) {
+      actionBtn.onclick = () => {
+        const sizeDetail = activeSize === "Custom"
+          ? `Custom Sizing (${activeShape}, ${activeLength})`
+          : `Size ${activeSize} (${activeShape}, ${activeLength})`;
+        window.open(CHECKOUT_CONFIG.getCheckoutUrl(title, category, effectivePrice, sku, sizeDetail), "_blank", "noopener,noreferrer");
+      };
+    }
+  }
+
+  sizeChips.forEach((chip) => {
+    const isM = chip.getAttribute("data-size") === "M";
+    chip.classList.toggle("is-active", isM);
+    chip.setAttribute("aria-checked", isM ? "true" : "false");
+
+    chip.onclick = (e) => {
+      e.preventDefault();
+      activeSize = chip.getAttribute("data-size") || "M";
+      sizeChips.forEach((c) => {
+        const isSelected = c.getAttribute("data-size") === activeSize;
+        c.classList.toggle("is-active", isSelected);
+        c.setAttribute("aria-checked", isSelected ? "true" : "false");
+      });
+      renderSizingGuide();
+      updateOrderAction();
+    };
+  });
+
+  // Add to Bag Button
+  if (addBagBtn) {
+    addBagBtn.onclick = async () => {
+      if (!window.NailsApi) return;
+      const targetSku = sku || "WED-005";
+      const custom_measurements = getCustomMeasurements();
+
+      try {
+        addBagBtn.disabled = true;
+        await window.NailsApi.addToCart({
+          sku: targetSku,
+          shape: activeShape,
+          length: activeLength,
+          sizing_preset: activeSize,
+          custom_measurements,
+          quantity: 1,
+        });
+
+        // Track add to cart event
+        if (window.NBD_Analytics) {
+          window.NBD_Analytics.track("add_to_cart", {
+            sku: targetSku,
+            title: title || "Press-On Set",
+            shape: activeShape,
+            length: activeLength,
+            size: activeSize,
+            hasCustomMeasurements: !!custom_measurements,
+            quantity: 1,
+          });
+        }
+
+        if (feedbackEl) {
+          feedbackEl.textContent = `✓ "${title}" added to your bag (${activeShape}, ${activeLength}, Size ${activeSize})`;
+          feedbackEl.style.display = "block";
+        }
+        openCartDrawer();
+      } catch (err) {
+        alert(`Could not add item to bag: ${err.message || "Please try again."}`);
+      } finally {
+        addBagBtn.disabled = false;
+      }
     };
   }
+
+  // Direct Checkout Button
+  if (checkoutBtn) {
+    checkoutBtn.onclick = async () => {
+      if (!window.NailsApi) return;
+      const targetSku = sku || "WED-005";
+      const custom_measurements = getCustomMeasurements();
+
+      try {
+        checkoutBtn.disabled = true;
+        await window.NailsApi.addToCart({
+          sku: targetSku,
+          shape: activeShape,
+          length: activeLength,
+          sizing_preset: activeSize,
+          custom_measurements,
+          quantity: 1,
+        });
+        closeAllModals();
+        openCheckoutModal();
+      } catch (err) {
+        alert(`Could not initiate checkout: ${err.message || "Please try again."}`);
+      } finally {
+        checkoutBtn.disabled = false;
+      }
+    };
+  }
+
+  renderSizingGuide();
+  updateOrderAction();
 
   window.DivvCurrentProductContext = `${title}${sku ? ` [SKU: ${sku}]` : ""}${effectivePrice ? ` (${effectivePrice})` : ""}`;
   if (typeof window.updateDivvProductBanner === "function") window.updateDivvProductBanner();
@@ -727,23 +1300,589 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
   document.body.style.overflow = "hidden";
 }
 
+// ---------------------------------------------------------------------------
+// 08B. AT-HOME SERVICE APPOINTMENT MODAL & BOOKING REQUEST
+// ---------------------------------------------------------------------------
+
+const CANONICAL_SERVICES_MAP = {
+  "nail extensions": { id: "gel_extensions", name: "Nail Extensions", price: "From ₹999", isCustomQuote: false },
+  "bespoke gel extensions": { id: "gel_extensions", name: "Nail Extensions", price: "From ₹999", isCustomQuote: false },
+  "natural nail overlay": { id: "natural_overlay", name: "Natural Nail Overlay", price: "From ₹999", isCustomQuote: false },
+  "natural nail overlay & strengthening": { id: "natural_overlay", name: "Natural Nail Overlay", price: "From ₹999", isCustomQuote: false },
+  "power polish / shellac": { id: "power_polish", name: "Power Polish / Shellac", price: "From ₹999", isCustomQuote: false },
+  "power polish": { id: "power_polish", name: "Power Polish / Shellac", price: "From ₹999", isCustomQuote: false },
+  "signature manicure & power polish": { id: "power_polish", name: "Power Polish / Shellac", price: "From ₹999", isCustomQuote: false },
+  "3d & custom nail art": { id: "custom_3d_art", name: "3D & Custom Nail Art", price: "Custom Quotation", isCustomQuote: true },
+  "3d, chrome & custom artistry": { id: "custom_3d_art", name: "3D & Custom Nail Art", price: "Custom Quotation", isCustomQuote: true },
+  "french nails": { id: "gel_extensions", name: "French Nails (Design Add-On)", price: "Design Add-On", isCustomQuote: true },
+  "safe extension removal": { id: "extension_removal", name: "Safe Extension Removal", price: "Price on Enquiry", isCustomQuote: true },
+  "extension removal": { id: "extension_removal", name: "Safe Extension Removal", price: "Price on Enquiry", isCustomQuote: true },
+  "nail extension removal": { id: "extension_removal", name: "Safe Extension Removal", price: "Price on Enquiry", isCustomQuote: true },
+};
+
 /**
- * Opens the Editorial Service Modal (`#service-modal`). Strictly NO product images.
+ * Opens the Editorial Service Modal (`#service-modal`) with interactive booking request.
  */
-function openServiceModal(title, description) {
+async function openServiceModal(title, description) {
   const modal = document.getElementById("service-modal");
   if (!modal) return;
 
   const titleEl = document.getElementById("service-modal-title");
   const descEl = document.getElementById("service-modal-desc");
-  const actionBtn = document.getElementById("service-modal-action-btn");
+  const priceValEl = document.getElementById("service-price-value");
+  const formEl = document.getElementById("service-booking-form");
+  const confirmationView = document.getElementById("service-confirmation-view");
+  const errorEl = document.getElementById("service-booking-error");
+  const dateInput = document.getElementById("service-requested-date");
+  const addonsWrapper = document.getElementById("service-addons-wrapper");
+  const addonsContainer = document.getElementById("service-addons-container");
 
   if (titleEl) titleEl.textContent = title;
   if (descEl) descEl.textContent = description;
+  if (formEl) { formEl.style.display = "flex"; formEl.reset(); }
+  if (confirmationView) confirmationView.style.display = "none";
+  if (errorEl) { errorEl.textContent = ""; errorEl.style.display = "none"; }
 
-  if (actionBtn) {
-    actionBtn.onclick = () => {
-      window.open(CHECKOUT_CONFIG.getServiceBookingUrl(title, "Delhi NCR At-Home / Event Service"), "_blank", "noopener,noreferrer");
+  // Resolve service mapping
+  const normalizedKey = title.toLowerCase().trim();
+  const matchedService = CANONICAL_SERVICES_MAP[normalizedKey] || {
+    id: "gel_extensions",
+    name: title,
+    price: "From ₹999",
+    isCustomQuote: false,
+  };
+
+  if (priceValEl) priceValEl.textContent = matchedService.price;
+
+  // Set min date to tomorrow
+  if (dateInput) {
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    dateInput.min = tomorrow.toISOString().split("T")[0];
+    dateInput.value = tomorrow.toISOString().split("T")[0];
+  }
+
+  // Pre-fill customer details if authenticated
+  try {
+    if (window.NailsApi) {
+      const userRes = await window.NailsApi.getCurrentUser().catch(() => null);
+      if (userRes && userRes.user) {
+        const u = userRes.user;
+        const nameInput = document.getElementById("service-customer-name");
+        const phoneInput = document.getElementById("service-customer-phone");
+        const emailInput = document.getElementById("service-customer-email");
+        if (nameInput && !nameInput.value) nameInput.value = (u.profile && u.profile.full_name) || "Customer";
+        if (phoneInput && !phoneInput.value) phoneInput.value = (u.phone || "").replace(/^\+91/, "");
+        if (emailInput && !emailInput.value) emailInput.value = u.email || "";
+
+        // Also check saved addresses for default service address
+        const addrRes = await window.NailsApi.getCustomerAddresses().catch(() => null);
+        if (addrRes && addrRes.addresses && addrRes.addresses.length) {
+          const srvAddr = addrRes.addresses.find((a) => a.isDefaultService || a.is_default_service) || addrRes.addresses[0];
+          if (srvAddr) {
+            const l1 = document.getElementById("service-addr-line1");
+            const lm = document.getElementById("service-addr-landmark");
+            const city = document.getElementById("service-addr-city");
+            const pin = document.getElementById("service-addr-pin");
+            if (l1 && !l1.value) l1.value = srvAddr.addressLine1 || srvAddr.address_line1 || "";
+            if (lm && !lm.value) lm.value = srvAddr.landmark || "";
+            if (city && !city.value) city.value = srvAddr.city || "Delhi NCR";
+            if (pin && !pin.value) pin.value = srvAddr.postalCode || srvAddr.postal_code || "";
+          }
+        }
+      }
+    }
+  } catch {}
+
+  // Render addons dynamically
+  if (addonsWrapper && addonsContainer) {
+    if (matchedService.id === "gel_extensions" || matchedService.id === "natural_overlay") {
+      addonsWrapper.style.display = "block";
+      addonsContainer.innerHTML = `
+        <label class="addon-checkbox-card">
+          <div class="addon-checkbox-left">
+            <input type="checkbox" name="service_addon" value="542e1dc4-f980-46bf-a160-c69b5788a453" />
+            <span>French Tip Precision Detailing</span>
+          </div>
+          <span class="addon-checkbox-price">Custom Quote</span>
+        </label>
+        <label class="addon-checkbox-card">
+          <div class="addon-checkbox-left">
+            <input type="checkbox" name="service_addon" value="ded5fc10-a4ce-4be0-8dc2-307aaa00aaf3" />
+            <span>Liquid Chrome Mirror Finish</span>
+          </div>
+          <span class="addon-checkbox-price">Custom Quote</span>
+        </label>
+        <label class="addon-checkbox-card">
+          <div class="addon-checkbox-left">
+            <input type="checkbox" name="service_addon" value="3c85fb85-43fc-4534-a85e-a0907f5bdbda" />
+            <span>3D Dimensional Art Accents (Per Pair)</span>
+          </div>
+          <span class="addon-checkbox-price">Custom Quote</span>
+        </label>
+      `;
+    } else {
+      addonsWrapper.style.display = "none";
+      addonsContainer.innerHTML = "";
+    }
+  }
+
+  // Active time slot handling
+  let activeSlot = "10:00 AM - 12:00 PM";
+  const slotPills = modal.querySelectorAll(".slot-pill");
+  slotPills.forEach((pill) => {
+    pill.classList.toggle("is-active", pill.getAttribute("data-slot") === "10:00 AM - 12:00 PM");
+    pill.onclick = () => {
+      slotPills.forEach((p) => p.classList.remove("is-active"));
+      pill.classList.add("is-active");
+      activeSlot = pill.getAttribute("data-slot") || "10:00 AM - 12:00 PM";
+    };
+  });
+
+  // Handle appointment submission
+  if (formEl) {
+    formEl.onsubmit = async (e) => {
+      e.preventDefault();
+      if (!window.NailsApi) return;
+
+      const submitBtn = document.getElementById("service-submit-btn");
+      const name = document.getElementById("service-customer-name")?.value.trim();
+      const phone = document.getElementById("service-customer-phone")?.value.trim();
+      const email = document.getElementById("service-customer-email")?.value.trim();
+      const line1 = document.getElementById("service-addr-line1")?.value.trim();
+      const landmark = document.getElementById("service-addr-landmark")?.value.trim();
+      const city = document.getElementById("service-addr-city")?.value.trim() || "Delhi NCR";
+      const pin = document.getElementById("service-addr-pin")?.value.trim();
+      const reqDate = document.getElementById("service-requested-date")?.value;
+      const notes = document.getElementById("service-customer-notes")?.value.trim();
+
+      // Check selected addons
+      const selectedAddons = [];
+      formEl.querySelectorAll('input[name="service_addon"]:checked').forEach((cb) => {
+        selectedAddons.push(cb.value);
+      });
+
+      if (!name || !phone || !line1 || !pin || !reqDate) {
+        if (errorEl) {
+          errorEl.textContent = "Please fill in all required fields (Name, Phone, Address, PIN, Date).";
+          errorEl.style.display = "block";
+        }
+        return;
+      }
+
+      if (!/^[1-9][0-9]{5}$/.test(pin)) {
+        if (errorEl) {
+          errorEl.textContent = "Please provide a valid 6-digit Indian PIN code.";
+          errorEl.style.display = "block";
+        }
+        return;
+      }
+
+      try {
+        if (submitBtn) submitBtn.disabled = true;
+        if (errorEl) errorEl.style.display = "none";
+
+        const bookingPayload = {
+          serviceId: matchedService.id,
+          addonIds: selectedAddons,
+          customer: {
+            name,
+            phone,
+            email: email || null,
+          },
+          serviceAddress: {
+            address_line1: line1,
+            landmark: landmark || null,
+            city,
+            state: "Delhi",
+            postal_code: pin,
+          },
+          requestedDate: reqDate,
+          requestedTimeSlot: activeSlot,
+          customerNotes: notes || null,
+        };
+
+        const result = await window.NailsApi.createBooking(bookingPayload);
+        const bookingNum = result.booking?.bookingNumber || "NBD-BKG-CONFIRMED";
+
+        // Privacy-first booking submission analytics (strictly zero customer PII)
+        if (window.NBD_Analytics) {
+          window.NBD_Analytics.track("booking_submission", {
+            bookingNumber: bookingNum,
+            serviceId: matchedService.id,
+            serviceTitle: title,
+            requestedDate: reqDate,
+            requestedTimeSlot: activeSlot,
+            addonCount: selectedAddons.length,
+          });
+        }
+
+        formEl.style.display = "none";
+        if (confirmationView) {
+          confirmationView.style.display = "flex";
+          const bkgNumEl = document.getElementById("service-confirmation-booking-number");
+          if (bkgNumEl) bkgNumEl.textContent = bookingNum;
+
+          const waBtn = document.getElementById("service-confirmation-whatsapp-btn");
+          if (waBtn) {
+            const waText = encodeURIComponent(`Hi Divya! I have submitted appointment request *${bookingNum}* for *${title}* on ${reqDate} (${activeSlot}) in Delhi NCR. Please confirm your availability.`);
+            waBtn.href = `https://wa.me/${CHECKOUT_CONFIG.whatsappNumber}?text=${waText}`;
+          }
+
+          const closeBtn = document.getElementById("service-confirmation-close-btn");
+          if (closeBtn) closeBtn.onclick = closeAllModals;
+        }
+      } catch (err) {
+        if (errorEl) {
+          errorEl.textContent = err.message || "Failed to submit appointment request.";
+          errorEl.style.display = "block";
+        }
+      } finally {
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    };
+  }
+
+  modal.classList.add("is-open");
+  document.body.style.overflow = "hidden";
+}
+
+// ---------------------------------------------------------------------------
+// 08C. COMMERCE CART DRAWER MANAGEMENT
+// ---------------------------------------------------------------------------
+
+let activeCartData = null;
+
+async function openCartDrawer() {
+  const overlay = document.getElementById("cart-drawer-overlay");
+  if (!overlay) return;
+
+  overlay.classList.add("is-open");
+  document.body.style.overflow = "hidden";
+
+  await refreshCartView();
+}
+
+function closeCartDrawer() {
+  const overlay = document.getElementById("cart-drawer-overlay");
+  if (overlay) overlay.classList.remove("is-open");
+  document.body.style.overflow = "";
+}
+
+async function refreshCartBadge() {
+  if (!window.NailsApi) return;
+  try {
+    const res = await window.NailsApi.getCart();
+    activeCartData = res;
+    const count = (res.items || []).reduce((acc, it) => acc + (it.quantity || 1), 0);
+    const badges = document.querySelectorAll("#nav-cart-count, #cart-drawer-count, #mobile-cart-count");
+    badges.forEach((b) => {
+      b.textContent = count;
+      b.style.display = count > 0 ? "inline-block" : "none";
+    });
+  } catch {}
+}
+
+async function refreshCartView() {
+  if (!window.NailsApi) return;
+  const itemsContainer = document.getElementById("cart-drawer-items");
+  const footer = document.getElementById("cart-drawer-footer");
+  const emptyState = document.getElementById("cart-empty-state");
+
+  try {
+    const res = await window.NailsApi.getCart();
+    activeCartData = res;
+    const items = res.items || [];
+    const totals = res.totals || {};
+
+    refreshCartBadge();
+
+    if (items.length === 0) {
+      if (emptyState) emptyState.style.display = "flex";
+      if (footer) footer.style.display = "none";
+      if (itemsContainer) itemsContainer.innerHTML = "";
+      if (itemsContainer && emptyState) itemsContainer.appendChild(emptyState);
+      return;
+    }
+
+    if (emptyState) emptyState.style.display = "none";
+    if (footer) footer.style.display = "flex";
+
+    // Update totals
+    const subtotalEl = document.getElementById("cart-subtotal-val");
+    const discountRow = document.getElementById("cart-discount-row");
+    const discountVal = document.getElementById("cart-discount-val");
+    const totalEl = document.getElementById("cart-total-val");
+
+    if (subtotalEl) subtotalEl.textContent = `₹${totals.subtotal || 0}`;
+    if (totals.discountAmount > 0) {
+      if (discountRow) discountRow.style.display = "flex";
+      if (discountVal) discountVal.textContent = `-₹${totals.discountAmount}`;
+    } else {
+      if (discountRow) discountRow.style.display = "none";
+    }
+    if (totalEl) totalEl.textContent = `₹${totals.totalAmount || 0}`;
+
+    // Render items list
+    if (itemsContainer) {
+      itemsContainer.innerHTML = items.map((it) => {
+        const specParts = [it.shape, it.length, `Size ${it.sizingPreset}`];
+        if (it.sizingPreset === "Custom" && it.customMeasurements) {
+          const m = it.customMeasurements;
+          specParts.push(`Custom (${m.thumb || 0}/${m.index || 0}/${m.middle || 0}/${m.ring || 0}/${m.pinky || 0}mm)`);
+        }
+
+        return `
+          <div class="cart-item-card" data-item-id="${it.id}">
+            <img src="${it.heroImageUrl || "assets/products/wedding/WED-005/herowedd5.png"}" alt="${escapeHtml(it.productName)}" class="cart-item-img" onerror="this.src='assets/products/wedding/WED-005/herowedd5.png'" />
+            <div class="cart-item-details">
+              <h4 class="cart-item-title">${escapeHtml(it.productName)}</h4>
+              <span class="cart-item-spec">${escapeHtml(specParts.join(" • "))}</span>
+              <div class="cart-item-price-row">
+                <span class="cart-item-price">₹${it.unitPrice}</span>
+                ${it.isPromoApplied ? `<span class="cart-item-original">₹${it.basePrice}</span><span class="cart-item-promo-tag">Festive ₹599</span>` : ""}
+              </div>
+            </div>
+            <div class="cart-item-controls">
+              <button type="button" class="cart-remove-btn" data-action="remove-item" data-id="${it.id}" aria-label="Remove item">&times;</button>
+              <div class="qty-stepper">
+                <button type="button" class="qty-btn" data-action="qty-minus" data-id="${it.id}" data-qty="${it.quantity}">-</button>
+                <span class="qty-val">${it.quantity}</span>
+                <button type="button" class="qty-btn" data-action="qty-plus" data-id="${it.id}" data-qty="${it.quantity}">+</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      // Wire controls
+      itemsContainer.querySelectorAll('button[data-action="qty-minus"]').forEach((btn) => {
+        btn.onclick = async () => {
+          const id = btn.getAttribute("data-id");
+          const currentQty = parseInt(btn.getAttribute("data-qty"), 10) || 1;
+          if (currentQty <= 1) {
+            await window.NailsApi.removeCartItem(id);
+          } else {
+            await window.NailsApi.updateCartItem(id, { quantity: currentQty - 1 });
+          }
+          await refreshCartView();
+        };
+      });
+
+      itemsContainer.querySelectorAll('button[data-action="qty-plus"]').forEach((btn) => {
+        btn.onclick = async () => {
+          const id = btn.getAttribute("data-id");
+          const currentQty = parseInt(btn.getAttribute("data-qty"), 10) || 1;
+          if (currentQty < 20) {
+            await window.NailsApi.updateCartItem(id, { quantity: currentQty + 1 });
+            await refreshCartView();
+          }
+        };
+      });
+
+      itemsContainer.querySelectorAll('button[data-action="remove-item"]').forEach((btn) => {
+        btn.onclick = async () => {
+          const id = btn.getAttribute("data-id");
+          await window.NailsApi.removeCartItem(id);
+          await refreshCartView();
+        };
+      });
+    }
+  } catch (err) {
+    console.warn("Could not refresh cart:", err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 08D. CHECKOUT MODAL & ORDER CREATION
+// ---------------------------------------------------------------------------
+
+async function openCheckoutModal() {
+  closeCartDrawer();
+  const modal = document.getElementById("checkout-modal");
+  if (!modal) return;
+
+  const formView = document.getElementById("checkout-form-view");
+  const confirmationView = document.getElementById("checkout-confirmation-view");
+  const errorEl = document.getElementById("checkout-error-feedback");
+  const itemsListEl = document.getElementById("checkout-summary-items-list");
+  const subtotalEl = document.getElementById("checkout-subtotal-val");
+  const discountLine = document.getElementById("checkout-discount-line");
+  const discountVal = document.getElementById("checkout-discount-val");
+  const totalEl = document.getElementById("checkout-total-val");
+
+  if (formView) formView.style.display = "block";
+  if (confirmationView) confirmationView.style.display = "none";
+  if (errorEl) { errorEl.textContent = ""; errorEl.style.display = "none"; }
+
+  // Check cart items
+  if (!activeCartData || !activeCartData.items || activeCartData.items.length === 0) {
+    try {
+      activeCartData = await window.NailsApi.getCart();
+    } catch {}
+  }
+
+  const items = (activeCartData && activeCartData.items) || [];
+  if (items.length === 0) {
+    alert("Your bag is empty. Please add a handcrafted press-on set before checking out.");
+    openCartDrawer();
+    return;
+  }
+
+  const totals = (activeCartData && activeCartData.totals) || {};
+
+  // Track checkout initiation analytics
+  if (window.NBD_Analytics) {
+    window.NBD_Analytics.track("checkout_start", {
+      itemCount: items.length,
+      subtotalAmount: totals.subtotalAmount || 599,
+      totalAmount: totals.totalAmount || 599,
+    });
+  }
+
+  // Render items snippet
+  if (itemsListEl) {
+    itemsListEl.innerHTML = items.map((it) => `
+      <div class="checkout-summary-item" style="padding: 0.25rem 0;">
+        <span>${escapeHtml(it.productName)} (${escapeHtml(it.shape)}, ${escapeHtml(it.length)}, Size ${escapeHtml(it.sizingPreset)}) × ${it.quantity}</span>
+        <strong>₹${it.itemTotal}</strong>
+      </div>
+    `).join("");
+  }
+
+  if (subtotalEl) subtotalEl.textContent = `₹${totals.subtotal || 0}`;
+  if (totals.discountAmount > 0) {
+    if (discountLine) discountLine.style.display = "flex";
+    if (discountVal) discountVal.textContent = `-₹${totals.discountAmount}`;
+  } else {
+    if (discountLine) discountLine.style.display = "none";
+  }
+  if (totalEl) totalEl.textContent = `₹${totals.totalAmount || 0}`;
+
+  // Pre-fill customer details from authentication / addresses
+  try {
+    if (window.NailsApi) {
+      const userRes = await window.NailsApi.getCurrentUser().catch(() => null);
+      if (userRes && userRes.user) {
+        const u = userRes.user;
+        const nameInput = document.getElementById("checkout-name");
+        const phoneInput = document.getElementById("checkout-phone");
+        const emailInput = document.getElementById("checkout-email");
+        if (nameInput && !nameInput.value) nameInput.value = (u.profile && u.profile.full_name) || "Customer";
+        if (phoneInput && !phoneInput.value) phoneInput.value = (u.phone || "").replace(/^\+91/, "");
+        if (emailInput && !emailInput.value) emailInput.value = u.email || "";
+
+        const addrRes = await window.NailsApi.getCustomerAddresses().catch(() => null);
+        if (addrRes && addrRes.addresses && addrRes.addresses.length) {
+          const shipAddr = addrRes.addresses.find((a) => a.isDefaultShipping || a.is_default_shipping) || addrRes.addresses[0];
+          if (shipAddr) {
+            const l1 = document.getElementById("checkout-addr-line1");
+            const l2 = document.getElementById("checkout-addr-line2");
+            const city = document.getElementById("checkout-addr-city");
+            const state = document.getElementById("checkout-addr-state");
+            const pin = document.getElementById("checkout-addr-pin");
+            if (l1 && !l1.value) l1.value = shipAddr.addressLine1 || shipAddr.address_line1 || "";
+            if (l2 && !l2.value) l2.value = shipAddr.addressLine2 || shipAddr.address_line2 || shipAddr.landmark || "";
+            if (city && !city.value) city.value = shipAddr.city || "";
+            if (state && !state.value) state.value = shipAddr.state || "";
+            if (pin && !pin.value) pin.value = shipAddr.postalCode || shipAddr.postal_code || "";
+          }
+        }
+      }
+    }
+  } catch {}
+
+  // Handle order submission
+  const checkoutForm = document.getElementById("checkout-order-form");
+  if (checkoutForm) {
+    checkoutForm.onsubmit = async (e) => {
+      e.preventDefault();
+      const placeBtn = document.getElementById("checkout-place-order-btn");
+      const name = document.getElementById("checkout-name")?.value.trim();
+      const phone = document.getElementById("checkout-phone")?.value.trim();
+      const email = document.getElementById("checkout-email")?.value.trim();
+      const line1 = document.getElementById("checkout-addr-line1")?.value.trim();
+      const line2 = document.getElementById("checkout-addr-line2")?.value.trim();
+      const city = document.getElementById("checkout-addr-city")?.value.trim();
+      const state = document.getElementById("checkout-addr-state")?.value.trim();
+      const pin = document.getElementById("checkout-addr-pin")?.value.trim();
+      const notes = document.getElementById("checkout-notes")?.value.trim();
+
+      if (!name || !phone || !line1 || !city || !state || !pin) {
+        if (errorEl) {
+          errorEl.textContent = "Please fill in all required customer and delivery address fields.";
+          errorEl.style.display = "block";
+        }
+        return;
+      }
+
+      if (!/^[1-9][0-9]{5}$/.test(pin)) {
+        if (errorEl) {
+          errorEl.textContent = "Please enter a valid 6-digit Indian PIN code.";
+          errorEl.style.display = "block";
+        }
+        return;
+      }
+
+      try {
+        if (placeBtn) placeBtn.disabled = true;
+        if (errorEl) errorEl.style.display = "none";
+
+        const orderPayload = {
+          customer: {
+            name,
+            phone,
+            email: email || null,
+          },
+          shipping_address: {
+            recipient_name: name,
+            phone,
+            address_line1: line1,
+            address_line2: line2 || null,
+            city,
+            state,
+            postal_code: pin,
+          },
+          customer_notes: notes || null,
+        };
+
+        const result = await window.NailsApi.createOrder(orderPayload);
+        const orderNum = result.order?.orderNumber || "NBD-ORD-CONFIRMED";
+        const orderTotal = result.order?.totalAmount || totals.totalAmount || 599;
+
+        // Privacy-first order submission analytics (strictly zero customer PII)
+        if (window.NBD_Analytics) {
+          window.NBD_Analytics.track("order_submission", {
+            orderNumber: orderNum,
+            totalAmount: orderTotal,
+            itemCount: (result.order?.items || []).length || (activeCartData?.items || []).length || 1,
+            hasDiscount: (totals.discountAmount || 0) > 0,
+          });
+        }
+
+        // Clear bag
+        await window.NailsApi.clearCart().catch(() => {});
+        refreshCartBadge();
+
+        if (formView) formView.style.display = "none";
+        if (confirmationView) {
+          confirmationView.style.display = "flex";
+          const ordNumEl = document.getElementById("checkout-confirmation-order-number");
+          if (ordNumEl) ordNumEl.textContent = orderNum;
+
+          const waBtn = document.getElementById("checkout-confirmation-whatsapp-btn");
+          if (waBtn) {
+            const waText = encodeURIComponent(`Hi Divya! I have placed order *${orderNum}* for ₹${orderTotal} with delivery to ${city}. Please verify my nail measurements and share studio UPI payment details.`);
+            waBtn.href = `https://wa.me/${CHECKOUT_CONFIG.whatsappNumber}?text=${waText}`;
+          }
+        }
+      } catch (err) {
+        if (errorEl) {
+          errorEl.textContent = err.message || "Failed to place order. Please try again.";
+          errorEl.style.display = "block";
+        }
+      } finally {
+        if (placeBtn) placeBtn.disabled = false;
+      }
     };
   }
 
@@ -755,7 +1894,18 @@ function closeAllModals() {
   document.querySelectorAll(".modal-overlay").forEach((modal) => {
     modal.classList.remove("is-open");
   });
+  closeCartDrawer();
   document.body.style.overflow = "";
+}
+
+function escapeHtml(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 // ---------------------------------------------------------------------------
@@ -1020,12 +2170,48 @@ function initDivvStylist() {
     return now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
 
-  const formatTextWithBreaks = (text) => {
+  const formatDivvMarkdown = (text) => {
     if (!text) return "";
-    return text
+
+    // 1. Strict HTML Entity Escaping (Prevents XSS / script injection)
+    let safe = String(text)
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+
+    // 2. Inline Code: `code`
+    safe = safe.replace(/`([^`\n]+)`/g, "<code>$1</code>");
+
+    // 3. Bold: **text** or __text__
+    safe = safe.replace(/\*\*([^*\n]+?)\*\*/g, "<strong>$1</strong>");
+    safe = safe.replace(/__([^_]+?)__/g, "<strong>$1</strong>");
+
+    // 4. Italic: *text* or _text_ (excluding previously processed <strong> tags)
+    safe = safe.replace(/(^|[^*])\*([^*\n]+?)\*(?!\*)/g, "$1<em>$2</em>");
+    safe = safe.replace(/(^|[^_])_([^_ \n]+?)_(?!_)/g, "$1<em>$2</em>");
+
+    // 5. Line-by-line formatting for lists and breaks
+    const lines = safe.split("\n");
+    const formattedLines = lines.map((line) => {
+      const trimmed = line.trim();
+      // Bullet list: * item or - item or • item
+      const bulletMatch = trimmed.match(/^[-*•]\s+(.+)$/);
+      if (bulletMatch) {
+        return `• ${bulletMatch[1]}`;
+      }
+      // Numbered list: 1. item
+      const numMatch = trimmed.match(/^(\d+)\.\s+(.+)$/);
+      if (numMatch) {
+        return `${numMatch[1]}. ${numMatch[2]}`;
+      }
+      return line;
+    });
+
+    // 6. Paragraphs and line breaks
+    return formattedLines
+      .join("\n")
       .replace(/\n\n+/g, "<br><br>")
       .replace(/\n/g, "<br>");
   };
@@ -1135,14 +2321,14 @@ function initDivvStylist() {
   const renderMessages = () => {
     bodyEl.innerHTML = sessionHistory.map((turn) => {
       const isUser = turn.role === "user";
-      const formattedContent = formatTextWithBreaks(turn.content);
+      const formattedContent = formatDivvMarkdown(turn.content);
       const handoffKeywordRegex = /(chat directly with divya|please chat directly|chat with the artist|personal guidance|divya will personally assist)/i;
       const showHandoff = !isUser && (turn.hasHandoff || handoffKeywordRegex.test(turn.content));
 
       let handoffMarkup = "";
       if (showHandoff) {
         handoffMarkup = `
-          <a href="https://wa.me/917827437985?text=Hi%20Divya!%20I%20was%20chatting%20with%20Divv%20and%20I'd%20love%20some%20help%20with%20my%20nails." target="_blank" rel="noopener noreferrer" class="divv-handoff-btn">
+          <a href="https://wa.me/${CHECKOUT_CONFIG.whatsappNumber}?text=Hi%20Divya!%20I%20was%20chatting%20with%20Divv%20and%20I'd%20love%20some%20help%20with%20my%20nails." target="_blank" rel="noopener noreferrer" class="divv-handoff-btn">
             <span>💬 Chat with the Artist</span>
           </a>
         `;
@@ -1194,18 +2380,55 @@ function initDivvStylist() {
     showTyping();
 
     try {
-      const apiUrl = window.DIVV_API_URL || "https://nails-ai-backend.onrender.com/chat";
+      let chatBaseUrl;
+      if (window.NAILS_CONFIG && window.NAILS_CONFIG.apiUrl) {
+        chatBaseUrl = window.NAILS_CONFIG.apiUrl.replace(/\/+$/, "");
+      } else if (typeof window.NailsApi !== "undefined" && typeof window.NailsApi.getBaseUrl === "function") {
+        chatBaseUrl = window.NailsApi.getBaseUrl();
+      } else {
+        const host = (window.location && window.location.hostname ? window.location.hostname : "").toLowerCase().trim();
+        if (host === "localhost" || host === "127.0.0.1" || host === "") {
+          chatBaseUrl = "http://localhost:3000";
+        } else if (
+          host === "staging.nailsbydivya.store" ||
+          host === "preview.nailsbydivya.store" ||
+          host === "staging-admin.nailsbydivya.store" ||
+          host.endsWith(".pages.dev") ||
+          host === "pages.dev" ||
+          host.includes("staging") ||
+          host.includes("preview")
+        ) {
+          chatBaseUrl = "https://nailsbydivya-staging-api.onrender.com";
+        } else if (host === "nailsbydivya.store" || host === "www.nailsbydivya.store") {
+          chatBaseUrl = "https://nails-ai-backend.onrender.com";
+        } else {
+          throw new Error(
+            `[Divv Stylist Error] Unrecognized environment hostname: "${host}". Refusing to route to production backend.`
+          );
+        }
+      }
+      const apiUrl = window.DIVV_API_URL || `${chatBaseUrl}/chat`;
       const payload = {
         message: text,
         productContext: window.DivvCurrentProductContext || null,
         history: sessionHistory.slice(0, -1)
       };
 
+      // 45-second timeout — generous enough for cold-start Render + Gemini response latency
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 45000);
+
       const res = await fetch(apiUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
+
+      if (!res.ok) {
+        throw new Error(`[Divv API HTTP ${res.status}] Service temporarily unavailable.`);
+      }
 
       const data = await res.json();
       hideTyping();
@@ -1245,5 +2468,472 @@ function initDivvStylist() {
     const text = inputEl ? inputEl.value.trim() : "";
     if (text) sendUserMessage(text);
   });
+}
+
+// ---------------------------------------------------------------------------
+// 12. GENUINE REVIEWS & COMMUNITY FEEDBACK CONTROLLER (PHASE 5.1B)
+// ---------------------------------------------------------------------------
+function initReviewsEngine() {
+  const reviewsContainer = document.getElementById("reviews-container");
+  const openModalBtn = document.getElementById("btn-open-review-modal");
+  const modal = document.getElementById("review-modal");
+  const closeBtn = document.getElementById("review-modal-close");
+  const form = document.getElementById("client-review-form");
+  const formView = document.getElementById("review-form-view");
+  const successView = document.getElementById("review-success-view");
+  const submitBtn = document.getElementById("btn-submit-review");
+  const statusEl = document.getElementById("rev-submit-status");
+  const starBtns = document.querySelectorAll("#rev-star-rating-selector .star-btn");
+  const ratingInput = document.getElementById("rev-selected-rating");
+  const closeSuccessBtn = document.getElementById("btn-close-review-success");
+
+  // Star selector interaction
+  starBtns.forEach((star) => {
+    star.addEventListener("click", () => {
+      const val = parseInt(star.getAttribute("data-rating"), 10) || 5;
+      if (ratingInput) ratingInput.value = val;
+      starBtns.forEach((s) => {
+        const sVal = parseInt(s.getAttribute("data-rating"), 10) || 1;
+        s.style.opacity = sVal <= val ? "1" : "0.3";
+      });
+    });
+  });
+
+  // Modal open / close
+  const openModal = () => {
+    if (modal) {
+      modal.setAttribute("aria-hidden", "false");
+      modal.classList.add("is-visible");
+      document.body.style.overflow = "hidden";
+      if (formView) formView.style.display = "block";
+      if (successView) successView.style.display = "none";
+      if (statusEl) statusEl.style.display = "none";
+    }
+  };
+
+  const closeModal = () => {
+    if (modal) {
+      modal.setAttribute("aria-hidden", "true");
+      modal.classList.remove("is-visible");
+      document.body.style.overflow = "";
+    }
+  };
+
+  if (openModalBtn) openModalBtn.addEventListener("click", openModal);
+  if (closeBtn) closeBtn.addEventListener("click", closeModal);
+  if (closeSuccessBtn) closeSuccessBtn.addEventListener("click", closeModal);
+  if (modal) {
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) closeModal();
+    });
+  }
+
+  // Submit genuine review
+  if (submitBtn) {
+    submitBtn.addEventListener("click", async () => {
+      const name = document.getElementById("rev-customer-name")?.value.trim();
+      const phone = document.getElementById("rev-customer-phone")?.value.trim();
+      const tag = document.getElementById("rev-service-tag")?.value;
+      const rating = parseInt(ratingInput?.value, 10) || 5;
+      const text = document.getElementById("rev-review-text")?.value.trim();
+
+      const orderIdVal = document.getElementById("rev-order-id")?.value.trim();
+
+      if (!name || name.length < 2) {
+        showStatus("Please enter your name (minimum 2 characters).", true);
+        return;
+      }
+      if (!text || text.length < 10) {
+        showStatus("Please enter your feedback (minimum 10 characters).", true);
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = "<span>Submitting...</span>";
+
+      try {
+        const baseUrl = typeof NailsApi !== "undefined" && NailsApi.getBaseUrl ? NailsApi.getBaseUrl() : "https://nailsbydivya-staging-api.onrender.com";
+        const payload = {
+          customer_name: name,
+          customer_phone: phone || undefined,
+          service_or_product_tag: tag,
+          rating,
+          review_text: text,
+        };
+        if (orderIdVal) {
+          payload.order_id = orderIdVal;
+        }
+
+        const res = await fetch(`${baseUrl}/api/reviews`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || "Failed to submit review.");
+        }
+
+        if (formView) formView.style.display = "none";
+        if (successView) successView.style.display = "block";
+        if (form) form.reset();
+      } catch (err) {
+        showStatus(err.message || "Failed to submit review. Please try again.", true);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = "<span>Submit Feedback for Verification &rarr;</span>";
+      }
+    });
+  }
+
+  function showStatus(msg, isError) {
+    if (!statusEl) return;
+    statusEl.style.display = "block";
+    statusEl.style.background = isError ? "rgba(220, 53, 69, 0.1)" : "rgba(40, 167, 69, 0.1)";
+    statusEl.style.color = isError ? "#c82333" : "#218838";
+    statusEl.style.border = isError ? "1px solid rgba(220, 53, 69, 0.3)" : "1px solid rgba(40, 167, 69, 0.3)";
+    statusEl.textContent = msg;
+  }
+
+  // Load genuine approved reviews from API
+  async function loadApprovedReviews() {
+    if (!reviewsContainer) return;
+    try {
+      const baseUrl = typeof NailsApi !== "undefined" && NailsApi.getBaseUrl ? NailsApi.getBaseUrl() : "https://nailsbydivya-staging-api.onrender.com";
+      const res = await fetch(`${baseUrl}/api/reviews?limit=6`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const reviews = data.reviews || [];
+
+      if (reviews.length === 0) {
+        reviewsContainer.innerHTML = `
+          <div class="review-empty-state" style="grid-column: 1 / -1; text-align: center; padding: 2.5rem 1.5rem; background: rgba(250, 247, 242, 0.6); border: 1px dashed rgba(212, 175, 55, 0.4); border-radius: 12px; max-width: 680px; margin: 0 auto;">
+            <p style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 1.35rem; color: #2C2623; margin: 0 0 0.5rem 0;">Curated Client Voices</p>
+            <p style="font-size: 0.95rem; color: var(--text-muted); line-height: 1.6; margin: 0;">Our verified client reviews are published exclusively from genuine appointments and press-on deliveries. We never fabricate ratings or publish unverified testimonials.</p>
+          </div>
+        `;
+        return;
+      }
+
+      reviewsContainer.innerHTML = reviews.map((r) => {
+        const stars = "★".repeat(Math.min(Math.max(r.rating || 5, 1), 5));
+        const author = r.customer_name ? r.customer_name.replace(/(\w+)\s+(.)\w*/, "$1 $2.") : "Client";
+        const metaTag = r.service_or_product_tag || "Studio Service";
+        const cleanText = (r.review_text || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const verifiedTag = r.is_verified_purchase
+          ? '<span style="display:inline-block; margin-left: 6px; font-size: 0.72rem; color: #D4AF37; font-weight: 600; letter-spacing: 0.04em;">✓ Verified Purchase</span>'
+          : "";
+
+        return `
+          <div class="review-card">
+            <div class="review-stars">${stars}</div>
+            <p class="review-quote">&ldquo;${cleanText}&rdquo;</p>
+            <div class="review-author">
+              <span class="author-client">${author}${verifiedTag}</span>
+              <span class="author-location">${metaTag}</span>
+            </div>
+          </div>
+        `;
+      }).join("");
+    } catch (err) {
+      console.warn("Could not fetch reviews:", err.message);
+    }
+  }
+
+  loadApprovedReviews();
+}
+
+// ---------------------------------------------------------------------------
+// 13. DYNAMIC LOOKBOOK & PORTFOLIO ENGINE (PHASE 5.1B.1)
+// ---------------------------------------------------------------------------
+function initLookbookEngine() {
+  const grid = document.getElementById("lookbook-grid");
+  const galleryTabs = document.querySelectorAll(".gallery-filter-tabs .filter-tab");
+  if (!grid) return;
+
+  function bindCardFilters() {
+    const cards = grid.querySelectorAll(".lookbook-card, .portfolio-card");
+    galleryTabs.forEach((tab) => {
+      tab.onclick = () => {
+        galleryTabs.forEach((t) => {
+          t.classList.remove("is-active");
+          t.setAttribute("aria-selected", "false");
+        });
+        tab.classList.add("is-active");
+        tab.setAttribute("aria-selected", "true");
+
+        const filter = (tab.getAttribute("data-filter") || "all").toLowerCase().trim();
+
+        cards.forEach((card) => {
+          const cat = (card.getAttribute("data-category") || "").toLowerCase().trim();
+          const match =
+            filter === "all" ||
+            cat === filter ||
+            (filter === "chrome" && (cat === "chrome" || cat === "3d")) ||
+            (filter === "nude" && (cat === "nude" || cat === "french")) ||
+            (filter === "bridal" && (cat === "bridal" || cat === "wedding")) ||
+            (filter === "art" && (cat === "art" || cat === "floral"));
+
+          card.style.display = match ? "block" : "none";
+        });
+
+        if (typeof window.__updateLookbookPagination === "function") {
+          window.__updateLookbookPagination();
+        }
+      };
+    });
+
+    cards.forEach((card) => {
+      card.onclick = () => {
+        const caption = card.querySelector(".lookbook-caption .lookbook-title");
+        if (caption && typeof openProductModal === "function") {
+          openProductModal({
+            title: caption.textContent.trim(),
+            category: "Bespoke Art",
+            price: "Custom Quotation",
+            desc: "Bespoke nail art handcrafted by Divya. Available as custom-sized press-ons or at-home salon extensions.",
+          });
+        }
+      };
+    });
+  }
+
+  async function loadPortfolioDesigns() {
+    try {
+      const baseUrl = typeof NailsApi !== "undefined" && NailsApi.getBaseUrl ? NailsApi.getBaseUrl() : "https://nailsbydivya-staging-api.onrender.com";
+      const res = await fetch(`${baseUrl}/api/portfolio?limit=60`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const artworks = data.artworks || [];
+      if (!Array.isArray(artworks) || artworks.length === 0) return;
+
+      // Preserve verified 60 local client portfolio artworks from index.html if already loaded
+      if (grid.querySelectorAll(".lookbook-card").length >= 60) {
+        return;
+      }
+
+      grid.innerHTML = artworks.map((art) => {
+        const cat = art.category_id || "chrome";
+        const catName = art.category_name || cat;
+        const cleanName = (art.name || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const cleanAlt = (art.alt_text || art.name || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+        return `
+          <div class="lookbook-card portfolio-card" data-category="${cat}" tabindex="0">
+            <img src="${art.image_url}" alt="${cleanAlt}" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">${catName}</span>
+              <span class="lookbook-title">${cleanName}</span>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      bindCardFilters();
+    } catch (err) {
+      console.warn("Could not load dynamic lookbook, using static gallery:", err.message);
+    }
+  }
+
+  // Bind initial static fallback cards first
+  bindCardFilters();
+  // Initialize mobile lookbook carousel & auto-sliding engine
+  initMobileLookbookCarousel();
+  // Fetch live lookbook designs from backend
+  loadPortfolioDesigns();
+}
+
+/**
+ * Mobile Lookbook Carousel & Auto-Sliding Engine
+ * - Smooth horizontal swipeable carousel with scroll snap on mobile (<= 768px)
+ * - Auto-advances every 3.8s with smooth transition
+ * - Pauses immediately on touch/pointer interaction and resumes after delay
+ * - Dynamic pagination indicator (e.g. ✦ 1 / 60 • Swipe to explore)
+ * - Respects prefers-reduced-motion
+ * - Leaves desktop multi-column grid untouched
+ */
+function initMobileLookbookCarousel() {
+  const grid = document.getElementById("lookbook-grid");
+  const currentIdxEl = document.getElementById("lookbook-current-idx");
+  const totalCountEl = document.getElementById("lookbook-total-count");
+
+  if (!grid) return;
+
+  let autoSlideTimer = null;
+  let resumeTimer = null;
+  let isInteracting = false;
+  const SLIDE_INTERVAL = 3800; // 3.8s intervals
+  const RESUME_DELAY = 2800; // 2.8s after touch/drag ends
+
+  function isMobile() {
+    return window.innerWidth <= 768;
+  }
+
+  function prefersReducedMotion() {
+    return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+
+  function getVisibleCards() {
+    return Array.from(grid.querySelectorAll(".lookbook-card")).filter(
+      (c) => c.style.display !== "none" && !c.hasAttribute("hidden")
+    );
+  }
+
+  function updatePagination() {
+    const cards = getVisibleCards();
+    if (!cards.length) return;
+
+    if (totalCountEl) {
+      totalCountEl.textContent = cards.length;
+    }
+
+    const gridCenter = grid.scrollLeft + grid.clientWidth / 2;
+    let closestIndex = 0;
+    let minDistance = Infinity;
+
+    cards.forEach((card, idx) => {
+      const cardCenter = card.offsetLeft + card.offsetWidth / 2;
+      const distance = Math.abs(cardCenter - gridCenter);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestIndex = idx;
+      }
+    });
+
+    if (currentIdxEl) {
+      currentIdxEl.textContent = closestIndex + 1;
+    }
+  }
+
+  function advanceSlide() {
+    if (!isMobile() || prefersReducedMotion() || isInteracting) return;
+
+    const cards = getVisibleCards();
+    if (cards.length <= 1) return;
+
+    const maxScrollLeft = grid.scrollWidth - grid.clientWidth;
+    if (grid.scrollLeft >= maxScrollLeft - 15) {
+      grid.scrollTo({ left: 0, behavior: "smooth" });
+    } else {
+      const gridCenter = grid.scrollLeft + grid.clientWidth / 2;
+      let currentIndex = 0;
+      let minDistance = Infinity;
+
+      cards.forEach((card, idx) => {
+        const cardCenter = card.offsetLeft + card.offsetWidth / 2;
+        const distance = Math.abs(cardCenter - gridCenter);
+        if (distance < minDistance) {
+          minDistance = distance;
+          currentIndex = idx;
+        }
+      });
+
+      const nextIndex = (currentIndex + 1) % cards.length;
+      const targetCard = cards[nextIndex];
+      if (targetCard) {
+        const targetScroll = targetCard.offsetLeft - (grid.clientWidth - targetCard.offsetWidth) / 2;
+        grid.scrollTo({ left: Math.max(0, targetScroll), behavior: "smooth" });
+      }
+    }
+  }
+
+  function startAutoSlide() {
+    stopAutoSlide();
+    if (!isMobile() || prefersReducedMotion()) return;
+    autoSlideTimer = setInterval(advanceSlide, SLIDE_INTERVAL);
+  }
+
+  function stopAutoSlide() {
+    if (autoSlideTimer) {
+      clearInterval(autoSlideTimer);
+      autoSlideTimer = null;
+    }
+  }
+
+  function handleInteractionStart() {
+    isInteracting = true;
+    stopAutoSlide();
+    if (resumeTimer) {
+      clearTimeout(resumeTimer);
+      resumeTimer = null;
+    }
+  }
+
+  function handleInteractionEnd() {
+    isInteracting = false;
+    if (resumeTimer) clearTimeout(resumeTimer);
+    resumeTimer = setTimeout(() => {
+      startAutoSlide();
+    }, RESUME_DELAY);
+  }
+
+  grid.addEventListener("touchstart", handleInteractionStart, { passive: true });
+  grid.addEventListener("touchend", handleInteractionEnd, { passive: true });
+  grid.addEventListener("touchcancel", handleInteractionEnd, { passive: true });
+  grid.addEventListener("pointerdown", handleInteractionStart, { passive: true });
+  grid.addEventListener("pointerup", handleInteractionEnd, { passive: true });
+  grid.addEventListener("pointercancel", handleInteractionEnd, { passive: true });
+
+  grid.addEventListener("mouseenter", handleInteractionStart);
+  grid.addEventListener("mouseleave", handleInteractionEnd);
+
+  let ticking = false;
+  grid.addEventListener(
+    "scroll",
+    () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          updatePagination();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    },
+    { passive: true }
+  );
+
+  if (window.matchMedia) {
+    const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    if (motionQuery.addEventListener) {
+      motionQuery.addEventListener("change", () => {
+        if (prefersReducedMotion()) {
+          stopAutoSlide();
+        } else {
+          startAutoSlide();
+        }
+      });
+    }
+  }
+
+  window.addEventListener("resize", () => {
+    if (isMobile()) {
+      startAutoSlide();
+    } else {
+      stopAutoSlide();
+    }
+    updatePagination();
+  });
+
+  window.__updateLookbookPagination = () => {
+    grid.scrollTo({ left: 0, behavior: "smooth" });
+    updatePagination();
+  };
+
+  updatePagination();
+  if (isMobile() && !prefersReducedMotion()) {
+    startAutoSlide();
+  }
+}
+
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => {
+    initReviewsEngine();
+    initLookbookEngine();
+  });
+} else {
+  initReviewsEngine();
+  initLookbookEngine();
 }
 

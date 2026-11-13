@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard &amp; CMS — Nails by Divya</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="admin.css?v=12">
+</head>
+<body>
+
+  <!-- =========================================================================
+       1. AUTHENTICATION SCREEN (Shown when unauthenticated)
+       ========================================================================= -->
+  <div id="admin-auth-view" class="admin-auth-screen">
+    <div class="auth-card" style="max-width: 480px; width: 100%;">
+      <h1 class="auth-logo">Nails by Divya</h1>
+      <p class="auth-tagline">Studio Administration &amp; Operations</p>
+
+      <!-- Status / Error Notification Banner -->
+      <div id="auth-status-msg" style="display: none; font-size: 0.85rem; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1.25rem; line-height: 1.45; text-align: left;"></div>
+
+      <!-- 1. ACTIVE STUDIO SESSION DETECTED -->
+      <div id="storefront-auth-sync-box" style="display: none; background: rgba(46, 125, 50, 0.08); border: 1px solid rgba(46, 125, 50, 0.3); border-radius: 8px; padding: 1rem; margin-bottom: 1.25rem; text-align: left;">
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem;">
+          <span style="font-size: 1.1rem;">✨</span>
+          <strong style="color: #2e7d32; font-size: 0.9rem;">Active Studio Session Detected</strong>
+        </div>
+        <p id="storefront-auth-user-label" style="margin: 0 0 0.75rem; font-size: 0.82rem; color: var(--text-primary);"></p>
+        <button type="button" id="btn-sync-storefront-auth" class="btn btn-primary" style="width: 100%; padding: 0.65rem;">
+          <span>Enter Studio Dashboard &rarr;</span>
+        </button>
+      </div>
+
+      <!-- 1B. CLIENT ACCOUNT DETECTED NOTICE -->
+      <div id="admin-customer-session-box" style="display: none; background: rgba(231, 175, 184, 0.15); border: 1px solid rgba(217, 137, 155, 0.4); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.25rem; text-align: left;">
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem;">
+          <span style="font-size: 1.1rem;">💅🏻</span>
+          <strong style="color: var(--heading, #3d2a2f); font-size: 0.95rem;">Client Account Detected</strong>
+        </div>
+        <p style="font-size: 0.82rem; color: var(--text-primary, #4e4446); margin: 0 0 0.85rem; line-height: 1.45;">
+          You are signed in with a client account (<strong id="customer-session-phone">+91...</strong>). Studio Operations is reserved for Nails by Divya artists and management.
+        </p>
+        <div style="display: flex; gap: 0.65rem; flex-wrap: wrap;">
+          <a href="account.html" class="btn btn-primary btn-sm" style="flex: 1; text-align: center; text-decoration: none; padding: 0.55rem;">
+            <span>Go to My Client Account &rarr;</span>
+          </a>
+          <button type="button" id="btn-customer-logout-switch" class="btn btn-secondary btn-sm" style="flex: 1; padding: 0.55rem;">
+            <span>Sign Out &amp; Switch</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 2. DIRECT PHONE SMS OTP AUTHENTICATION -->
+      <div id="admin-phone-auth-container">
+        
+        <!-- Step A: Enter Phone Number -->
+        <div id="admin-step-phone">
+          <div style="text-align: left; margin-bottom: 1rem;">
+            <label class="form-label" for="admin-phone-input">Studio Mobile Number</label>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <span style="padding: 0.65rem 0.85rem; background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 6px; font-weight: 600; font-size: 0.9rem; color: var(--text-primary);">+91</span>
+              <input type="tel" id="admin-phone-input" class="form-input" placeholder="e.g. 98765 43210" maxlength="10" inputmode="numeric" style="flex: 1;" required>
+            </div>
+            <p style="font-size: 0.74rem; color: var(--text-muted); margin-top: 0.35rem;">
+              Enter the registered 10-digit mobile number for your artist or owner administrator account.
+            </p>
+          </div>
+
+          <!-- reCAPTCHA Container -->
+          <div id="admin-recaptcha-container" style="margin-bottom: 1rem;"></div>
+
+          <button type="button" id="btn-admin-send-otp" class="btn btn-primary" style="width: 100%; padding: 0.75rem;">
+            <span>Send Verification SMS Code &rarr;</span>
+          </button>
+        </div>
+
+        <!-- Step B: Enter 6-digit OTP -->
+        <div id="admin-step-otp" style="display: none; text-align: left;">
+          <div style="margin-bottom: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.35rem;">
+              <label class="form-label" for="admin-otp-input">6-Digit Verification Code</label>
+              <button type="button" id="btn-admin-change-phone" style="background: none; border: none; color: var(--accent-strong, #d9899b); font-size: 0.75rem; cursor: pointer; text-decoration: underline;">
+                Change Number
+              </button>
+            </div>
+            <p id="admin-otp-subtext" style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+              Enter the verification code sent to <strong id="admin-otp-phone-display">+91...</strong>
+            </p>
+            <input type="text" id="admin-otp-input" class="form-input" placeholder="Enter 6-digit code..." maxlength="6" inputmode="numeric" autocomplete="one-time-code" style="letter-spacing: 0.25rem; font-size: 1.1rem; text-align: center; font-weight: 600;" required>
+          </div>
+
+          <button type="button" id="btn-admin-verify-otp" class="btn btn-primary" style="width: 100%; padding: 0.75rem; margin-bottom: 0.75rem;">
+            <span>Verify &amp; Enter Studio Dashboard &rarr;</span>
+          </button>
+
+          <div style="text-align: center;">
+            <button type="button" id="btn-admin-resend-otp" style="background: none; border: none; color: var(--text-muted); font-size: 0.78rem; cursor: pointer;">
+              Didn't receive code? <span style="text-decoration: underline; color: var(--gold-primary);">Resend SMS</span>
+            </button>
+            <span id="admin-resend-timer" style="display: none; font-size: 0.78rem; color: var(--text-muted);"></span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- 3. ADVANCED DEVELOPER / MANUAL ID TOKEN FALLBACK -->
+      <details style="margin-top: 1.5rem; text-align: left; font-size: 0.78rem; color: var(--text-muted); border-top: 1px solid var(--border-light); padding-top: 1rem;">
+        <summary style="cursor: pointer; color: var(--text-muted); font-weight: 500;">
+          ⚙️ Advanced: Sign in with ID Token directly
+        </summary>
+        <form id="admin-login-form" onsubmit="return false;" style="margin-top: 0.75rem;">
+          <div class="form-group" style="text-align: left;">
+            <label class="form-label" for="admin-token-input" style="font-size: 0.75rem;">Firebase Administrator ID Token</label>
+            <input type="password" id="admin-token-input" class="form-input" placeholder="Paste verified Firebase Administrator ID Token..." autocomplete="current-password" style="font-size: 0.78rem;">
+          </div>
+          <button type="submit" id="btn-admin-login" class="btn btn-secondary" style="width: 100%; padding: 0.5rem; font-size: 0.8rem;">
+            <span>Verify ID Token &rarr;</span>
+          </button>
+        </form>
+      </details>
+
+      <div style="margin-top: 1.25rem; font-size: 0.78rem; color: var(--text-muted); text-align: center;">
+        <a href="index.html" style="color: var(--gold-primary); text-decoration: none;">&larr; Return to Client Storefront</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       2. MAIN APPLICATION VIEW (Shown when authenticated)
+       ========================================================================= -->
+  <div id="admin-app-view" class="admin-layout" style="display: none;">
+    
+    <!-- Sidebar Navigation -->
+    <aside class="admin-sidebar" id="admin-sidebar">
+      <div class="sidebar-brand">
+        <a href="#" class="brand-title">Nails by Divya</a>
+        <div class="brand-subtitle">Studio Operations</div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button type="button" class="nav-link active" data-tab="overview">
+          <span>📊</span>
+          <span>Overview</span>
+        </button>
+
+        <button type="button" class="nav-link" data-tab="orders">
+          <span>📦</span>
+          <span>Orders</span>
+          <span class="nav-link-badge" id="badge-pending-orders" style="display: none;">0</span>
+        </button>
+
+        <button type="button" class="nav-link" data-tab="payments">
+          <span>💳</span>
+          <span>Payments</span>
+          <span class="nav-link-badge" id="badge-unverified-payments" style="display: none;">0</span>
+        </button>
+
+        <button type="button" class="nav-link" data-tab="bookings">
+          <span>🗓️</span>
+          <span>Bookings</span>
+          <span class="nav-link-badge" id="badge-requested-bookings" style="display: none;">0</span>
+        </button>
+
+        <button type="button" class="nav-link" data-tab="products">
+          <span>💅🏻</span>
+          <span>Product CMS</span>
+        </button>
+
+        <button type="button" class="nav-link" data-tab="portfolio">
+          <span>🖼️</span>
+          <span>Portfolio CMS</span>
+        </button>
+
+        <button type="button" class="nav-link" data-tab="reviews">
+          <span>⭐</span>
+          <span>Reviews Moderation</span>
+          <span class="nav-link-badge" id="badge-pending-reviews" style="display: none;">0</span>
+        </button>
+
+        <button type="button" class="nav-link" data-tab="communications">
+          <span>📱</span>
+          <span>WhatsApp Queue</span>
+        </button>
+
+        <!-- OWNER ONLY SECTION -->
+        <div class="sidebar-section-divider owner-only-nav" id="owner-nav-divider" style="display: none;">
+          <span>Owner Operations</span>
+        </div>
+
+        <button type="button" class="nav-link owner-only-nav" data-tab="staff" id="nav-staff" style="display: none;">
+          <span>👥</span>
+          <span>Staff &amp; Access</span>
+        </button>
+
+        <button type="button" class="nav-link owner-only-nav" data-tab="settings" id="nav-settings" style="display: none;">
+          <span>⚙️</span>
+          <span>Studio Settings</span>
+        </button>
+
+        <button type="button" class="nav-link owner-only-nav" data-tab="audit-logs" id="nav-audit-logs" style="display: none;">
+          <span>🛡️</span>
+          <span>Security Audit Logs</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="admin-user-pill">
+          <span class="user-display-name" id="user-display-name">Divya (Artist)</span>
+          <span class="user-role-tag" id="user-role-tag">Lead Artist</span>
+        </div>
+        <button type="button" id="btn-logout" class="btn-logout">Logout</button>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="admin-main">
+      
+      <!-- Topbar Header -->
+      <header class="admin-topbar">
+        <div style="display: flex; align-items: center; gap: 1rem;">
+          <button type="button" id="mobile-menu-btn" class="mobile-menu-trigger" aria-label="Toggle navigation">☰</button>
+          <h2 class="topbar-title" id="page-title">Overview</h2>
+        </div>
+
+        <div class="topbar-actions">
+          <a href="index.html" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm">
+            <span>Storefront ↗</span>
+          </a>
+          <button type="button" id="btn-refresh-data" class="btn btn-secondary btn-sm" title="Refresh current view">
+            <span>↻ Refresh</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Content Container -->
+      <div class="admin-container">
+
+        <!-- ===================================================================
+             PANEL 1: OVERVIEW
+             =================================================================== -->
+        <section class="tab-content active" id="panel-overview">
+          
+          <!-- Key Operational Metrics -->
+          <div class="metrics-grid">
+            <div class="metric-card gold-border">
+              <div class="metric-header">
+                <span class="metric-label">New Orders</span>
+                <span class="metric-icon">📦</span>
+              </div>
+              <div class="metric-value" id="metric-new-orders">-</div>
+              <div class="metric-subtext">Total active orders in pipeline</div>
+            </div>
+
+            <div class="metric-card warning-border">
+              <div class="metric-header">
+                <span class="metric-label">Pending Payments</span>
+                <span class="metric-icon">💳</span>
+              </div>
+              <div class="metric-value" id="metric-pending-payments">-</div>
+              <div class="metric-subtext">Awaiting manual UTR verification</div>
+            </div>
+
+            <div class="metric-card success-border">
+              <div class="metric-header">
+                <span class="metric-label">Confirmed Orders</span>
+                <span class="metric-icon">✨</span>
+              </div>
+              <div class="metric-value" id="metric-confirmed-orders">-</div>
+              <div class="metric-subtext">Payment verified &bull; Ready for production</div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-header">
+                <span class="metric-label">Booking Requests</span>
+                <span class="metric-icon">🗓️</span>
+              </div>
+              <div class="metric-value" id="metric-booking-requests">-</div>
+              <div class="metric-subtext">Delhi NCR at-home salon slots</div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-header">
+                <span class="metric-label">Awaiting Dispatch</span>
+                <span class="metric-icon">🚚</span>
+              </div>
+              <div class="metric-value" id="metric-awaiting-dispatch">-</div>
+              <div class="metric-subtext">Sets ready for courier dispatch</div>
+            </div>
+          </div>
+
+          <!-- Financial Breakdown Panel -->
+          <div class="data-panel">
+            <div class="panel-header">
+              <h3 class="panel-title">Financial Ledger &amp; Revenue Overview</h3>
+              <span class="badge badge-verified">PostgreSQL Real-Time Ground Truth</span>
+            </div>
+            <div style="padding: 1.5rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem;">
+              <div>
+                <span style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 600;">Verified Paid Revenue</span>
+                <div style="font-family: var(--font-serif); font-size: 2.2rem; font-weight: 700; color: var(--success); margin-top: 0.25rem;" id="fin-paid-revenue">₹0.00</div>
+                <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.25rem;">Exclusively orders verified by Divya</p>
+              </div>
+
+              <div>
+                <span style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 600;">Pending Payment Pipeline</span>
+                <div style="font-family: var(--font-serif); font-size: 2.2rem; font-weight: 700; color: var(--warning); margin-top: 0.25rem;" id="fin-pending-amount">₹0.00</div>
+                <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.25rem;">Unpaid or pending verification</p>
+              </div>
+
+              <div>
+                <span style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 600;">Average Order Value (AOV)</span>
+                <div style="font-family: var(--font-serif); font-size: 2.2rem; font-weight: 700; color: var(--text-primary); margin-top: 0.25rem;" id="fin-aov">₹0.00</div>
+                <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.25rem;">Across all placed orders</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Actions & Status Summary -->
+          <div class="data-panel">
+            <div class="panel-header">
+              <h3 class="panel-title">Quick Operational Actions</h3>
+            </div>
+            <div style="padding: 1.5rem; display: flex; flex-wrap: wrap; gap: 1rem;">
+              <button type="button" class="btn btn-primary" onclick="adminNavigateTo('payments')">Verify Customer Payments &rarr;</button>
+              <button type="button" class="btn btn-secondary" onclick="adminNavigateTo('bookings')">Review Booking Requests &rarr;</button>
+              <button type="button" class="btn btn-secondary" onclick="adminNavigateTo('products')">Add New Press-On Product &rarr;</button>
+              <button type="button" class="btn btn-secondary" onclick="adminNavigateTo('portfolio')">Upload Lookbook Artwork &rarr;</button>
+            </div>
+          </div>
+
+        </section>
+
+        <!-- ===================================================================
+             PANEL 2: ORDERS MANAGEMENT
+             =================================================================== -->
+        <section class="tab-content" id="panel-orders">
+          <div class="data-panel">
+            <div class="panel-header">
+              <h3 class="panel-title">All Customer Orders</h3>
+              <div class="panel-controls">
+                <input type="text" id="orders-search-input" class="search-input" placeholder="Search order #, name, phone...">
+                <select id="orders-filter-status" class="filter-select">
+                  <option value="">All Order Statuses</option>
+                  <option value="PENDING">PENDING</option>
+                  <option value="CONFIRMED">CONFIRMED</option>
+                  <option value="IN_PRODUCTION">IN_PRODUCTION</option>
+                  <option value="READY_FOR_DISPATCH">READY_FOR_DISPATCH</option>
+                  <option value="DISPATCHED">DISPATCHED</option>
+                  <option value="DELIVERED">DELIVERED</option>
+                  <option value="CANCELLED">CANCELLED</option>
+                </select>
+                <select id="orders-filter-payment" class="filter-select">
+                  <option value="">All Payment States</option>
+                  <option value="PENDING">Payment Pending</option>
+                  <option value="VERIFIED">Payment Verified</option>
+                  <option value="FAILED">Payment Failed</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="data-table" id="orders-table">
+                <thead>
+                  <tr>
+                    <th>Order #</th>
+                    <th>Date</th>
+                    <th>Customer</th>
+                    <th>Items</th>
+                    <th>Amount</th>
+                    <th>Order Status</th>
+                    <th>Payment</th>
+                    <th>Fulfilment</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="orders-table-body">
+                  <tr>
+                    <td colspan="9" style="text-align: center; padding: 2rem; color: var(--text-muted);">Loading orders...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===================================================================
+             PANEL 3: PAYMENT VERIFICATION (PHASE 5.1A INTEGRATION)
+             =================================================================== -->
+        <section class="tab-content" id="panel-payments">
+          <div class="data-panel">
+            <div class="panel-header">
+              <div>
+                <h3 class="panel-title">Manual Payment Verification</h3>
+                <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 0.25rem;">
+                  Verify received bank/UPI payments against orders. Verification requires entering the exact payable amount.
+                </p>
+              </div>
+              <div class="panel-controls">
+                <select id="payments-filter-status" class="filter-select">
+                  <option value="PENDING">Pending Verification Only</option>
+                  <option value="VERIFIED">Already Verified</option>
+                  <option value="">All Payments</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="data-table" id="payments-table">
+                <thead>
+                  <tr>
+                    <th>Order #</th>
+                    <th>Customer Name</th>
+                    <th>Customer Phone</th>
+                    <th>Payable Total</th>
+                    <th>Current Status</th>
+                    <th>Transaction Ref (UTR)</th>
+                    <th>Verified At</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="payments-table-body">
+                  <tr>
+                    <td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-muted);">Loading payments...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===================================================================
+             PANEL 4: APPOINTMENTS & BOOKINGS (DELHI NCR)
+             =================================================================== -->
+        <section class="tab-content" id="panel-bookings">
+          <div class="data-panel">
+            <div class="panel-header">
+              <div>
+                <h3 class="panel-title">Delhi NCR At-Home Appointments</h3>
+                <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 0.25rem;">
+                  All appointments require manual review and confirmation by Divya to ensure travel logistics.
+                </p>
+              </div>
+              <div class="panel-controls">
+                <select id="bookings-filter-status" class="filter-select">
+                  <option value="">All Bookings</option>
+                  <option value="REQUESTED">Requested (New)</option>
+                  <option value="CONFIRMED">Confirmed</option>
+                  <option value="IN_PROGRESS">In Progress</option>
+                  <option value="COMPLETED">Completed</option>
+                  <option value="DECLINED">Declined</option>
+                  <option value="CANCELLED">Cancelled</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="data-table" id="bookings-table">
+                <thead>
+                  <tr>
+                    <th>Booking #</th>
+                    <th>Requested Date</th>
+                    <th>Slot Window</th>
+                    <th>Client</th>
+                    <th>Service</th>
+                    <th>Address / Locality</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="bookings-table-body">
+                  <tr>
+                    <td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-muted);">Loading bookings...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===================================================================
+             PANEL 5: PRODUCT CMS
+             =================================================================== -->
+        <section class="tab-content" id="panel-products">
+          <div class="data-panel">
+            <div class="panel-header">
+              <h3 class="panel-title">Handcrafted Press-On Product Catalog</h3>
+              <div class="panel-controls">
+                <input type="text" id="products-search-input" class="search-input" placeholder="Search SKU or title...">
+                <select id="products-filter-category" class="filter-select">
+                  <option value="">All Categories</option>
+                  <option value="wedding">Wedding &amp; Bridal</option>
+                  <option value="party">Party &amp; Evening</option>
+                  <option value="office">Office &amp; Daily</option>
+                  <option value="casual">Casual &amp; Statement</option>
+                </select>
+                <button type="button" id="btn-open-create-product" class="btn btn-primary btn-sm">
+                  <span>+ Create Product</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="data-table" id="products-table">
+                <thead>
+                  <tr>
+                    <th>Photo</th>
+                    <th>SKU</th>
+                    <th>Title</th>
+                    <th>Category</th>
+                    <th>Base Price</th>
+                    <th>Availability</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="products-table-body">
+                  <tr>
+                    <td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-muted);">Loading products...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===================================================================
+             PANEL 6: PORTFOLIO CMS
+             =================================================================== -->
+        <section class="tab-content" id="panel-portfolio">
+          <div class="data-panel">
+            <div class="panel-header">
+              <div>
+                <h3 class="panel-title">Nail Art Lookbook &amp; Portfolio CMS</h3>
+                <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 0.25rem;">
+                  Manage photography and designs displayed in the public client lookbook.
+                </p>
+              </div>
+              <div class="panel-controls">
+                <select id="portfolio-filter-category" class="filter-select">
+                  <option value="">All Categories</option>
+                  <option value="chrome">Chrome &amp; Metallic</option>
+                  <option value="nude">Minimalist Nude</option>
+                  <option value="bridal">Bridal &amp; Wedding</option>
+                  <option value="art">Hand-Painted Art</option>
+                </select>
+                <button type="button" id="btn-open-create-portfolio" class="btn btn-primary btn-sm">
+                  <span>+ Add Artwork</span>
+                </button>
+              </div>
+            </div>
+
+            <div style="padding: 1.5rem;">
+              <div class="cms-grid" id="portfolio-grid">
+                <div style="grid-column: 1 / -1; text-align: center; padding: 2rem; color: var(--text-muted);">Loading portfolio...</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===================================================================
+             PANEL 7: REVIEWS MODERATION
+             =================================================================== -->
+        <section class="tab-content" id="panel-reviews">
+          <div class="data-panel">
+            <div class="panel-header">
+              <div>
+                <h3 class="panel-title">Customer Reviews &amp; Moderation</h3>
+                <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 0.25rem;">
+                  New reviews are unpublished by default. Approve genuine feedback to display on the storefront.
+                </p>
+              </div>
+              <div class="panel-controls">
+                <select id="reviews-filter-status" class="filter-select">
+                  <option value="all">All Reviews</option>
+                  <option value="pending" selected>Pending Approval (Unpublished)</option>
+                  <option value="approved">Approved &amp; Published</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="data-table" id="reviews-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Customer</th>
+                    <th>Contact</th>
+                    <th>Rating</th>
+                    <th>Experience Tag</th>
+                    <th>Review Content</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="reviews-table-body">
+                  <tr>
+                    <td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-muted);">Loading reviews...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===================================================================
+             PANEL 8: COMMUNICATIONS & WHATSAPP QUEUE
+             =================================================================== -->
+        <section class="tab-content" id="panel-communications">
+          <div class="data-panel">
+            <div class="panel-header">
+              <div>
+                <h3 class="panel-title">WhatsApp Notification Queue &amp; Telemetry</h3>
+                <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 0.25rem;">
+                  Inspect notification dispatch telemetry and access pre-formatted manual WhatsApp operator fallback links.
+                </p>
+              </div>
+              <div class="panel-controls">
+                <select id="comms-filter-status" class="filter-select">
+                  <option value="">All Statuses</option>
+                  <option value="QUEUED">QUEUED</option>
+                  <option value="SENT">SENT</option>
+                  <option value="DELIVERED">DELIVERED</option>
+                  <option value="FAILED">FAILED</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="data-table" id="comms-table">
+                <thead>
+                  <tr>
+                    <th>Created At</th>
+                    <th>Recipient</th>
+                    <th>Template</th>
+                    <th>Delivery Status</th>
+                    <th>Provider Message ID</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="comms-table-body">
+                  <tr>
+                    <td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">Loading notifications...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===================================================================
+             PANEL 9: STAFF & ACCESS CONTROLS (OWNER ONLY)
+             =================================================================== -->
+        <section class="tab-content" id="panel-staff">
+          <div class="panel-card">
+            <div class="panel-header">
+              <div>
+                <h3 class="panel-title">Administrative Staff &amp; Role Permissions</h3>
+                <p class="panel-subtitle">
+                  Managed accounts, role assignments, and granted system permissions across the platform.
+                </p>
+              </div>
+              <span class="status-badge" style="background: rgba(197, 160, 89, 0.15); color: var(--gold-primary); font-weight: 600; padding: 0.35rem 0.75rem; border-radius: 9999px; font-size: 0.78rem;">
+                Owner Only (super_operator)
+              </span>
+            </div>
+
+            <div class="table-responsive">
+              <table class="data-table" id="staff-table">
+                <thead>
+                  <tr>
+                    <th>Display Name</th>
+                    <th>Phone</th>
+                    <th>Role</th>
+                    <th>Granted Permissions</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="staff-table-body">
+                  <tr>
+                    <td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">Loading staff accounts...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===================================================================
+             PANEL 10: STUDIO BUSINESS SETTINGS (OWNER ONLY)
+             =================================================================== -->
+        <section class="tab-content" id="panel-settings">
+          <div class="panel-card">
+            <div class="panel-header">
+              <div>
+                <h3 class="panel-title">Studio Operational Configuration</h3>
+                <p class="panel-subtitle">
+                  Ground-truth system settings: shipping policy, cancellation windows, DPDP compliance, and booking tokens.
+                </p>
+              </div>
+              <span class="status-badge" style="background: rgba(197, 160, 89, 0.15); color: var(--gold-primary); font-weight: 600; padding: 0.35rem 0.75rem; border-radius: 9999px; font-size: 0.78rem;">
+                Owner Only (super_operator)
+              </span>
+            </div>
+
+            <div class="table-responsive">
+              <table class="data-table" id="settings-table">
+                <thead>
+                  <tr>
+                    <th>Setting Key</th>
+                    <th>Description</th>
+                    <th>Active Value / Status</th>
+                    <th>Last Updated</th>
+                  </tr>
+                </thead>
+                <tbody id="settings-table-body">
+                  <tr>
+                    <td colspan="4" style="text-align: center; padding: 2rem; color: var(--text-muted);">Loading settings...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===================================================================
+             PANEL 11: SECURITY AUDIT LOGS (OWNER ONLY)
+             =================================================================== -->
+        <section class="tab-content" id="panel-audit-logs">
+          <div class="panel-card">
+            <div class="panel-header">
+              <div>
+                <h3 class="panel-title">Immutable Security Audit Trail</h3>
+                <p class="panel-subtitle">
+                  Tamper-evident record of administrative operations, catalog edits, payment verifications, and status changes.
+                </p>
+              </div>
+              <span class="status-badge" style="background: rgba(197, 160, 89, 0.15); color: var(--gold-primary); font-weight: 600; padding: 0.35rem 0.75rem; border-radius: 9999px; font-size: 0.78rem;">
+                Owner Only (super_operator)
+              </span>
+            </div>
+
+            <div class="table-responsive">
+              <table class="data-table" id="audit-table">
+                <thead>
+                  <tr>
+                    <th>Timestamp</th>
+                    <th>Actor (Phone)</th>
+                    <th>Action</th>
+                    <th>Target Entity</th>
+                    <th>Target ID</th>
+                    <th>Details</th>
+                  </tr>
+                </thead>
+                <tbody id="audit-table-body">
+                  <tr>
+                    <td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">Loading audit logs...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- =========================================================================
+       MODALS
+       ========================================================================= -->
+
+  <!-- 1. Order Detail & Status Modal -->
+  <div class="modal-overlay" id="modal-order-detail">
+    <div class="modal-box" style="max-width: 680px;">
+      <div class="modal-header">
+        <h4 class="modal-title" id="order-modal-title">Order Details</h4>
+        <button type="button" class="modal-close-btn" onclick="adminCloseModal('modal-order-detail')">&times;</button>
+      </div>
+      <div class="modal-body" id="order-modal-body">
+        <!-- Dynamically injected -->
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="adminCloseModal('modal-order-detail')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Payment Verification Modal (Phase 5.1A Dedicated) -->
+  <div class="modal-overlay" id="modal-verify-payment">
+    <div class="modal-box" style="max-width: 520px;">
+      <div class="modal-header">
+        <h4 class="modal-title">Verify Customer Payment</h4>
+        <button type="button" class="modal-close-btn" onclick="adminCloseModal('modal-verify-payment')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="verify-payment-form" onsubmit="return false;">
+          <input type="hidden" id="vpay-order-id">
+          <input type="hidden" id="vpay-payable-amount">
+
+          <div style="background: var(--bg-surface-elevated); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-light); margin-bottom: 1.25rem;">
+            <div style="font-size: 0.85rem; color: var(--text-muted);">Order Number: <strong id="vpay-order-number" style="color: var(--text-primary);">-</strong></div>
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">Exact Payable Amount: <strong id="vpay-display-amount" style="color: var(--gold-primary); font-size: 1.15rem;">₹0.00</strong></div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="vpay-amount-input">Verified Received Amount (₹) *</label>
+            <input type="number" step="0.01" id="vpay-amount-input" class="form-input" required placeholder="Must equal exact payable amount">
+            <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Underpayment or overpayment verification is rejected to protect ledger integrity.</p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="vpay-utr-input">Bank / UPI Transaction Reference (UTR) *</label>
+            <input type="text" id="vpay-utr-input" class="form-input" required placeholder="e.g. UPI-20261112-987654">
+            <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Duplicate references across different orders are strictly rejected.</p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="vpay-method-select">Payment Method</label>
+            <select id="vpay-method-select" class="form-select">
+              <option value="UPI">UPI / GPay / PhonePe / Paytm</option>
+              <option value="BANK_TRANSFER">Direct IMPS / NEFT Bank Transfer</option>
+              <option value="CASH">In-Person Studio Cash</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="vpay-notes-input">Verification Notes</label>
+            <textarea id="vpay-notes-input" rows="2" class="form-textarea" placeholder="Optional audit memo..."></textarea>
+          </div>
+
+          <div id="vpay-error-msg" style="display: none; font-size: 0.85rem; padding: 0.65rem; border-radius: 6px; margin-bottom: 1rem; background: var(--danger-light); color: var(--danger); border: 1px solid rgba(217,83,79,0.3);"></div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="adminCloseModal('modal-verify-payment')">Cancel</button>
+        <button type="button" id="btn-submit-payment-verification" class="btn btn-primary">
+          <span>Confirm &amp; Verify Payment</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Dispatch & Tracking Modal -->
+  <div class="modal-overlay" id="modal-dispatch-order">
+    <div class="modal-box" style="max-width: 520px;">
+      <div class="modal-header">
+        <h4 class="modal-title">Dispatch Order &bull; Courier Details</h4>
+        <button type="button" class="modal-close-btn" onclick="adminCloseModal('modal-dispatch-order')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="dispatch-order-form" onsubmit="return false;">
+          <input type="hidden" id="disp-order-id">
+          <input type="hidden" id="disp-customer-phone">
+
+          <div class="form-group">
+            <label class="form-label" for="disp-courier-name">Courier / Carrier *</label>
+            <select id="disp-courier-name" class="form-select">
+              <option value="Blue Dart">Blue Dart Express</option>
+              <option value="Delhivery">Delhivery</option>
+              <option value="DTDC">DTDC Express</option>
+              <option value="Speed Post">India Post Speed Post</option>
+              <option value="Custom Courier">Other Courier</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="disp-tracking-number">Tracking Number (AWB) *</label>
+            <input type="text" id="disp-tracking-number" class="form-input" required placeholder="e.g. BLD123456789">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="disp-tracking-url">Tracking URL</label>
+            <input type="url" id="disp-tracking-url" class="form-input" placeholder="https://...">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="disp-notes">Dispatch Notes</label>
+            <textarea id="disp-notes" rows="2" class="form-textarea" placeholder="Internal notes..."></textarea>
+          </div>
+
+          <div id="disp-error-msg" style="display: none; font-size: 0.85rem; padding: 0.65rem; border-radius: 6px; margin-bottom: 1rem; background: var(--danger-light); color: var(--danger);"></div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="adminCloseModal('modal-dispatch-order')">Cancel</button>
+        <button type="button" id="btn-submit-dispatch" class="btn btn-primary">
+          <span>Mark Dispatched &amp; Generate Link</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Booking Action Modal (Confirm / Propose / Reject) -->
+  <div class="modal-overlay" id="modal-booking-action">
+    <div class="modal-box" style="max-width: 520px;">
+      <div class="modal-header">
+        <h4 class="modal-title" id="booking-action-title">Booking Action</h4>
+        <button type="button" class="modal-close-btn" onclick="adminCloseModal('modal-booking-action')">&times;</button>
+      </div>
+      <div class="modal-body" id="booking-action-body">
+        <!-- Dynamically injected -->
+      </div>
+      <div class="modal-footer" id="booking-action-footer">
+        <!-- Dynamically injected -->
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Product Create / Edit Modal -->
+  <div class="modal-overlay" id="modal-product-form">
+    <div class="modal-box" style="max-width: 650px;">
+      <div class="modal-header">
+        <h4 class="modal-title" id="product-form-title">Product Details</h4>
+        <button type="button" class="modal-close-btn" onclick="adminCloseModal('modal-product-form')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="product-edit-form" onsubmit="return false;">
+          <input type="hidden" id="prod-id">
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label" for="prod-name">Product Name *</label>
+              <input type="text" id="prod-name" class="form-input" required placeholder="e.g. Royal Maroon Velvet">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="prod-sku">SKU Code *</label>
+              <input type="text" id="prod-sku" class="form-input" required placeholder="e.g. WED-015">
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label" for="prod-category">Category *</label>
+              <select id="prod-category" class="form-select" required>
+                <option value="wedding">Wedding &amp; Bridal</option>
+                <option value="party">Party &amp; Evening</option>
+                <option value="office">Office &amp; Daily Wear</option>
+                <option value="casual">Casual &amp; Statement</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="prod-price">Selling Price (₹) *</label>
+              <input type="number" step="1" id="prod-price" class="form-input" required placeholder="e.g. 1199">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="prod-desc">Description *</label>
+            <textarea id="prod-desc" rows="3" class="form-textarea" required placeholder="Detail the art style, finish, and aesthetic..."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="prod-craft">Craftsmanship Details</label>
+            <textarea id="prod-craft" rows="2" class="form-textarea" placeholder="Nail prep, gel layers, crystal placement..."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="prod-image-file">Upload Primary Photograph</label>
+            <input type="file" id="prod-image-file" class="form-input" accept="image/png,image/jpeg,image/webp">
+            <input type="text" id="prod-image-url" class="form-input" style="margin-top: 0.5rem;" placeholder="Or paste existing image URL (e.g. assets/press-on/1.png)...">
+            <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem;">⚠️ <em>Staging Notice: Files uploaded via browser are stored in temporary staging storage (max 2 MB). For permanent catalog items, use repository asset paths (e.g. assets/...).</em></p>
+          </div>
+
+          <div style="display: flex; gap: 1.5rem; margin-top: 0.75rem;">
+            <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; cursor: pointer;">
+              <input type="checkbox" id="prod-available" checked>
+              <span>Available for Purchase</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; cursor: pointer;">
+              <input type="checkbox" id="prod-made-to-order" checked>
+              <span>Made-to-Order</span>
+            </label>
+          </div>
+
+          <div id="prod-error-msg" style="display: none; font-size: 0.85rem; padding: 0.65rem; border-radius: 6px; margin-top: 1rem; background: var(--danger-light); color: var(--danger);"></div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="adminCloseModal('modal-product-form')">Cancel</button>
+        <button type="button" id="btn-save-product" class="btn btn-primary">
+          <span>Save Product</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. Portfolio Artwork Modal -->
+  <div class="modal-overlay" id="modal-portfolio-form">
+    <div class="modal-box" style="max-width: 520px;">
+      <div class="modal-header">
+        <h4 class="modal-title" id="portfolio-form-title">Artwork Details</h4>
+        <button type="button" class="modal-close-btn" onclick="adminCloseModal('modal-portfolio-form')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="portfolio-edit-form" onsubmit="return false;">
+          <input type="hidden" id="port-id">
+
+          <div class="form-group">
+            <label class="form-label" for="port-name">Artwork Title *</label>
+            <input type="text" id="port-name" class="form-input" required placeholder="e.g. Liquid Silver Ripple">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="port-category">Design Category *</label>
+            <select id="port-category" class="form-select" required>
+              <option value="chrome">Chrome &amp; Metallic</option>
+              <option value="nude">Minimalist Nude</option>
+              <option value="bridal">Bridal &amp; Wedding</option>
+              <option value="art">Hand-Painted Art</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="port-image-file">Artwork Photograph *</label>
+            <input type="file" id="port-image-file" class="form-input" accept="image/png,image/jpeg,image/webp">
+            <input type="text" id="port-image-url" class="form-input" style="margin-top: 0.5rem;" placeholder="Or paste image URL (e.g. assets/portfolio/dv2.jpeg)...">
+            <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem;">⚠️ <em>Staging Notice: Files uploaded via browser are stored in temporary staging storage (max 2 MB). For permanent catalog items, use repository asset paths (e.g. assets/...).</em></p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="port-alt">Alt Description</label>
+            <input type="text" id="port-alt" class="form-input" placeholder="e.g. Sculpted liquid chrome ripple art">
+          </div>
+
+          <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; cursor: pointer; margin-top: 0.5rem;">
+            <input type="checkbox" id="port-active" checked>
+            <span>Publish in Lookbook</span>
+          </label>
+
+          <div id="port-error-msg" style="display: none; font-size: 0.85rem; padding: 0.65rem; border-radius: 6px; margin-top: 1rem; background: var(--danger-light); color: var(--danger);"></div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="adminCloseModal('modal-portfolio-form')">Cancel</button>
+        <button type="button" id="btn-save-portfolio" class="btn btn-primary">
+          <span>Save Artwork</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. Review Moderation Modal -->
+  <div class="modal-overlay" id="modal-review-action">
+    <div class="modal-box" style="max-width: 520px;">
+      <div class="modal-header">
+        <h4 class="modal-title" id="review-action-title">Moderate Review</h4>
+        <button type="button" class="modal-close-btn" onclick="adminCloseModal('modal-review-action')">&times;</button>
+      </div>
+      <div class="modal-body" id="review-action-body">
+        <!-- Injected -->
+      </div>
+      <div class="modal-footer" id="review-action-footer">
+        <!-- Injected -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="account-api.js"></script>
+  <script src="auth.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Manage your bespoke nail preferences, custom mm sizing, and saved delivery addresses with Nails by Divya.">
+  <meta name="robots" content="noindex, nofollow">
+  <title>My Account &amp; Bespoke Sizing | Nails by Divya</title>
+  <link rel="icon" type="image/png" href="assets/branding/favicon%20black.png?v=7">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=12">
+  <link rel="stylesheet" href="auth.css?v=12">
+</head>
+<body>
+
+  <!-- =========================================================================
+       00. SITE HEADER — BRAND NAVIGATION
+       ========================================================================= -->
+  <header class="site-header" id="site-header">
+    <nav class="navbar" aria-label="Main Navigation">
+      <a class="brand" href="index.html#home" aria-label="Nails by Divya Homepage">
+        <img src="assets/branding/icon1submark%20gold.png" alt="" class="brand-icon" aria-hidden="true">
+        <span class="brand-name">Nails by Divya</span>
+      </a>
+
+      <button class="nav-toggle" aria-expanded="false" aria-label="Toggle navigation menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+
+      <div class="nav-links" id="nav-links">
+        <a href="index.html#home" class="nav-link">Home</a>
+        <a href="press-on-nails-india.html" class="nav-link">Press-On Nails</a>
+        <a href="nail-extensions.html" class="nav-link">At-Home Services</a>
+        <a href="nail-art.html" class="nav-link">Nail Art</a>
+        <a href="index.html#portfolio" class="nav-link">Lookbook</a>
+        <a href="index.html#custom" class="nav-link">Custom Set</a>
+        <a href="index.html#divv" class="nav-divv-btn" id="nav-divv-btn" aria-label="Open Ask Divv AI Stylist">Ask Divv 💅🏻</a>
+        <button type="button" class="nav-auth-btn is-logged-in" id="nav-auth-btn" aria-label="Sign In or View Account">
+          <span class="nav-auth-label">Account</span>
+        </button>
+        <a href="index.html" class="nav-cart-btn" id="nav-cart-btn" aria-label="View Shopping Bag">
+          <span class="nav-cart-icon" aria-hidden="true">🛍️</span>
+          <span class="nav-cart-label">Bag</span>
+          <span class="nav-cart-badge" id="nav-cart-count" style="display: none;">0</span>
+        </a>
+        <a href="index.html#contact" class="nav-cta-link">Book Now</a>
+      </div>
+    </nav>
+  </header>
+
+  <main class="account-page-wrapper" id="main-content">
+    
+    <!-- =======================================================================
+         UNAUTHENTICATED GUEST STATE — WARM SIGN IN INVITATION
+         ======================================================================= -->
+    <section class="account-auth-gate" id="account-auth-gate" style="display: block;">
+      <div class="gate-icon" aria-hidden="true">💅🏻</div>
+      <h1 class="gate-title">Client Account &amp; Sizing</h1>
+      <p class="gate-lead">
+        Sign in with your mobile number to access your bespoke nail measurements, preferred shapes, and saved delivery addresses across India.
+      </p>
+      <button type="button" class="button primary-button" id="gate-login-btn">
+        <span>Sign In with Mobile</span>
+        <span aria-hidden="true">&rarr;</span>
+      </button>
+      <p class="auth-step-note" style="margin-top: 1.5rem;">
+        <span>🔒</span> Direct mobile phone login. No password required.
+      </p>
+    </section>
+
+    <!-- =======================================================================
+         AUTHENTICATED CUSTOMER DASHBOARD
+         ======================================================================= -->
+    <div id="account-content" style="display: none;">
+      
+      <!-- Top Overview Card -->
+      <section class="account-overview-card" aria-label="Client Overview">
+        <div class="account-client-meta">
+          <div class="client-avatar-badge" id="client-initials" aria-hidden="true">C</div>
+          <div class="client-details">
+            <h1 id="client-name-display">Customer</h1>
+            <div class="client-phone-row">
+              <span id="client-phone-display">+91 Mobile</span>
+              <span class="client-verified-pill">✓ Verified</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="account-client-actions">
+          <button type="button" class="client-logout-btn" id="client-logout-btn">
+            Sign Out
+          </button>
+        </div>
+      </section>
+
+      <!-- Account Content Grid -->
+      <div class="account-grid">
+        
+        <!-- COLUMN 1: BESPOKE NAIL PREFERENCES & SIZING -->
+        <section class="account-card" aria-labelledby="pref-card-title">
+          <div class="account-card-header">
+            <div>
+              <h2 class="account-card-title" id="pref-card-title">Bespoke Nail Profile</h2>
+              <p class="account-card-desc">Your custom fit profile ensures every handmade press-on set fits seamlessly.</p>
+            </div>
+          </div>
+
+          <form id="customer-profile-form" onsubmit="return false;">
+            
+            <!-- Full Name -->
+            <div class="form-group">
+              <label for="profile-name-input" class="form-label">Full Name</label>
+              <input
+                type="text"
+                id="profile-name-input"
+                class="form-input"
+                placeholder="Your Name"
+                maxlength="100"
+                required
+              />
+            </div>
+
+            <!-- Preferred Nail Shape -->
+            <div class="pref-form-section">
+              <span class="pref-section-label">Preferred Nail Shape</span>
+              <div class="pref-pill-grid" id="profile-shapes-grid">
+                <!-- Dynamically populated or rendered -->
+              </div>
+            </div>
+
+            <!-- Preferred Nail Length -->
+            <div class="pref-form-section">
+              <span class="pref-section-label">Preferred Nail Length</span>
+              <div class="pref-pill-grid" id="profile-lengths-grid">
+                <!-- Dynamically populated or rendered -->
+              </div>
+            </div>
+
+            <!-- Sizing Preset -->
+            <div class="pref-form-section">
+              <span class="pref-section-label">Standard Sizing Preset</span>
+              <div class="pref-pill-grid" id="profile-presets-grid">
+                <!-- Dynamically populated or rendered -->
+              </div>
+            </div>
+
+            <!-- Custom mm Measurements -->
+            <div class="pref-form-section">
+              <span class="pref-section-label">Custom Sizing (mm per nail)</span>
+              <div class="measurements-container">
+                <p class="measurements-guide-text">
+                  Measure the widest point of each natural nail bed using a soft tape or paper strip in millimeters.
+                </p>
+                <div class="measurements-grid">
+                  <div class="measurement-slot">
+                    <label for="measure-thumb">Thumb</label>
+                    <div class="measurement-input-wrapper">
+                      <input type="number" id="measure-thumb" class="measurement-input" step="0.5" min="5" max="25" placeholder="14" />
+                    </div>
+                    <span class="measurement-unit">mm</span>
+                  </div>
+                  <div class="measurement-slot">
+                    <label for="measure-index">Index</label>
+                    <div class="measurement-input-wrapper">
+                      <input type="number" id="measure-index" class="measurement-input" step="0.5" min="5" max="25" placeholder="11" />
+                    </div>
+                    <span class="measurement-unit">mm</span>
+                  </div>
+                  <div class="measurement-slot">
+                    <label for="measure-middle">Middle</label>
+                    <div class="measurement-input-wrapper">
+                      <input type="number" id="measure-middle" class="measurement-input" step="0.5" min="5" max="25" placeholder="12" />
+                    </div>
+                    <span class="measurement-unit">mm</span>
+                  </div>
+                  <div class="measurement-slot">
+                    <label for="measure-ring">Ring</label>
+                    <div class="measurement-input-wrapper">
+                      <input type="number" id="measure-ring" class="measurement-input" step="0.5" min="5" max="25" placeholder="10" />
+                    </div>
+                    <span class="measurement-unit">mm</span>
+                  </div>
+                  <div class="measurement-slot">
+                    <label for="measure-pinky">Pinky</label>
+                    <div class="measurement-input-wrapper">
+                      <input type="number" id="measure-pinky" class="measurement-input" step="0.5" min="5" max="25" placeholder="8" />
+                    </div>
+                    <span class="measurement-unit">mm</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Allergies & Special Notes -->
+            <div class="form-group">
+              <label for="profile-notes-input" class="form-label">Allergies or Art Preferences</label>
+              <textarea
+                id="profile-notes-input"
+                class="form-textarea"
+                placeholder="e.g. Sensitive cuticles, prefer gel tabs over glue, love 3D pearls and chrome..."
+                maxlength="500"
+              ></textarea>
+            </div>
+
+            <button type="submit" id="save-profile-btn" class="button primary-button" style="width: 100%;">
+              <span class="btn-text" data-default="Save Nail Preferences">Save Nail Preferences</span>
+            </button>
+
+            <div id="profile-feedback" class="form-feedback" style="display: none;" role="status"></div>
+          </form>
+        </section>
+
+        <!-- COLUMN 2: SAVED ADDRESSES & ORDER INQUIRIES -->
+        <div class="account-column" style="display: flex; flex-direction: column; gap: 2rem;">
+          <section class="account-card" aria-labelledby="addr-card-title">
+            <div class="account-card-header">
+              <div>
+                <h2 class="account-card-title" id="addr-card-title">Saved Addresses</h2>
+                <p class="account-card-desc">Delivery across India &amp; at-home service appointments in Delhi NCR.</p>
+              </div>
+              <button type="button" class="button secondary-button" id="open-add-address-btn" style="min-height: 40px; padding: 0.5rem 1rem; font-size: 0.88rem;">
+                + Add Address
+              </button>
+            </div>
+
+            <div class="addresses-container" id="saved-addresses-list">
+              <!-- Dynamically populated -->
+            </div>
+          </section>
+
+          <!-- 01. RECENT PRESS-ON ORDERS -->
+          <section class="account-card" aria-labelledby="orders-card-title">
+            <div class="account-card-header">
+              <div>
+                <h2 class="account-card-title" id="orders-card-title">Press-On Orders</h2>
+                <p class="account-card-desc">Handmade sets, custom sizing verification &amp; Pan-India dispatch.</p>
+              </div>
+              <span class="status-badge" style="font-size: 0.75rem; background: var(--bg-cream); color: var(--accent-strong); padding: 0.25rem 0.65rem; border-radius: var(--radius-pill); font-weight: 600;">Studio Orders</span>
+            </div>
+
+            <div id="account-orders-list" style="display: flex; flex-direction: column; gap: 0.85rem; padding-top: 0.5rem;">
+              <div style="text-align: center; padding: 2rem 1rem; color: var(--text-muted); font-size: 0.88rem;">
+                Loading your press-on orders...
+              </div>
+            </div>
+          </section>
+
+          <!-- 02. AT-HOME SALON APPOINTMENTS (DELHI NCR) -->
+          <section class="account-card" aria-labelledby="bookings-card-title">
+            <div class="account-card-header">
+              <div>
+                <h2 class="account-card-title" id="bookings-card-title">At-Home Appointments</h2>
+                <p class="account-card-desc">Personal salon-grade nail services across Delhi NCR.</p>
+              </div>
+              <span class="status-badge" style="font-size: 0.75rem; background: var(--bg-cream); color: var(--accent-strong); padding: 0.25rem 0.65rem; border-radius: var(--radius-pill); font-weight: 600;">Delhi NCR</span>
+            </div>
+
+            <div id="account-bookings-list" style="display: flex; flex-direction: column; gap: 0.85rem; padding-top: 0.5rem;">
+              <div style="text-align: center; padding: 2rem 1rem; color: var(--text-muted); font-size: 0.88rem;">
+                Loading your appointment requests...
+              </div>
+            </div>
+          </section>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- =========================================================================
+       ADDRESS ADD / EDIT MODAL
+       ========================================================================= -->
+  <dialog id="address-dialog" class="address-dialog" aria-labelledby="address-modal-title" closedby="any">
+    <div class="address-dialog-content">
+      <button type="button" class="address-dialog-close" id="address-dialog-close" aria-label="Close address modal">&times;</button>
+      
+      <h3 id="address-modal-title" class="auth-step-title">Add New Address</h3>
+      <p class="auth-step-subtitle">Saved addresses streamline your handmade orders and at-home appointments.</p>
+
+      <div id="address-modal-feedback" class="form-feedback" style="display: none;" role="alert"></div>
+
+      <form id="address-form" class="auth-form" onsubmit="return false;">
+        <div class="address-form-grid">
+          
+          <div class="form-group form-grid-span-2">
+            <label for="addr-name" class="form-label">Recipient Name *</label>
+            <input type="text" id="addr-name" class="form-input" placeholder="Divya Sharma" maxlength="100" required />
+          </div>
+
+          <div class="form-group form-grid-span-2">
+            <label for="addr-phone-input" class="form-label">Mobile Number (with +91) *</label>
+            <input type="tel" id="addr-phone-input" class="form-input" placeholder="+91 98765 43210" maxlength="15" required />
+          </div>
+
+          <div class="form-group form-grid-span-2">
+            <label for="addr-line1" class="form-label">Flat / House No., Apartment, Street *</label>
+            <input type="text" id="addr-line1" class="form-input" placeholder="House 42, Gulmohar Avenue" maxlength="255" required />
+          </div>
+
+          <div class="form-group form-grid-span-2">
+            <label for="addr-line2" class="form-label">Sector, Area, Colony</label>
+            <input type="text" id="addr-line2" class="form-input" placeholder="Sector 14" maxlength="255" />
+          </div>
+
+          <div class="form-group form-grid-span-2">
+            <label for="addr-landmark" class="form-label">Landmark</label>
+            <input type="text" id="addr-landmark" class="form-input" placeholder="Near Community Center" maxlength="255" />
+          </div>
+
+          <div class="form-group">
+            <label for="addr-pin" class="form-label">PIN Code *</label>
+            <input type="text" id="addr-pin" class="form-input" placeholder="110001" maxlength="6" inputmode="numeric" required />
+          </div>
+
+          <div class="form-group">
+            <label for="addr-city" class="form-label">City *</label>
+            <input type="text" id="addr-city" class="form-input" placeholder="New Delhi" maxlength="100" required />
+          </div>
+
+          <div class="form-group form-grid-span-2">
+            <label for="addr-state" class="form-label">State *</label>
+            <input type="text" id="addr-state" class="form-input" placeholder="Delhi" maxlength="100" required />
+          </div>
+
+          <div class="form-grid-span-2" style="margin-top: 0.5rem;">
+            <label class="checkbox-row">
+              <input type="checkbox" id="addr-is-shipping" />
+              <span>Use as default shipping address (Press-on deliveries)</span>
+            </label>
+            <label class="checkbox-row">
+              <input type="checkbox" id="addr-is-service" />
+              <span>Use as default appointment location (Delhi NCR at-home services)</span>
+            </label>
+          </div>
+
+        </div>
+
+        <button type="submit" id="save-address-btn" class="button primary-button auth-submit-btn" style="margin-top: 1rem;">
+          <span class="btn-text" data-default="Save Address">Save Address</span>
+        </button>
+      </form>
+    </div>
+  </dialog>
+
+  <!-- =========================================================================
+       ORDER DETAILS DIALOG
+       ========================================================================= -->
+  <dialog id="order-details-dialog" class="address-dialog" aria-labelledby="order-details-title" closedby="any">
+    <div class="address-dialog-content" style="max-width: 580px;">
+      <button type="button" class="address-dialog-close" id="order-details-close" aria-label="Close order details">&times;</button>
+      <h3 id="order-details-title" class="auth-step-title">Order Details</h3>
+      <p class="auth-step-subtitle" id="order-details-subtitle">Press-on order snapshot and fulfillment tracking.</p>
+      
+      <div id="order-details-body" style="display: flex; flex-direction: column; gap: 0.85rem; margin-top: 1rem;">
+        <!-- Dynamically rendered -->
+      </div>
+    </div>
+  </dialog>
+
+  <!-- =========================================================================
+       BOOKING DETAILS DIALOG
+       ========================================================================= -->
+  <dialog id="booking-details-dialog" class="address-dialog" aria-labelledby="booking-details-title" closedby="any">
+    <div class="address-dialog-content" style="max-width: 580px;">
+      <button type="button" class="address-dialog-close" id="booking-details-close" aria-label="Close booking details">&times;</button>
+      <h3 id="booking-details-title" class="auth-step-title">Appointment Details</h3>
+      <p class="auth-step-subtitle" id="booking-details-subtitle">At-home service request &amp; scheduling details.</p>
+      
+      <div id="booking-details-body" style="display: flex; flex-direction: column; gap: 0.85rem; margin-top: 1rem;">
+        <!-- Dynamically rendered -->
+      </div>
+    </div>
+  </dialog>
+
+  <!-- =========================================================================
+       SHARED SITE FOOTER
+       ========================================================================= -->
+  <footer class="site-footer">
+    <div class="footer-container">
+      <div class="footer-grid">
+        <div class="footer-col footer-col-brand">
+          <a href="index.html#home" class="footer-brand-link">
+            <img src="assets/branding/icon1submark%20gold.png" alt="" class="footer-brand-icon" aria-hidden="true">
+            <span class="footer-brand-name">Nails by Divya</span>
+          </a>
+          <p class="footer-bio">
+            Bespoke nail artistry by freelance artist Divya. Collectible handmade press-on nails delivered across India, and salon-grade at-home appointments across Delhi NCR.
+          </p>
+          <div class="footer-social-links">
+            <a href="https://www.instagram.com/nailsbydivya13/" target="_blank" rel="noopener noreferrer" class="footer-social-link">Instagram &bull; @nailsbydivya13</a>
+            <a href="https://wa.me/918447391310" target="_blank" rel="noopener noreferrer" class="footer-social-link">WhatsApp &bull; +91 84473 91310</a>
+          </div>
+        </div>
+
+        <div class="footer-col">
+          <h4 class="footer-col-title">Explore</h4>
+          <ul class="footer-nav-list">
+            <li><a href="press-on-nails-india.html">Shop Press-On Nails</a></li>
+            <li><a href="nail-extensions.html">At-Home Services (Delhi NCR)</a></li>
+            <li><a href="nail-art.html">Custom Nail Art Lookbook</a></li>
+            <li><a href="index.html#custom">Match the Moment (Custom Sets)</a></li>
+            <li><a href="index.html#portfolio">Recent Client Work</a></li>
+            <li><a href="index.html#divv" class="footer-divv-trigger">Ask Divv AI Stylist 💅🏻</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4 class="footer-col-title">Client Care</h4>
+          <ul class="footer-nav-list">
+            <li><a href="account.html">My Account &amp; Sizing Profile</a></li>
+            <li><a href="index.html#sizing-guide">How to Measure Nail Size</a></li>
+            <li><a href="index.html#trust">Hygiene &amp; Safety Protocol</a></li>
+            <li><a href="index.html#faq">Frequently Asked Questions</a></li>
+            <li><a href="index.html#reviews">Client Reviews</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4 class="footer-col-title">Service Areas</h4>
+          <p class="footer-info-text">
+            Selected residential areas across South Delhi, Gurgaon / Gurugram, Noida, Aerocity &amp; Central Delhi.
+          </p>
+          <p class="footer-info-meta">
+            <strong>Operating Hours:</strong> 12:00 PM – 6:00 PM<br>
+            Tuesday through Sunday (Advance notice required)
+          </p>
+          <p class="footer-info-meta">
+            <strong>Pan-India Shipping:</strong> Handmade press-on sets delivered across India via tracked couriers once crafted.
+          </p>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <p class="footer-copyright">&copy; 2026 Nails by Divya. All rights reserved.</p>
+        <div class="footer-bottom-links">
+          <span>Handmade in Delhi NCR</span>
+          <span>&bull;</span>
+          <span>Delivered Pan-India</span>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Firebase Client SDK (Compat v10 for straightforward CDN integration) -->
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+
+  <!-- Client-side Config & Authentication Layer -->
+  <script src="firebase-config.js"></script>
+  <script src="account-api.js"></script>
+  <script src="auth.js"></script>
+  <script src="auth-modal.js"></script>
+  <script src="account.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

@@ -18,7 +18,11 @@
   <meta name="twitter:description" content="Handmade custom press-on nails delivered across India.">
   <meta name="twitter:image" content="https://nailsbydivya.store/assets/products/party/PAR-0011/PAR-0011.png">
   <link rel="icon" type="image/png" href="assets/branding/favicon%20black.png?v=7">
-  <link rel="stylesheet" href="style.css?v=10">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=11">
+  <link rel="stylesheet" href="auth.css">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -44,156 +48,265 @@
   </script>
 </head>
 <body>
-  <header class="site-header">
+  <!-- =========================================================================
+       SHARED SITE HEADER & PRIMARY NAVIGATION
+       ========================================================================= -->
+  <header class="site-header" id="site-header">
     <nav class="navbar" aria-label="Main Navigation">
-      <a class="brand" href="index.html" aria-label="Nails by Divya Homepage">
+      <a class="brand" href="index.html#home" aria-label="Nails by Divya Homepage">
         <img src="assets/branding/icon1submark%20gold.png" alt="" class="brand-icon" aria-hidden="true">
-        <span>Nails by Divya</span>
+        <span class="brand-name">Nails by Divya</span>
       </a>
-      <div class="nav-links">
-        <a href="index.html#home">Home</a>
-        <a href="press-on-nails-india.html">Press-Ons</a>
-        <a href="nail-extensions.html">Nail Extensions</a>
-        <a href="nail-art.html">Nail Art</a>
-        <a href="index.html#contact" class="nav-cta-link">Enquire Now</a>
+      
+      <button class="nav-toggle" aria-expanded="false" aria-label="Toggle navigation menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+
+      <div class="nav-links" id="nav-links">
+        <a href="index.html#home" class="nav-link">Home</a>
+        <a href="press-on-nails-india.html" class="nav-link is-active">Press-On Nails</a>
+        <a href="nail-extensions.html" class="nav-link">At-Home Services</a>
+        <a href="nail-art.html" class="nav-link">Nail Art</a>
+        <a href="index.html#portfolio" class="nav-link">Lookbook</a>
+        <a href="index.html#custom" class="nav-link">Custom Set</a>
+        <a href="index.html#divv" class="nav-divv-btn" id="nav-divv-btn" aria-label="Open Ask Divv AI Stylist">Ask Divv 💅🏻</a>
+        <button type="button" class="nav-auth-btn" id="nav-auth-btn" aria-label="Sign In or View Account">
+          <span class="nav-auth-icon" aria-hidden="true">👤</span>
+          <span class="nav-auth-label">Sign In</span>
+        </button>
+        <a href="index.html#contact" class="nav-cta-link">Book / Enquire</a>
       </div>
     </nav>
   </header>
+
   <main>
     <section class="seo-hero section">
-      <div class="seo-breadcrumb"><a href="index.html">Nails by Divya</a><span>/</span><span>Press-On Nails India</span></div>
-      <p class="section-label">HANDMADE PRESS-ON COLLECTION</p>
-      <h1>Press-On Nails, Handmade for You</h1>
-      <p class="seo-hero-lead">Custom-sized press-on nails made fresh after your order is confirmed, with designs ranging from soft everyday French tips to bridal, chrome, party and statement nail art. Press-ons are available for delivery across India.</p>
-      <div class="seo-hero-actions">
-        <a class="button primary-button" href="index.html#shop">Browse the Full Collection</a>
-        <a class="button secondary-button" href="https://wa.me/917827437985?text=Hi%20Divya!%20I%27m%20interested%20in%20your%20handmade%20press-on%20nails.">Ask About a Custom Set</a>
+      <div class="container">
+        <div class="seo-breadcrumb"><a href="index.html">Nails by Divya</a><span>/</span><span>Press-On Nails India</span></div>
+        <span class="editorial-label">HANDMADE PRESS-ON COLLECTION</span>
+        <h1>Press-On Nails, Handmade for You</h1>
+        <p class="seo-hero-lead">Custom-sized press-on nails made fresh after your order is confirmed, with designs ranging from soft everyday French tips to bridal, chrome, party and statement nail art. Press-ons are available for delivery across India.</p>
+        <div class="seo-hero-actions">
+          <a class="button primary-button" href="index.html#shop">Browse the Full Collection</a>
+          <a class="button secondary-button" href="https://wa.me/918447391310?text=Hi%20Divya!%20I%27m%20interested%20in%20your%20handmade%20press-on%20nails.">Ask About a Custom Set</a>
+        </div>
       </div>
     </section>
 
-    <section class="seo-content-section section">
-      <div class="seo-content-grid">
-        <article class="seo-copy">
-          <p class="section-label">WHY HANDMADE PRESS-ONS</p>
-          <h2>Custom press-on nails without a one-size-fits-all feel.</h2>
-          <p>Every Nails by Divya press-on set is prepared after confirmation rather than mass-produced as a generic stock design. You can choose from the existing collection, send an inspiration image, or ask to adapt colours, length, shape or details to better suit your style.</p>
-          <p>The result is wearable nail art for weddings, festivals, parties, holidays, events or everyday looks—without needing a salon appointment for every new set.</p>
-          <div class="seo-proof-grid">
-            <div><strong>Freshly Handmade</strong><span>Created after your order is confirmed.</span></div>
-            <div><strong>Custom Sizing</strong><span>We guide you through sizing before confirmation.</span></div>
-            <div><strong>Pan-India Delivery</strong><span>Press-on orders can be delivered across India.</span></div>
-            <div><strong>Custom Designs</strong><span>Bring an idea or reference and we can discuss it.</span></div>
-          </div>
-        </article>
-        <aside class="seo-feature-card">
-          <img src="assets/products/wedding/WED-002/herowedd2.png" alt="Golden Empress handmade bridal press-on nails" loading="lazy">
-          <div>
-            <p class="type-tag">Featured Set</p>
-            <h3>Golden Empress</h3>
-            <p>Sheer milky tones with intricate gold detailing for a polished festive or bridal look.</p>
-            <div class="product-price festive-pricing" style="margin: 0.4rem 0 0.8rem;">
-              <div class="product-price-row">
-                <span class="product-price-promo">₹599</span>
-                <del class="product-price-original">₹799</del>
-              </div>
-              <span class="festive-offer-label">✦ FESTIVE OFFER &middot; ENDING SOON</span>
+    <section class="seo-content-section section" style="background: var(--bg-soft);">
+      <div class="container">
+        <div class="seo-content-grid">
+          <article class="seo-copy">
+            <span class="editorial-label">WHY HANDMADE PRESS-ONS</span>
+            <h2>Custom press-on nails without a one-size-fits-all feel.</h2>
+            <p>Every Nails by Divya press-on set is prepared after confirmation rather than mass-produced as a generic stock design. You can choose from the existing collection, send an inspiration image, or ask to adapt colours, length, shape or details to better suit your style.</p>
+            <p>The result is wearable nail art for weddings, festivals, parties, holidays, events or everyday looks—without needing a salon appointment for every new set.</p>
+            <div class="seo-proof-grid">
+              <div><strong>Freshly Handmade</strong><span>Created after your order is confirmed.</span></div>
+              <div><strong>Custom Sizing</strong><span>We guide you through sizing before confirmation.</span></div>
+              <div><strong>Pan-India Delivery</strong><span>Press-on orders can be delivered across India.</span></div>
+              <div><strong>Custom Designs</strong><span>Bring an idea or reference and we can discuss it.</span></div>
             </div>
-          </div>
-        </aside>
+          </article>
+          <aside class="seo-feature-card">
+            <img src="assets/products/wedding/WED-002/herowedd2.png" alt="Golden Empress handmade bridal press-on nails" loading="lazy">
+            <div>
+              <p class="type-tag">Featured Set</p>
+              <h3>Golden Empress</h3>
+              <p style="color: var(--text-muted); font-size: 0.92rem; margin: 0.4rem 0 1rem;">Sheer milky tones with intricate gold detailing for a polished festive or bridal look.</p>
+              <div class="product-price festive-pricing" style="margin-bottom: 1rem;">
+                <div class="product-price-row">
+                  <span class="product-price-promo">₹599</span>
+                  <del class="product-price-original">₹799</del>
+                </div>
+                <span class="festive-offer-label">✦ FESTIVE OFFER · ₹599</span>
+              </div>
+              <a href="https://wa.me/918447391310?text=Hi%20Divya!%20I%27m%20interested%20in%20Golden%20Empress." class="button primary-button" style="width: 100%;">Order on WhatsApp</a>
+            </div>
+          </aside>
+        </div>
       </div>
     </section>
 
     <section class="seo-product-grid-section section">
-      <div class="section-heading">
-        <p class="section-label">EXPLORE THE EDIT</p>
-        <h2>Popular Handmade Press-On Nail Designs</h2>
-        <p class="section-subtext">A selection from the Nails by Divya collection. See the complete range on our main Press-On Nails collection.</p>
-      </div>
-      <div class="seo-product-grid">
-        <article class="seo-product-card" id="rosewood-bloom"><img src="assets/products/wedding/WED-005/herowedd5.png" alt="Rosewood Bloom bridal press-on nails" loading="lazy"><div><h3>Rosewood Bloom</h3><div class="product-price festive-pricing">
-              <div class="product-price-row">
-                <span class="product-price-promo">₹599</span>
-                <del class="product-price-original">₹999</del>
+      <div class="container">
+        <div class="section-heading">
+          <span class="editorial-label">EXPLORE THE EDIT</span>
+          <h2>Popular Handmade Press-On Nail Designs</h2>
+          <p class="section-subtext">A selection from the Nails by Divya collection. See the complete range on our main Press-On Nails collection.</p>
+        </div>
+        <div class="seo-product-grid">
+          <article class="seo-product-card" id="rosewood-bloom">
+            <img src="assets/products/wedding/WED-005/herowedd5.png" alt="Rosewood Bloom bridal press-on nails" loading="lazy">
+            <div>
+              <h3>Rosewood Bloom</h3>
+              <div class="product-price festive-pricing">
+                <div class="product-price-row">
+                  <span class="product-price-promo">₹599</span>
+                  <del class="product-price-original">₹999</del>
+                </div>
               </div>
-              <span class="festive-offer-label">✦ FESTIVE OFFER &middot; ENDING SOON</span>
-            </div><a href="https://wa.me/917827437985?text=Hi%20Divya!%20I%27m%20interested%20in%20Rosewood%20Bloom." class="button secondary-button">Enquire</a></div></article>
-        <article class="seo-product-card" id="pearl-blossom"><img src="assets/products/wedding/WED-001/herowedd1.png" alt="Pearl Blossom press-on nails with pearl details" loading="lazy"><div><h3>Pearl Blossom</h3><div class="product-price festive-pricing">
-              <div class="product-price-row">
-                <span class="product-price-promo">₹599</span>
-                <del class="product-price-original">₹999</del>
+              <a href="https://wa.me/918447391310?text=Hi%20Divya!%20I%27m%20interested%20in%20Rosewood%20Bloom." class="button secondary-button">Enquire on WhatsApp</a>
+            </div>
+          </article>
+          <article class="seo-product-card" id="pearl-blossom">
+            <img src="assets/products/wedding/WED-001/herowedd1.png" alt="Pearl Blossom press-on nails with pearl details" loading="lazy">
+            <div>
+              <h3>Pearl Blossom</h3>
+              <div class="product-price festive-pricing">
+                <div class="product-price-row">
+                  <span class="product-price-promo">₹599</span>
+                  <del class="product-price-original">₹999</del>
+                </div>
               </div>
-              <span class="festive-offer-label">✦ FESTIVE OFFER &middot; ENDING SOON</span>
-            </div><a href="https://wa.me/917827437985?text=Hi%20Divya!%20I%27m%20interested%20in%20Pearl%20Blossom." class="button secondary-button">Enquire</a></div></article>
-        <article class="seo-product-card" id="golden-empress"><img src="assets/products/wedding/WED-002/herowedd2.png" alt="Golden Empress gold-detail bridal press-on nails" loading="lazy"><div><h3>Golden Empress</h3><div class="product-price festive-pricing">
-              <div class="product-price-row">
-                <span class="product-price-promo">₹599</span>
-                <del class="product-price-original">₹799</del>
+              <a href="https://wa.me/918447391310?text=Hi%20Divya!%20I%27m%20interested%20in%20Pearl%20Blossom." class="button secondary-button">Enquire on WhatsApp</a>
+            </div>
+          </article>
+          <article class="seo-product-card" id="golden-empress">
+            <img src="assets/products/wedding/WED-002/herowedd2.png" alt="Golden Empress gold-detail bridal press-on nails" loading="lazy">
+            <div>
+              <h3>Golden Empress</h3>
+              <div class="product-price festive-pricing">
+                <div class="product-price-row">
+                  <span class="product-price-promo">₹599</span>
+                  <del class="product-price-original">₹799</del>
+                </div>
               </div>
-              <span class="festive-offer-label">✦ FESTIVE OFFER &middot; ENDING SOON</span>
-            </div><a href="https://wa.me/917827437985?text=Hi%20Divya!%20I%27m%20interested%20in%20Golden%20Empress." class="button secondary-button">Enquire</a></div></article>
-        <article class="seo-product-card" id="leopard-french"><img src="assets/products/party/PAR-0011/PAR-0011.png" alt="Leopard French handmade press-on nail set" loading="lazy"><div><h3>Leopard French</h3><div class="product-price festive-pricing">
-              <div class="product-price-row">
-                <span class="product-price-promo">₹599</span>
-                <del class="product-price-original">₹799</del>
+              <a href="https://wa.me/918447391310?text=Hi%20Divya!%20I%27m%20interested%20in%20Golden%20Empress." class="button secondary-button">Enquire on WhatsApp</a>
+            </div>
+          </article>
+          <article class="seo-product-card" id="leopard-french">
+            <img src="assets/products/party/PAR-0011/PAR-0011.png" alt="Leopard French handmade press-on nail set" loading="lazy">
+            <div>
+              <h3>Leopard French</h3>
+              <div class="product-price festive-pricing">
+                <div class="product-price-row">
+                  <span class="product-price-promo">₹599</span>
+                  <del class="product-price-original">₹799</del>
+                </div>
               </div>
-              <span class="festive-offer-label">✦ FESTIVE OFFER &middot; ENDING SOON</span>
-            </div><a href="https://wa.me/917827437985?text=Hi%20Divya!%20I%27m%20interested%20in%20Leopard%20French." class="button secondary-button">Enquire</a></div></article>
-        <article class="seo-product-card" id="velvet-pearl"><img src="assets/products/work/WORK-004/herowork4.jpg" alt="Velvet Pearl pink handmade press-on nails" loading="lazy"><div><h3>Velvet Pearl</h3><div class="product-price festive-pricing">
-              <div class="product-price-row">
-                <span class="product-price-promo">₹599</span>
-                <del class="product-price-original">₹999</del>
-              </div>
-              <span class="festive-offer-label">✦ FESTIVE OFFER &middot; ENDING SOON</span>
-            </div><a href="https://wa.me/917827437985?text=Hi%20Divya!%20I%27m%20interested%20in%20Velvet%20Pearl." class="button secondary-button">Enquire</a></div></article>
-        <article class="seo-product-card" id="classic-micro-french"><img src="assets/products/work/WORK-002/herowork2.jpg" alt="Classic Micro French press-on nails" loading="lazy"><div><h3>Classic Micro French</h3><div class="product-price festive-pricing">
-              <div class="product-price-row">
-                <span class="product-price-promo">₹599</span>
-                <del class="product-price-original">₹1099</del>
-              </div>
-              <span class="festive-offer-label">✦ FESTIVE OFFER &middot; ENDING SOON</span>
-            </div><a href="https://wa.me/917827437985?text=Hi%20Divya!%20I%27m%20interested%20in%20Classic%20Micro%20French." class="button secondary-button">Enquire</a></div></article>
-        <article class="seo-product-card" id="milky-almond-cloud"><img src="assets/products/work/WORK-003/herowork3.jpg" alt="Milky Almond Cloud press-on nails" loading="lazy"><div><h3>Milky Almond Cloud</h3><div class="product-price festive-pricing">
-              <div class="product-price-row">
-                <span class="product-price-promo">₹599</span>
-                <del class="product-price-original">₹799</del>
-              </div>
-              <span class="festive-offer-label">✦ FESTIVE OFFER &middot; ENDING SOON</span>
-            </div><a href="https://wa.me/917827437985?text=Hi%20Divya!%20I%27m%20interested%20in%20Milky%20Almond%20Cloud." class="button secondary-button">Enquire</a></div></article>
-        <article class="seo-product-card" id="molten-chrome-ripple"><img src="assets/products/casual/CAS-004/herocasual4.jpg" alt="Molten Chrome Ripple statement press-on nails" loading="lazy"><div><h3>Molten Chrome Ripple</h3><div class="product-price festive-pricing">
-              <div class="product-price-row">
-                <span class="product-price-promo">₹599</span>
-                <del class="product-price-original">₹899</del>
-              </div>
-              <span class="festive-offer-label">✦ FESTIVE OFFER &middot; ENDING SOON</span>
-            </div><a href="https://wa.me/917827437985?text=Hi%20Divya!%20I%27m%20interested%20in%20Molten%20Chrome%20Ripple." class="button secondary-button">Enquire</a></div></article>
+              <a href="https://wa.me/918447391310?text=Hi%20Divya!%20I%27m%20interested%20in%20Leopard%20French." class="button secondary-button">Enquire on WhatsApp</a>
+            </div>
+          </article>
+        </div>
       </div>
     </section>
 
-    <section class="seo-content-section section">
-      <div class="section-heading"><p class="section-label">HOW IT WORKS</p><h2>From inspiration to finished set.</h2></div>
-      <div class="seo-step-grid">
-        <div><span>01</span><h3>Choose or customise</h3><p>Pick a design from the collection or send your inspiration to Divya.</p></div>
-        <div><span>02</span><h3>Confirm sizing</h3><p>We guide you through a simple sizing process before the order is finalized.</p></div>
-        <div><span>03</span><h3>Handmade after confirmation</h3><p>Your set is freshly made after the order is confirmed and prepared for dispatch.</p></div>
-        <div><span>04</span><h3>Delivered across India</h3><p>Delivery charges depend on your location and are confirmed before finalizing your order.</p></div>
+    <section class="seo-content-section section" style="background: var(--bg-soft);">
+      <div class="container">
+        <div class="section-heading"><span class="editorial-label">HOW IT WORKS</span><h2>From inspiration to finished set.</h2></div>
+        <div class="seo-step-grid">
+          <div><span>01</span><h3>Choose or customise</h3><p>Pick a design from the collection or send your inspiration to Divya.</p></div>
+          <div><span>02</span><h3>Confirm sizing</h3><p>We guide you through a simple sizing process before the order is finalized.</p></div>
+          <div><span>03</span><h3>Handmade after confirmation</h3><p>Your set is freshly made after the order is confirmed and prepared for dispatch.</p></div>
+          <div><span>04</span><h3>Delivered across India</h3><p>Delivery charges depend on your location and are confirmed before finalizing your order.</p></div>
+        </div>
       </div>
     </section>
 
     <section class="seo-faq section">
-      <div class="section-heading"><p class="section-label">PRESS-ON FAQ</p><h2>Questions before you order?</h2></div>
-      <div class="seo-faq-grid">
-        <details><summary>Are Nails by Divya press-on nails handmade?</summary><p>Yes. Each press-on set is handcrafted after your order is confirmed rather than mass-produced as a ready-made stock set.</p></details>
-        <details><summary>Do you deliver press-on nails across India?</summary><p>Yes. Handmade press-on sets are available for delivery across India. Exact delivery timing and charges depend on the destination.</p></details>
-        <details><summary>Can I customise a press-on design?</summary><p>Yes. You can share an inspiration image or ask about changes to an existing collection design. Final design and pricing are confirmed before production.</p></details>
-        <details><summary>How do I know my press-on size?</summary><p>We guide you through the sizing process before confirming the order.</p></details>
+      <div class="container">
+        <div class="section-heading"><span class="editorial-label">PRESS-ON FAQ</span><h2>Questions before you order?</h2></div>
+        <div class="faq-grid">
+          <details class="faq-item"><summary>Are Nails by Divya press-on nails handmade?</summary><p>Yes. Each press-on set is handcrafted after your order is confirmed rather than mass-produced as a ready-made stock set.</p></details>
+          <details class="faq-item"><summary>Do you deliver press-on nails across India?</summary><p>Yes. Handmade press-on sets are available for delivery across India. Exact delivery timing and charges depend on the destination.</p></details>
+          <details class="faq-item"><summary>Can I customise a press-on design?</summary><p>Yes. You can share an inspiration image or ask about changes to an existing collection design. Final design and pricing are confirmed before production.</p></details>
+          <details class="faq-item"><summary>How do I know my press-on size?</summary><p>We guide you through the sizing process before confirming the order.</p></details>
+        </div>
       </div>
     </section>
 
     <section class="seo-final-cta section">
-      <div><p class="section-label">READY WHEN YOU ARE</p><h2>Find your next set.</h2><p>Browse the full collection or message Divya for a custom press-on design.</p></div>
-      <div class="seo-hero-actions"><a class="button primary-button" href="index.html#shop">See All Press-Ons</a><a class="button secondary-button" href="https://wa.me/917827437985?text=Hi%20Divya!%20I%27d%20like%20to%20order%20a%20press-on%20set.">WhatsApp Divya</a></div>
+      <div class="container">
+        <div><span class="editorial-label">READY WHEN YOU ARE</span><h2>Find your next set.</h2><p class="section-subtext">Browse the full collection or message Divya for a custom press-on design.</p></div>
+        <div class="seo-hero-actions" style="justify-content: center; margin-top: 1.5rem;">
+          <a class="button primary-button" href="index.html#shop">See All Press-Ons</a>
+          <a class="button secondary-button" href="https://wa.me/918447391310?text=Hi%20Divya!%20I%27d%20like%20to%20order%20a%20press-on%20set.">WhatsApp Divya</a>
+        </div>
+      </div>
     </section>
   </main>
-  <footer class="site-footer"><div class="footer-inner"><div class="footer-brand"><img src="assets/branding/primary%20black.png" alt="Nails by Divya Logo" class="footer-logo"></div><p class="footer-tagline">Beautiful nails, however you want them.</p><div class="footer-seo-links"><a href="index.html">Home</a><a href="press-on-nails-india.html">Press-On Nails</a><a href="nail-extensions.html">Nail Extensions</a><a href="nail-art.html">Nail Art</a></div><p class="footer-copyright">&copy; 2026 Nails by Divya. All rights reserved.</p></div></footer>
+
+  <!-- =========================================================================
+       SHARED SITE FOOTER
+       ========================================================================= -->
+  <footer class="site-footer">
+    <div class="footer-container">
+      <div class="footer-grid">
+        <div class="footer-col footer-col-brand">
+          <a href="index.html#home" class="footer-brand-link">
+            <img src="assets/branding/icon1submark%20gold.png" alt="" class="footer-brand-icon" aria-hidden="true">
+            <span class="footer-brand-name">Nails by Divya</span>
+          </a>
+          <p class="footer-bio">
+            Bespoke nail artistry by freelance artist Divya. Collectible handmade press-on nails delivered across India, and salon-grade at-home appointments across Delhi NCR.
+          </p>
+          <div class="footer-social-links">
+            <a href="https://www.instagram.com/nailsbydivya13/" target="_blank" rel="noopener noreferrer" class="footer-social-link">Instagram &bull; @nailsbydivya13</a>
+            <a href="https://wa.me/918447391310" target="_blank" rel="noopener noreferrer" class="footer-social-link">WhatsApp &bull; +91 84473 91310</a>
+          </div>
+        </div>
+
+        <div class="footer-col">
+          <h4 class="footer-col-title">Explore</h4>
+          <ul class="footer-nav-list">
+            <li><a href="press-on-nails-india.html">Shop Press-On Nails</a></li>
+            <li><a href="nail-extensions.html">At-Home Services (Delhi NCR)</a></li>
+            <li><a href="nail-art.html">Custom Nail Art Lookbook</a></li>
+            <li><a href="index.html#custom">Match the Moment (Custom Sets)</a></li>
+            <li><a href="index.html#portfolio">Recent Client Work</a></li>
+            <li><a href="index.html#divv" class="footer-divv-trigger">Ask Divv AI Stylist 💅🏻</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4 class="footer-col-title">Client Care</h4>
+          <ul class="footer-nav-list">
+            <li><a href="account.html">My Account &amp; Sizing Profile</a></li>
+            <li><a href="index.html#sizing-guide">How to Measure Nail Size</a></li>
+            <li><a href="index.html#trust">Hygiene &amp; Safety Protocol</a></li>
+            <li><a href="index.html#faq">Frequently Asked Questions</a></li>
+            <li><a href="index.html#reviews">Client Reviews</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4 class="footer-col-title">Service Areas</h4>
+          <p class="footer-info-text">
+            Selected residential areas across South Delhi, Gurgaon / Gurugram, Noida, Aerocity &amp; Central Delhi.
+          </p>
+          <p class="footer-info-meta">
+            <strong>Operating Hours:</strong> 12:00 PM – 6:00 PM<br>
+            Tuesday through Sunday (Advance notice required)
+          </p>
+          <p class="footer-info-meta">
+            <strong>Pan-India Shipping:</strong> Handmade press-on sets delivered across India via tracked couriers once crafted.
+          </p>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <p class="footer-copyright">&copy; 2026 Nails by Divya. All rights reserved.</p>
+        <div class="footer-bottom-links">
+          <span>Handmade in Delhi NCR</span>
+          <span>&bull;</span>
+          <span>Delivered Pan-India</span>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+  <!-- Firebase Client SDK (Compat v10) -->
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+
+  <!-- Client-side Config & Authentication Layer -->
+  <script src="firebase-config.js"></script>
+  <script src="account-api.js"></script>
+  <script src="auth.js"></script>
+  <script src="auth-modal.js"></script>
 </body>
 </html>
