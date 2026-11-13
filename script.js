@@ -699,6 +699,13 @@ function initShopFilters() {
           }
         });
 
+        // Adapt sketchbook card grid span dynamically to prevent empty slots in filtered views
+        const sketchbook = document.getElementById("shop-sketchbook-card");
+        if (sketchbook) {
+          const spanMap = { all: 2, casual: 2, party: 2, wedding: 1, work: 3 };
+          sketchbook.style.setProperty("--sketchbook-span", spanMap[filter] || 2);
+        }
+
         if (track) {
           track.scrollTo({ left: 0, behavior: "smooth" });
           track.dispatchEvent(new Event("scroll"));
