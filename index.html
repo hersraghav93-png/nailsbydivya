@@ -81,7 +81,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   
   <!-- Master Stylesheets -->
-  <link rel="stylesheet" href="style.css?v=17">
+  <link rel="stylesheet" href="style.css?v=18">
   <link rel="stylesheet" href="auth.css?v=13">
 </head>
 <body>
@@ -850,6 +850,14 @@
           <button type="button" class="shop-mobile-expand-btn" id="shop-mobile-expand-btn" aria-expanded="false" aria-controls="product-grid">
             <span class="expand-btn-text">Explore Our Entire Collection</span>
             <span class="expand-btn-arrow" aria-hidden="true">&darr;</span>
+          </button>
+        </div>
+
+        <!-- Mobile Collection Collapse CTA (Shown at the very end of the expanded collection on mobile) -->
+        <div class="shop-mobile-collapse-wrap" id="shop-mobile-collapse-wrap" style="display: none;">
+          <button type="button" class="shop-mobile-collapse-btn" id="shop-mobile-collapse-btn" aria-controls="product-grid">
+            <span class="collapse-btn-arrow" aria-hidden="true">&uarr;</span>
+            <span class="collapse-btn-text">Show Featured Designs</span>
           </button>
         </div>
 
@@ -2581,6 +2589,6 @@
   <script src="auth-modal.js"></script>
 
   <!-- Core Scripts -->
-  <script src="script.js?v=17"></script>
+  <script src="script.js?v=18"></script>
 </body>
 </html>

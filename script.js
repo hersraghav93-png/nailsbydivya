@@ -675,17 +675,34 @@ function initLuxuryCarousels() {
  * Initially collapses product grid to first 3 designs on mobile,
  * revealing the full collection smoothly upon tapping the floating CTA or any filter.
  */
+/**
+ * Progressive Disclosure for Mobile Press-On Collection
+ * - Initially collapses product grid to first 3 designs on mobile with "Explore Our Entire Collection ↓"
+ * - Expands to reveal full 22-item collection upon tapping the floating CTA or any filter
+ * - Displays "↑ Show Featured Designs" at the very end of the expanded collection
+ * - Tapping collapse returns visitor smoothly to the beginning of the Press-On collection and collapses back to 3
+ * - Ensures expand and collapse controls never appear simultaneously
+ */
 function initMobileShopExpand() {
   const grid = document.getElementById("product-grid");
   const expandWrap = document.getElementById("shop-mobile-expand-wrap");
   const expandBtn = document.getElementById("shop-mobile-expand-btn");
+  const collapseWrap = document.getElementById("shop-mobile-collapse-wrap");
+  const collapseBtn = document.getElementById("shop-mobile-collapse-btn");
   if (!grid || !expandBtn) return;
+
+  function isMobile() {
+    return window.innerWidth <= 640;
+  }
 
   function expand(scrollIntoView = true) {
     if (!grid.classList.contains("is-collapsed-mobile")) return;
     grid.classList.remove("is-collapsed-mobile");
     if (expandWrap) {
       expandWrap.style.display = "none";
+    }
+    if (collapseWrap && isMobile()) {
+      collapseWrap.style.display = "flex";
     }
     expandBtn.setAttribute("aria-expanded", "true");
     if (scrollIntoView) {
@@ -696,15 +713,51 @@ function initMobileShopExpand() {
     }
   }
 
+  function collapse() {
+    grid.classList.add("is-collapsed-mobile");
+    if (collapseWrap) {
+      collapseWrap.style.display = "none";
+    }
+    if (expandWrap && isMobile()) {
+      expandWrap.style.display = "flex";
+    }
+    expandBtn.setAttribute("aria-expanded", "false");
+
+    // Smoothly return visitor to the beginning of the Press-On collection
+    const shopSection = document.getElementById("shop") || grid;
+    shopSection.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   expandBtn.addEventListener("click", () => {
     expand(true);
   });
+
+  if (collapseBtn) {
+    collapseBtn.addEventListener("click", () => {
+      collapse();
+    });
+  }
 
   const shopTabs = document.querySelectorAll(".shop-category-nav .category-tab, [data-shop-filter]");
   shopTabs.forEach((tab) => {
     tab.addEventListener("click", () => {
       expand(false);
     });
+  });
+
+  window.addEventListener("resize", () => {
+    if (!isMobile()) {
+      if (expandWrap) expandWrap.style.display = "none";
+      if (collapseWrap) collapseWrap.style.display = "none";
+    } else {
+      if (grid.classList.contains("is-collapsed-mobile")) {
+        if (expandWrap) expandWrap.style.display = "flex";
+        if (collapseWrap) collapseWrap.style.display = "none";
+      } else {
+        if (expandWrap) expandWrap.style.display = "none";
+        if (collapseWrap) collapseWrap.style.display = "flex";
+      }
+    }
   });
 }
 
