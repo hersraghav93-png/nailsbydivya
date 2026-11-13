@@ -188,25 +188,53 @@
         this.setCartSessionToken(returnedSession);
       }
 
-      let data;
-      const contentType = res.headers.get("content-type") || "";
-      if (contentType.includes("application/json")) {
+      let data = null;
+      let rawText = "";
+      const contentType = (res.headers.get("content-type") || "").toLowerCase();
+      const isJson = contentType.includes("application/json");
+
+      if (isJson) {
         try {
           data = await res.json();
-        } catch {
+        } catch (jsonErr) {
+          console.debug("[Nails API] JSON parse error:", jsonErr);
           data = null;
         }
       } else {
-        const text = await res.text();
-        data = { message: text };
+        try {
+          rawText = await res.text();
+        } catch {
+          rawText = "";
+        }
       }
 
       if (!res.ok) {
-        const errorMessage = (data && (data.error || data.message)) || `Server returned status ${res.status}`;
-        const err = new Error(errorMessage);
-        err.code = (data && data.code) || "HTTP_ERROR";
+        // Detailed diagnostic information strictly preserved in developer logs only
+        console.error(`[Nails API Diagnostic Error] HTTP ${res.status} from ${options.method || "GET"} ${url}`, {
+          status: res.status,
+          contentType,
+          body: data || rawText,
+        });
+
+        let customerErrorMessage = "We're having trouble connecting. Please try again or contact Divya on WhatsApp.";
+        let errorCode = (data && data.code) || "HTTP_ERROR";
+
+        // Preserve meaningful JSON validation/domain errors returned by the actual API
+        if (isJson && data) {
+          const apiMsg = (typeof data.error === "string" && data.error) ||
+                         (typeof data.message === "string" && data.message) || "";
+          
+          // Never display raw HTML, server error pages, or unhandled Express route errors to customers
+          if (apiMsg && !apiMsg.includes("<") && !apiMsg.toLowerCase().startsWith("cannot ")) {
+            customerErrorMessage = apiMsg;
+          }
+        }
+
+        const err = new Error(customerErrorMessage);
+        err.code = errorCode;
         err.status = res.status;
         err.details = (data && data.details) || null;
+        err.rawResponse = rawText || (data ? JSON.stringify(data) : "");
         throw err;
       }
 
@@ -372,6 +400,13 @@
       });
       window.dispatchEvent(new CustomEvent("nbd_cart_updated", { detail: res }));
       return res;
+    },
+
+    /**
+     * Alias for addToCart.
+     */
+    async addItemToCart(itemData) {
+      return this.addToCart(itemData);
     },
 
     /**

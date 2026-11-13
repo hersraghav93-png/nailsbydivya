@@ -975,33 +975,7 @@ function initModals() {
     });
   });
 
-  // 08B. PORTFOLIO CARD CLICK HANDLING (`.portfolio-card`) -> SERVICE CONSULTATION OR PRODUCT MODAL
-  document.querySelectorAll(".portfolio-card").forEach((card) => {
-    card.addEventListener("click", () => {
-      const track = card.closest(".luxury-carousel-track");
-      if (track && track.dataset.hasDragged === "true") return;
-
-      const img = card.querySelector("img");
-      const caption = card.querySelector(".portfolio-card-caption span:first-child");
-      if (!img || !caption) return;
-
-      // Open product modal with this artwork to view details or book exact set
-      openProductModal({
-        title: caption.textContent.trim(),
-        category: "Exhibition Artistry • Handmade Set or At-Home Extension",
-        imageSrc: img.src,
-        imageAlt: img.alt || caption.textContent.trim(),
-        description: `This custom hand-painted design (${caption.textContent.trim()}) can be crafted as a reusable luxury press-on set delivered anywhere across India, or sculpted as custom gel extensions during an at-home appointment in Delhi NCR.`
-      });
-    });
-
-    card.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        card.click();
-      }
-    });
-  });
+  // 08B. PORTFOLIO CARD CLICK HANDLING -> Managed centrally via bindCardFilters() in initLookbookEngine()
 
   // 08C. SERVICE PILLAR CTA BUTTONS (`data-action="service-book"`) -> SERVICE MODAL ONLY
   document.querySelectorAll("button[data-action='service-book']").forEach((btn) => {
@@ -1034,10 +1008,12 @@ function openProductModalFromCard(card) {
 
   if (!titleElem || !imgElem) return;
 
+  const imgSrc = imgElem.currentSrc || imgElem.src || imgElem.getAttribute("src") || imgElem.getAttribute("data-src") || "";
+
   openProductModal({
     title: titleElem.textContent.trim(),
     category: badgeElem ? `${badgeElem.textContent.trim()} • Handmade Press-On` : "Handmade Press-On • Pan-India",
-    imageSrc: imgElem.src,
+    imageSrc: imgSrc,
     imageAlt: imgElem.alt || titleElem.textContent.trim(),
     description: descElem ? descElem.textContent.trim() : "Individually hand-painted by Divya using salon-grade soft gel after your order is confirmed.",
     sku: sku
@@ -1065,18 +1041,24 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
   const sizingGuideText = document.getElementById("modal-sizing-guide-text");
   const customBox = document.getElementById("modal-custom-measurements");
 
-  if (titleEl) titleEl.textContent = title;
-  if (catEl) catEl.textContent = category;
+  // Synchronously update all text fields so information never carries over from previously opened design
+  if (titleEl) titleEl.textContent = title || "Bespoke Artistry";
+  if (catEl) catEl.textContent = category || "Handmade Collection";
   if (skuEl) skuEl.textContent = sku ? `SKU: ${sku}` : "";
-  if (imgEl) {
-    imgEl.src = imageSrc;
-    imgEl.alt = imageAlt || title;
-    imgEl.onerror = () => {
-      imgEl.src = "assets/products/wedding/WED-005/herowedd5.png";
-    };
-  }
-  if (descEl) descEl.textContent = description;
+  if (descEl) descEl.textContent = description || "";
   if (feedbackEl) { feedbackEl.textContent = ""; feedbackEl.style.display = "none"; }
+
+  const placeholderSvg = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='600' viewBox='0 0 600 600'><rect width='100%' height='100%' fill='%23faf7f2'/><text x='50%' y='48%' font-family='sans-serif' font-size='16' fill='%239e8a78' text-anchor='middle'>Design Imagery</text><text x='50%' y='54%' font-family='sans-serif' font-size='12' fill='%23c2b2a3' text-anchor='middle'>Nails by Divya</text></svg>";
+
+  if (imgEl) {
+    imgEl.onerror = null;
+    imgEl.alt = imageAlt || title || "Nails by Divya Design";
+    imgEl.onerror = () => {
+      imgEl.onerror = null;
+      imgEl.src = placeholderSvg;
+    };
+    imgEl.src = (imageSrc && String(imageSrc).trim()) ? imageSrc : placeholderSvg;
+  }
 
   const originalPrice = sku && PRODUCT_PRICES[sku] ? PRODUCT_PRICES[sku] : null;
   const isEligible = FESTIVE_OFFER_CONFIG.isEligible(sku);
@@ -1256,7 +1238,11 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
         }
         openCartDrawer();
       } catch (err) {
-        alert(`Could not add item to bag: ${err.message || "Please try again."}`);
+        let msg = err.message || "We're having trouble connecting. Please try again or contact Divya on WhatsApp.";
+        if (msg.includes("<") || msg.toLowerCase().startsWith("cannot ")) {
+          msg = "We're having trouble connecting. Please try again or contact Divya on WhatsApp.";
+        }
+        alert(msg);
       } finally {
         addBagBtn.disabled = false;
       }
@@ -1283,7 +1269,11 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
         closeAllModals();
         openCheckoutModal();
       } catch (err) {
-        alert(`Could not initiate checkout: ${err.message || "Please try again."}`);
+        let msg = err.message || "We're having trouble connecting. Please try again or contact Divya on WhatsApp.";
+        if (msg.includes("<") || msg.toLowerCase().startsWith("cannot ")) {
+          msg = "We're having trouble connecting. Please try again or contact Divya on WhatsApp.";
+        }
+        alert(msg);
       } finally {
         checkoutBtn.disabled = false;
       }
@@ -1483,7 +1473,9 @@ async function openServiceModal(title, description) {
 
         const bookingPayload = {
           serviceId: matchedService.id,
+          service_id: matchedService.id,
           addonIds: selectedAddons,
+          addon_ids: selectedAddons,
           customer: {
             name,
             phone,
@@ -1496,9 +1488,19 @@ async function openServiceModal(title, description) {
             state: "Delhi",
             postal_code: pin,
           },
+          service_address: {
+            address_line1: line1,
+            landmark: landmark || null,
+            city,
+            state: "Delhi",
+            postal_code: pin,
+          },
           requestedDate: reqDate,
+          requested_date: reqDate,
           requestedTimeSlot: activeSlot,
+          requested_time_slot: activeSlot,
           customerNotes: notes || null,
+          customer_notes: notes || null,
         };
 
         const result = await window.NailsApi.createBooking(bookingPayload);
@@ -1533,7 +1535,11 @@ async function openServiceModal(title, description) {
         }
       } catch (err) {
         if (errorEl) {
-          errorEl.textContent = err.message || "Failed to submit appointment request.";
+          let msg = err.message || "We're having trouble connecting. Please try again or contact Divya on WhatsApp.";
+          if (msg.includes("<") || msg.toLowerCase().startsWith("cannot ")) {
+            msg = "We're having trouble connecting. Please try again or contact Divya on WhatsApp.";
+          }
+          errorEl.textContent = msg;
           errorEl.style.display = "block";
         }
       } finally {
@@ -2519,7 +2525,16 @@ function initReviewsEngine() {
     }
   };
 
-  if (openModalBtn) openModalBtn.addEventListener("click", openModal);
+  if (openModalBtn) {
+    openModalBtn.addEventListener("click", (e) => {
+      // Direct review link opens Divya's verified Google Business Profile review experience
+      const googleReviewUrl = "https://search.google.com/local/writereview?placeid=ChIJk6z6ECgBDTkRZBHT8jwkMRU";
+      if (!openModalBtn.getAttribute("href")) {
+        e.preventDefault();
+        window.open(googleReviewUrl, "_blank", "noopener,noreferrer");
+      }
+    });
+  }
   if (closeBtn) closeBtn.addEventListener("click", closeModal);
   if (closeSuccessBtn) closeSuccessBtn.addEventListener("click", closeModal);
   if (modal) {
@@ -2685,15 +2700,36 @@ function initLookbookEngine() {
     });
 
     cards.forEach((card) => {
-      card.onclick = () => {
-        const caption = card.querySelector(".lookbook-caption .lookbook-title");
-        if (caption && typeof openProductModal === "function") {
+      const openCardModal = () => {
+        const track = card.closest(".luxury-carousel-track");
+        if (track && track.dataset.hasDragged === "true") return;
+
+        const img = card.querySelector("img");
+        const titleEl = card.querySelector(".lookbook-caption .lookbook-title") || card.querySelector("h4");
+        const tagEl = card.querySelector(".lookbook-caption .lookbook-tag") || card.querySelector(".lookbook-category");
+        const title = titleEl ? titleEl.textContent.trim() : "Bespoke Nail Artistry";
+        const category = tagEl ? `${tagEl.textContent.trim()} • Bespoke Portfolio` : "Bespoke Portfolio";
+        const imgSrc = img ? (img.currentSrc || img.src || img.getAttribute("src") || img.getAttribute("data-src") || "") : "";
+        const imgAlt = (img && img.alt) || title;
+        const description = `This custom hand-painted design (${title}) can be crafted as a reusable luxury press-on set delivered anywhere across India, or sculpted as custom gel extensions during an at-home appointment in Delhi NCR.`;
+
+        if (typeof openProductModal === "function") {
           openProductModal({
-            title: caption.textContent.trim(),
-            category: "Bespoke Art",
-            price: "Custom Quotation",
-            desc: "Bespoke nail art handcrafted by Divya. Available as custom-sized press-ons or at-home salon extensions.",
+            title,
+            category,
+            imageSrc: imgSrc,
+            imageAlt: imgAlt,
+            description,
+            sku: card.getAttribute("data-product-sku") || null,
           });
+        }
+      };
+
+      card.onclick = openCardModal;
+      card.onkeydown = (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          openCardModal();
         }
       };
     });
