@@ -215,7 +215,7 @@ p {
 
 .button:hover,
 .button:focus-visible {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
 }
 
 .button:active {
@@ -228,13 +228,16 @@ p {
   background: var(--heading);
   color: #fffaf8 !important;
   border-color: transparent;
-  box-shadow: 0 6px 18px rgba(61, 42, 47, 0.15);
+  box-shadow: 0 4px 12px rgba(61, 42, 47, 0.12);
 }
 
 .primary-button:hover,
-.button.primary-button:hover {
+.button.primary-button:hover,
+.primary-button:focus-visible,
+.button.primary-button:focus-visible {
   background: var(--heading-dark);
-  box-shadow: 0 10px 26px rgba(61, 42, 47, 0.24);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(61, 42, 47, 0.18);
   color: #ffffff !important;
 }
 
@@ -245,14 +248,16 @@ p {
   color: var(--heading);
   border: 1px solid rgba(61, 42, 47, 0.22);
   backdrop-filter: blur(8px);
+  box-shadow: none;
 }
 
 .secondary-button:hover,
 .button.secondary-button:hover {
   background: #ffffff;
   border-color: var(--heading);
-  box-shadow: 0 6px 18px rgba(61, 42, 47, 0.08);
+  box-shadow: 0 2px 8px rgba(61, 42, 47, 0.05);
   color: var(--heading);
+  transform: translateY(-1px);
 }
 
 /* 3. Text / Link Action */
@@ -543,7 +548,7 @@ p {
   font-weight: 600;
   border: 1px solid var(--heading);
   transition: all 200ms ease;
-  box-shadow: 0 2px 8px rgba(61, 42, 47, 0.12);
+  box-shadow: 0 4px 12px rgba(61, 42, 47, 0.12);
   cursor: pointer;
   text-decoration: none;
 }
@@ -552,7 +557,7 @@ p {
   background: var(--heading-dark, #26161a);
   border-color: var(--heading-dark, #26161a);
   transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(61, 42, 47, 0.2);
+  box-shadow: 0 6px 18px rgba(61, 42, 47, 0.18);
 }
 
 /* Hide emoji clutter inside navbar buttons to preserve ultra-luxury brand identity */
