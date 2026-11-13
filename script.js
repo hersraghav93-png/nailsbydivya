@@ -670,7 +670,46 @@ function initLuxuryCarousels() {
 // ---------------------------------------------------------------------------
 // 06. PRESS-ON COLLECTION & LOOKBOOK CATEGORY FILTERS
 // ---------------------------------------------------------------------------
+/**
+ * Progressive Disclosure for Mobile Press-On Collection
+ * Initially collapses product grid to first 3 designs on mobile,
+ * revealing the full collection smoothly upon tapping the floating CTA or any filter.
+ */
+function initMobileShopExpand() {
+  const grid = document.getElementById("product-grid");
+  const expandWrap = document.getElementById("shop-mobile-expand-wrap");
+  const expandBtn = document.getElementById("shop-mobile-expand-btn");
+  if (!grid || !expandBtn) return;
+
+  function expand(scrollIntoView = true) {
+    if (!grid.classList.contains("is-collapsed-mobile")) return;
+    grid.classList.remove("is-collapsed-mobile");
+    if (expandWrap) {
+      expandWrap.style.display = "none";
+    }
+    expandBtn.setAttribute("aria-expanded", "true");
+    if (scrollIntoView) {
+      const fourthCard = grid.querySelector(".product-card:nth-child(4)");
+      if (fourthCard) {
+        fourthCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    }
+  }
+
+  expandBtn.addEventListener("click", () => {
+    expand(true);
+  });
+
+  const shopTabs = document.querySelectorAll(".shop-category-nav .category-tab, [data-shop-filter]");
+  shopTabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      expand(false);
+    });
+  });
+}
+
 function initShopFilters() {
+  initMobileShopExpand();
   // Shop Category Tabs
   const shopTabs = document.querySelectorAll(".shop-category-nav .category-tab, [data-shop-filter]");
   const productCards = document.querySelectorAll(".product-card, .carousel-card");
@@ -2546,6 +2585,10 @@ function initLookbookEngine() {
 
           card.style.display = match ? "block" : "none";
         });
+
+        if (typeof window.__updateLookbookPagination === "function") {
+          window.__updateLookbookPagination();
+        }
       };
     });
 
@@ -2573,6 +2616,11 @@ function initLookbookEngine() {
       const artworks = data.artworks || [];
       if (!Array.isArray(artworks) || artworks.length === 0) return;
 
+      // Preserve verified 60 local client portfolio artworks from index.html if already loaded
+      if (grid.querySelectorAll(".lookbook-card").length >= 60) {
+        return;
+      }
+
       grid.innerHTML = artworks.map((art) => {
         const cat = art.category_id || "chrome";
         const catName = art.category_name || cat;
@@ -2598,9 +2646,194 @@ function initLookbookEngine() {
 
   // Bind initial static fallback cards first
   bindCardFilters();
+  // Initialize mobile lookbook carousel & auto-sliding engine
+  initMobileLookbookCarousel();
   // Fetch live lookbook designs from backend
   loadPortfolioDesigns();
 }
+
+/**
+ * Mobile Lookbook Carousel & Auto-Sliding Engine
+ * - Smooth horizontal swipeable carousel with scroll snap on mobile (<= 768px)
+ * - Auto-advances every 3.8s with smooth transition
+ * - Pauses immediately on touch/pointer interaction and resumes after delay
+ * - Dynamic pagination indicator (e.g. ✦ 1 / 60 • Swipe to explore)
+ * - Respects prefers-reduced-motion
+ * - Leaves desktop multi-column grid untouched
+ */
+function initMobileLookbookCarousel() {
+  const grid = document.getElementById("lookbook-grid");
+  const currentIdxEl = document.getElementById("lookbook-current-idx");
+  const totalCountEl = document.getElementById("lookbook-total-count");
+
+  if (!grid) return;
+
+  let autoSlideTimer = null;
+  let resumeTimer = null;
+  let isInteracting = false;
+  const SLIDE_INTERVAL = 3800; // 3.8s intervals
+  const RESUME_DELAY = 2800; // 2.8s after touch/drag ends
+
+  function isMobile() {
+    return window.innerWidth <= 768;
+  }
+
+  function prefersReducedMotion() {
+    return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+
+  function getVisibleCards() {
+    return Array.from(grid.querySelectorAll(".lookbook-card")).filter(
+      (c) => c.style.display !== "none" && !c.hasAttribute("hidden")
+    );
+  }
+
+  function updatePagination() {
+    const cards = getVisibleCards();
+    if (!cards.length) return;
+
+    if (totalCountEl) {
+      totalCountEl.textContent = cards.length;
+    }
+
+    const gridCenter = grid.scrollLeft + grid.clientWidth / 2;
+    let closestIndex = 0;
+    let minDistance = Infinity;
+
+    cards.forEach((card, idx) => {
+      const cardCenter = card.offsetLeft + card.offsetWidth / 2;
+      const distance = Math.abs(cardCenter - gridCenter);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestIndex = idx;
+      }
+    });
+
+    if (currentIdxEl) {
+      currentIdxEl.textContent = closestIndex + 1;
+    }
+  }
+
+  function advanceSlide() {
+    if (!isMobile() || prefersReducedMotion() || isInteracting) return;
+
+    const cards = getVisibleCards();
+    if (cards.length <= 1) return;
+
+    const maxScrollLeft = grid.scrollWidth - grid.clientWidth;
+    if (grid.scrollLeft >= maxScrollLeft - 15) {
+      grid.scrollTo({ left: 0, behavior: "smooth" });
+    } else {
+      const gridCenter = grid.scrollLeft + grid.clientWidth / 2;
+      let currentIndex = 0;
+      let minDistance = Infinity;
+
+      cards.forEach((card, idx) => {
+        const cardCenter = card.offsetLeft + card.offsetWidth / 2;
+        const distance = Math.abs(cardCenter - gridCenter);
+        if (distance < minDistance) {
+          minDistance = distance;
+          currentIndex = idx;
+        }
+      });
+
+      const nextIndex = (currentIndex + 1) % cards.length;
+      const targetCard = cards[nextIndex];
+      if (targetCard) {
+        const targetScroll = targetCard.offsetLeft - (grid.clientWidth - targetCard.offsetWidth) / 2;
+        grid.scrollTo({ left: Math.max(0, targetScroll), behavior: "smooth" });
+      }
+    }
+  }
+
+  function startAutoSlide() {
+    stopAutoSlide();
+    if (!isMobile() || prefersReducedMotion()) return;
+    autoSlideTimer = setInterval(advanceSlide, SLIDE_INTERVAL);
+  }
+
+  function stopAutoSlide() {
+    if (autoSlideTimer) {
+      clearInterval(autoSlideTimer);
+      autoSlideTimer = null;
+    }
+  }
+
+  function handleInteractionStart() {
+    isInteracting = true;
+    stopAutoSlide();
+    if (resumeTimer) {
+      clearTimeout(resumeTimer);
+      resumeTimer = null;
+    }
+  }
+
+  function handleInteractionEnd() {
+    isInteracting = false;
+    if (resumeTimer) clearTimeout(resumeTimer);
+    resumeTimer = setTimeout(() => {
+      startAutoSlide();
+    }, RESUME_DELAY);
+  }
+
+  grid.addEventListener("touchstart", handleInteractionStart, { passive: true });
+  grid.addEventListener("touchend", handleInteractionEnd, { passive: true });
+  grid.addEventListener("touchcancel", handleInteractionEnd, { passive: true });
+  grid.addEventListener("pointerdown", handleInteractionStart, { passive: true });
+  grid.addEventListener("pointerup", handleInteractionEnd, { passive: true });
+  grid.addEventListener("pointercancel", handleInteractionEnd, { passive: true });
+
+  grid.addEventListener("mouseenter", handleInteractionStart);
+  grid.addEventListener("mouseleave", handleInteractionEnd);
+
+  let ticking = false;
+  grid.addEventListener(
+    "scroll",
+    () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          updatePagination();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    },
+    { passive: true }
+  );
+
+  if (window.matchMedia) {
+    const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    if (motionQuery.addEventListener) {
+      motionQuery.addEventListener("change", () => {
+        if (prefersReducedMotion()) {
+          stopAutoSlide();
+        } else {
+          startAutoSlide();
+        }
+      });
+    }
+  }
+
+  window.addEventListener("resize", () => {
+    if (isMobile()) {
+      startAutoSlide();
+    } else {
+      stopAutoSlide();
+    }
+    updatePagination();
+  });
+
+  window.__updateLookbookPagination = () => {
+    grid.scrollTo({ left: 0, behavior: "smooth" });
+    updatePagination();
+  };
+
+  updatePagination();
+  if (isMobile() && !prefersReducedMotion()) {
+    startAutoSlide();
+  }
+}
+
 
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", () => {

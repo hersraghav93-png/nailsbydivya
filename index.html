@@ -81,7 +81,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   
   <!-- Master Stylesheets -->
-  <link rel="stylesheet" href="style.css?v=16">
+  <link rel="stylesheet" href="style.css?v=17">
   <link rel="stylesheet" href="auth.css?v=13">
 </head>
 <body>
@@ -357,7 +357,7 @@
         </div>
 
         <!-- 22 Verified Product Cards Grid -->
-        <div class="product-grid" id="product-grid">
+        <div class="product-grid is-collapsed-mobile" id="product-grid">
 
           <article class="product-card" data-category="casual" data-product-sku="CAS-004">
             <div class="product-image-wrap">
@@ -845,6 +845,14 @@
 
         </div>
 
+        <!-- Mobile Collection Explore Overlay CTA (Shown on mobile only) -->
+        <div class="shop-mobile-expand-wrap" id="shop-mobile-expand-wrap">
+          <button type="button" class="shop-mobile-expand-btn" id="shop-mobile-expand-btn" aria-expanded="false" aria-controls="product-grid">
+            <span class="expand-btn-text">Explore Our Entire Collection</span>
+            <span class="expand-btn-arrow" aria-hidden="true">&darr;</span>
+          </button>
+        </div>
+
         <!-- Refined Collection-Ending Custom Design Banner -->
         <div class="shop-custom-banner" id="shop-custom-enquiry">
           <div class="shop-custom-banner-content">
@@ -1147,71 +1155,496 @@
 
         <!-- Lookbook Grid -->
         <div class="lookbook-grid" id="lookbook-grid">
-          
-          <div class="lookbook-card portfolio-card" data-category="floral" tabindex="0">
-            <img src="assets/portfolio/newnail1.png" alt="Hand-painted delicate floral nail art" loading="lazy">
+          <div class="lookbook-card portfolio-card" data-category="chrome" tabindex="0">
+            <img src="assets/portfolio/nail1.png" alt="Sculpted Nude Elegance" loading="lazy">
             <div class="lookbook-caption">
-              <span class="lookbook-tag">Floral</span>
-              <span class="lookbook-title">Rose Whisper Florals</span>
+              <span class="lookbook-tag">Chrome</span>
+              <span class="lookbook-title">Sculpted Nude Elegance</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="nude" tabindex="0">
+            <img src="assets/portfolio/nail2.png" alt="Blush French Fade" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Nude</span>
+              <span class="lookbook-title">Blush French Fade</span>
             </div>
           </div>
 
           <div class="lookbook-card portfolio-card" data-category="chrome" tabindex="0">
-            <img src="assets/portfolio/dv2.jpeg" alt="Liquid silver molten chrome ripple nail art" loading="lazy">
+            <img src="assets/portfolio/nail3.png" alt="3D Chrome Accents" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Chrome</span>
+              <span class="lookbook-title">3D Chrome Accents</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="nude" tabindex="0">
+            <img src="assets/portfolio/nail4.png" alt="Glass Top Nude" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Nude</span>
+              <span class="lookbook-title">Glass Top Nude</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="nude" tabindex="0">
+            <img src="assets/portfolio/nail5.png" alt="Minimalist Gold Line" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Nude</span>
+              <span class="lookbook-title">Minimalist Gold Line</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="bridal" tabindex="0">
+            <img src="assets/portfolio/nail6.png" alt="Bridal Pearl Symphony" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Bridal</span>
+              <span class="lookbook-title">Bridal Pearl Symphony</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="bridal" tabindex="0">
+            <img src="assets/portfolio/newnail1.png" alt="Rose Garden Floral" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Bridal</span>
+              <span class="lookbook-title">Rose Garden Floral</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="chrome" tabindex="0">
+            <img src="assets/portfolio/newnail2.png" alt="Velvet Cat-Eye Aura" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Chrome</span>
+              <span class="lookbook-title">Velvet Cat-Eye Aura</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="bridal" tabindex="0">
+            <img src="assets/portfolio/dv1.jpeg" alt="Imperial Gold Foil" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Bridal</span>
+              <span class="lookbook-title">Imperial Gold Foil</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="chrome" tabindex="0">
+            <img src="assets/portfolio/dv2.jpeg" alt="Liquid Silver Ripple" loading="lazy">
             <div class="lookbook-caption">
               <span class="lookbook-tag">Chrome</span>
               <span class="lookbook-title">Liquid Silver Ripple</span>
             </div>
           </div>
 
-          <div class="lookbook-card portfolio-card" data-category="french" tabindex="0">
-            <img src="assets/portfolio/newnail6.png" alt="Micro French clean line nail art" loading="lazy">
+          <div class="lookbook-card portfolio-card" data-category="nude" tabindex="0">
+            <img src="assets/portfolio/dv3.jpeg" alt="Natural Soft Gel Sculpt" loading="lazy">
             <div class="lookbook-caption">
-              <span class="lookbook-tag">French</span>
-              <span class="lookbook-title">Micro French Almond</span>
-            </div>
-          </div>
-
-          <div class="lookbook-card portfolio-card" data-category="3d" tabindex="0">
-            <img src="assets/portfolio/nvm8.png" alt="3D textural metallic nail art" loading="lazy">
-            <div class="lookbook-caption">
-              <span class="lookbook-tag">3D Art</span>
-              <span class="lookbook-title">Sculpted Metallic Bloom</span>
+              <span class="lookbook-tag">Nude</span>
+              <span class="lookbook-title">Natural Soft Gel Sculpt</span>
             </div>
           </div>
 
           <div class="lookbook-card portfolio-card" data-category="chrome" tabindex="0">
-            <img src="assets/portfolio/dv1.jpeg" alt="Gold leaf flecks over milky white gel" loading="lazy">
+            <img src="assets/portfolio/dv5.jpeg" alt="Glazed Chrome Aura" loading="lazy">
             <div class="lookbook-caption">
               <span class="lookbook-tag">Chrome</span>
-              <span class="lookbook-title">Imperial Gold Leaf</span>
+              <span class="lookbook-title">Glazed Chrome Aura</span>
             </div>
           </div>
 
-          <div class="lookbook-card portfolio-card" data-category="french" tabindex="0">
-            <img src="assets/portfolio/nail8.png" alt="Soft glam French tip extensions" loading="lazy">
+          <div class="lookbook-card portfolio-card" data-category="nude" tabindex="0">
+            <img src="assets/portfolio/dv6.jpeg" alt="Almond Ombré Fade" loading="lazy">
             <div class="lookbook-caption">
-              <span class="lookbook-tag">French</span>
-              <span class="lookbook-title">Blush Glam French</span>
+              <span class="lookbook-tag">Nude</span>
+              <span class="lookbook-title">Almond Ombré Fade</span>
             </div>
           </div>
 
-          <div class="lookbook-card portfolio-card" data-category="3d" tabindex="0">
-            <img src="assets/portfolio/nail7.png" alt="Macro photography of custom hand-painted nail set" loading="lazy">
+          <div class="lookbook-card portfolio-card" data-category="bridal" tabindex="0">
+            <img src="assets/portfolio/dv8.jpeg" alt="Gilded Floral French" loading="lazy">
             <div class="lookbook-caption">
-              <span class="lookbook-tag">3D Art</span>
-              <span class="lookbook-title">Freshwater Pearl Relief</span>
+              <span class="lookbook-tag">Bridal</span>
+              <span class="lookbook-title">Gilded Floral French</span>
             </div>
           </div>
 
-          <div class="lookbook-card portfolio-card" data-category="french" tabindex="0">
-            <img src="assets/portfolio/nail1.png" alt="Natural nude sculpted gel extensions" loading="lazy">
+          <div class="lookbook-card portfolio-card" data-category="chrome" tabindex="0">
+            <img src="assets/portfolio/dv9.jpeg" alt="Molten Silver Tip" loading="lazy">
             <div class="lookbook-caption">
-              <span class="lookbook-tag">French</span>
-              <span class="lookbook-title">Sculpted Nude Glass</span>
+              <span class="lookbook-tag">Chrome</span>
+              <span class="lookbook-title">Molten Silver Tip</span>
             </div>
           </div>
 
+          <div class="lookbook-card portfolio-card" data-category="nude" tabindex="0">
+            <img src="assets/portfolio/newnail3.png" alt="Sheer Milky Pink" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Nude</span>
+              <span class="lookbook-title">Sheer Milky Pink</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="chrome" tabindex="0">
+            <img src="assets/portfolio/newnail4.png" alt="Metallic Star Burst" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Chrome</span>
+              <span class="lookbook-title">Metallic Star Burst</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="bridal" tabindex="0">
+            <img src="assets/portfolio/newnail5.png" alt="Blossom Pearl Overlay" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Bridal</span>
+              <span class="lookbook-title">Blossom Pearl Overlay</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="nude" tabindex="0">
+            <img src="assets/portfolio/newnail6.png" alt="Ultra Gloss Russian Polish" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Nude</span>
+              <span class="lookbook-title">Ultra Gloss Polish</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="nude" tabindex="0">
+            <img src="assets/portfolio/newnail8.png" alt="Delicate French Curve" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Nude</span>
+              <span class="lookbook-title">Delicate French Curve</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="chrome" tabindex="0">
+            <img src="assets/portfolio/nn9.jpeg" alt="Sapphire Chrome Aura" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Chrome</span>
+              <span class="lookbook-title">Sapphire Chrome Aura</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="bridal" tabindex="0">
+            <img src="assets/portfolio/amn1.png" alt="Sparkling Diamond Veil" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Bridal</span>
+              <span class="lookbook-title">Sparkling Diamond Veil</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="bridal" tabindex="0">
+            <img src="assets/portfolio/amn2.png" alt="Bridal Crystal Cut" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Bridal</span>
+              <span class="lookbook-title">Bridal Crystal Cut</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="bridal" tabindex="0">
+            <img src="assets/portfolio/amn3.png" alt="Royal Kundan Motif" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Bridal</span>
+              <span class="lookbook-title">Royal Kundan Motif</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="nude" tabindex="0">
+            <img src="assets/portfolio/nvm1.png" alt="Sheer Quartz Overlay" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Nude</span>
+              <span class="lookbook-title">Sheer Quartz Overlay</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="nude" tabindex="0">
+            <img src="assets/portfolio/nvm3.png" alt="Blush Almond Extensions" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Nude</span>
+              <span class="lookbook-title">Blush Almond Extensions</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="bridal" tabindex="0">
+            <img src="assets/portfolio/nvm4.png" alt="Gilded Lace Tip" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Bridal</span>
+              <span class="lookbook-title">Gilded Lace Tip</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="chrome" tabindex="0">
+            <img src="assets/portfolio/nvm5.png" alt="Velvet Emerald Cat-Eye" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Chrome</span>
+              <span class="lookbook-title">Velvet Emerald Cat-Eye</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="nude" tabindex="0">
+            <img src="assets/portfolio/nvm6.png" alt="Clean Natural Gel Armor" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Nude</span>
+              <span class="lookbook-title">Natural Gel Armor</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="bridal" tabindex="0">
+            <img src="assets/portfolio/nvm7.png" alt="Intricate Floral Sangeet" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Bridal</span>
+              <span class="lookbook-title">Intricate Floral Sangeet</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="chrome" tabindex="0">
+            <img src="assets/portfolio/nvm8.png" alt="3D Liquid Silver Art" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Chrome</span>
+              <span class="lookbook-title">3D Liquid Silver Art</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="bridal" tabindex="0">
+            <img src="assets/portfolio/nvm2.png" alt="Pearlescent Wedding Tip" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Bridal</span>
+              <span class="lookbook-title">Pearlescent Wedding Tip</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="chrome" tabindex="0">
+            <img src="assets/portfolio/nvm10.png" alt="Galactic Chrome Shift" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Chrome</span>
+              <span class="lookbook-title">Galactic Chrome Shift</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="nude" tabindex="0">
+            <img src="assets/portfolio/nvm11.png" alt="Structured Gel Overlay" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Nude</span>
+              <span class="lookbook-title">Structured Gel Overlay</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="bridal" tabindex="0">
+            <img src="assets/portfolio/nvm12.png" alt="Empress Pearl Border" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Bridal</span>
+              <span class="lookbook-title">Empress Pearl Border</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="nude" tabindex="0">
+            <img src="assets/portfolio/nvm13.png" alt="Sheer Rose Manicure" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Nude</span>
+              <span class="lookbook-title">Sheer Rose Manicure</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="art" tabindex="0">
+            <img src="assets/portfolio/port44.jpeg" alt="Navy Polka Dot" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Art</span>
+              <span class="lookbook-title">Navy Polka Dot</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="nude" tabindex="0">
+            <img src="assets/portfolio/port46.jpeg" alt="Elegant French Tips" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Nude</span>
+              <span class="lookbook-title">Elegant French Tips</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="nude" tabindex="0">
+            <img src="assets/portfolio/port48.jpeg" alt="Blush Glitter Extension" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Nude</span>
+              <span class="lookbook-title">Blush Glitter Extension</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="nude" tabindex="0">
+            <img src="assets/portfolio/port49.jpeg" alt="Shimmering Rose Quartz" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Nude</span>
+              <span class="lookbook-title">Shimmering Rose Quartz</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="nude" tabindex="0">
+            <img src="assets/portfolio/port51.jpeg" alt="Sparkling Neutral Nude" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Nude</span>
+              <span class="lookbook-title">Sparkling Neutral Nude</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="art" tabindex="0">
+            <img src="assets/portfolio/port52.jpeg" alt="Soft Pink Floral" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Art</span>
+              <span class="lookbook-title">Soft Pink Floral</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="chrome" tabindex="0">
+            <img src="assets/portfolio/port56.jpeg" alt="Lavender Pink Sparkle" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Chrome</span>
+              <span class="lookbook-title">Lavender Pink Sparkle</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="art" tabindex="0">
+            <img src="assets/portfolio/port58.jpeg" alt="Monochrome Polka Dot" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Art</span>
+              <span class="lookbook-title">Monochrome Polka Dot</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="chrome" tabindex="0">
+            <img src="assets/portfolio/port59.jpeg" alt="Golden Swirl Abstract" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Chrome</span>
+              <span class="lookbook-title">Golden Swirl Abstract</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="bridal" tabindex="0">
+            <img src="assets/portfolio/port60.jpeg" alt="Pastel Dream Gradient" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Bridal</span>
+              <span class="lookbook-title">Pastel Dream Gradient</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="chrome" tabindex="0">
+            <img src="assets/portfolio/port61.jpeg" alt="Metallic Champagne" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Chrome</span>
+              <span class="lookbook-title">Metallic Champagne</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="chrome" tabindex="0">
+            <img src="assets/portfolio/port62.jpeg" alt="Deep Burgundy Chrome" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Chrome</span>
+              <span class="lookbook-title">Deep Burgundy Chrome</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="bridal" tabindex="0">
+            <img src="assets/portfolio/port63.jpeg" alt="Pearl White Elegance" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Bridal</span>
+              <span class="lookbook-title">Pearl White Elegance</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="art" tabindex="0">
+            <img src="assets/portfolio/10-n9.jpg" alt="Pastel Buttercup Polka" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Art</span>
+              <span class="lookbook-title">Pastel Buttercup Polka</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="art" tabindex="0">
+            <img src="assets/portfolio/10-n10.jpg" alt="Sage Meadow Blossom" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Art</span>
+              <span class="lookbook-title">Sage Meadow Blossom</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="nude" tabindex="0">
+            <img src="assets/portfolio/10-n11.jpg" alt="Blush Dotted Veil" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Nude</span>
+              <span class="lookbook-title">Blush Dotted Veil</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="bridal" tabindex="0">
+            <img src="assets/portfolio/10-n12c.jpg" alt="Midnight Petal Blossom" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Bridal</span>
+              <span class="lookbook-title">Midnight Petal Blossom</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="art" tabindex="0">
+            <img src="assets/portfolio/10-n13.jpg" alt="Navy Diagonal French" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Art</span>
+              <span class="lookbook-title">Navy Diagonal French</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="chrome" tabindex="0">
+            <img src="assets/portfolio/10-n20c.jpg" alt="Silken Blush Aura" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Chrome</span>
+              <span class="lookbook-title">Silken Blush Aura</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="chrome" tabindex="0">
+            <img src="assets/portfolio/10-n23c.jpg" alt="Mauve Celestial Starlight" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Chrome</span>
+              <span class="lookbook-title">Mauve Celestial Starlight</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="bridal" tabindex="0">
+            <img src="assets/portfolio/10-n27.jpg" alt="Festive Fuchsia Shimmer" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Bridal</span>
+              <span class="lookbook-title">Festive Fuchsia Shimmer</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="art" tabindex="0">
+            <img src="assets/portfolio/10-n31c.jpg" alt="Minimalist Crimson Lotus" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Art</span>
+              <span class="lookbook-title">Minimalist Crimson Lotus</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="bridal" tabindex="0">
+            <img src="assets/portfolio/10-n34c.jpg" alt="Ruby Gold Stardust" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Bridal</span>
+              <span class="lookbook-title">Ruby Gold Stardust</span>
+            </div>
+          </div>
+
+          <div class="lookbook-card portfolio-card" data-category="bridal" tabindex="0">
+            <img src="assets/portfolio/10-n103.jpg" alt="Cranberry Velvet Constellation" loading="lazy">
+            <div class="lookbook-caption">
+              <span class="lookbook-tag">Bridal</span>
+              <span class="lookbook-title">Cranberry Velvet Constellation</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Lookbook Mobile Pagination Indicators -->
+        <div class="lookbook-carousel-pagination" id="lookbook-pagination" aria-hidden="true">
+          <div class="lookbook-pagination-pill">
+            <span>✦</span>
+            <span id="lookbook-current-idx">1</span>
+            <span>/</span>
+            <span id="lookbook-total-count">60</span>
+            <span class="lookbook-pagination-hint">&bull; Swipe to explore</span>
+          </div>
         </div>
       </div>
     </section>
@@ -2148,6 +2581,6 @@
   <script src="auth-modal.js"></script>
 
   <!-- Core Scripts -->
-  <script src="script.js"></script>
+  <script src="script.js?v=17"></script>
 </body>
 </html>
