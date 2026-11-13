@@ -693,9 +693,9 @@ p {
 
   #nav-links.is-open,
   .nav-links.is-open {
-    transform: translateX(0);
-    visibility: visible;
-    pointer-events: auto;
+    transform: translateX(0) !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
   }
 
   .mobile-drawer-header {
@@ -1727,13 +1727,43 @@ p {
 
 @media (max-width: 820px) {
   .contact-aside {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     min-height: auto;
-    padding: 1.5rem 0 0.5rem;
+    padding: 0;
+    gap: 1.25rem;
   }
 
+  .contact-note-card {
+    order: 1;
+    position: relative;
+    max-width: 100%;
+    width: 100%;
+  }
+
+  /* Decorative nail-art sketchbook illustration displayed below consultation note on mobile */
   .contact-sketch-backdrop {
-    inset: -10px -10px;
-    opacity: 0.65;
+    order: 2;
+    position: relative;
+    inset: auto;
+    width: 100%;
+    max-width: 360px;
+    margin: 0.25rem auto 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.95;
+    pointer-events: none;
+    overflow: visible;
+  }
+
+  .contact-sketch-svg {
+    width: 100%;
+    height: auto;
+    max-width: 360px;
+    max-height: 240px;
+    display: block;
   }
 }
 

@@ -355,20 +355,36 @@ function initMobileNav() {
   }
 
   const toggleMenu = (open) => {
-    const isExpanded = open !== undefined ? open : navToggle.getAttribute("aria-expanded") !== "true";
+    const isExpanded = open !== undefined ? open : !navLinks.classList.contains("is-open");
     navToggle.setAttribute("aria-expanded", isExpanded ? "true" : "false");
     navToggle.classList.toggle("is-active", isExpanded);
     navLinks.classList.toggle("is-open", isExpanded);
     backdrop.classList.toggle("is-open", isExpanded);
-    document.body.style.overflow = isExpanded ? "hidden" : "";
+
+    // Prevent background scrolling while open, restore cleanly when closed
+    if (isExpanded) {
+      document.body.style.overflow = "hidden";
+      document.documentElement.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+      document.documentElement.style.overflow = "";
+    }
   };
 
-  navToggle.addEventListener("click", () => toggleMenu());
+  navToggle.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleMenu();
+  });
 
   // Close button inside mobile drawer
   const closeBtn = document.getElementById("mobile-drawer-close");
   if (closeBtn) {
-    closeBtn.addEventListener("click", () => toggleMenu(false));
+    closeBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleMenu(false);
+    });
   }
 
   // Quick Cart trigger on mobile header
@@ -376,10 +392,20 @@ function initMobileNav() {
   if (mobileCartBtn) {
     mobileCartBtn.addEventListener("click", () => {
       toggleMenu(false);
-      openCartDrawer();
+      if (typeof openCartDrawer === "function") openCartDrawer();
     });
   }
 
+  // Shopping Bag action inside mobile drawer
+  const drawerCartBtn = document.getElementById("mobile-drawer-cart-btn");
+  if (drawerCartBtn) {
+    drawerCartBtn.addEventListener("click", () => {
+      toggleMenu(false);
+      if (typeof openCartDrawer === "function") openCartDrawer();
+    });
+  }
+
+  // Dismiss on backdrop click or touch
   const onBackdropDismiss = (e) => {
     if (e) {
       if (typeof e.preventDefault === "function") e.preventDefault();
@@ -388,14 +414,21 @@ function initMobileNav() {
     toggleMenu(false);
   };
   backdrop.addEventListener("click", onBackdropDismiss);
-  backdrop.addEventListener("touchstart", onBackdropDismiss, { passive: false });
+  backdrop.addEventListener("touchstart", onBackdropDismiss, { passive: true });
 
-  // Auto-close menu when clicking any nav item or action in drawer
-  navLinks.querySelectorAll("a, button").forEach((item) => {
-    if (item.id === "mobile-drawer-close") return;
-    item.addEventListener("click", () => toggleMenu(false));
+  // Auto-close menu when tapping navigation links
+  navLinks.querySelectorAll("a").forEach((link) => {
+    link.addEventListener("click", () => toggleMenu(false));
   });
 
+  // Escape-key closing
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && navLinks.classList.contains("is-open")) {
+      toggleMenu(false);
+    }
+  });
+
+  // Responsive guard on resize
   window.addEventListener("resize", () => {
     if (window.innerWidth > 980 && navLinks.classList.contains("is-open")) {
       toggleMenu(false);
