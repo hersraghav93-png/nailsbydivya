@@ -127,11 +127,34 @@
     "Custom": "Tailored sizing — enter exact measurements in millimeters below.",
   };
 
+  const PRESET_MEASUREMENTS = {
+    "XS": { thumb: 14, index: 11, middle: 12, ring: 10, pinky: 8 },
+    "S": { thumb: 15, index: 12, middle: 13, ring: 11, pinky: 8 },
+    "M": { thumb: 16, index: 12, middle: 13, ring: 11, pinky: 9 },
+    "L": { thumb: 17, index: 13, middle: 14, ring: 12, pinky: 10 },
+  };
+
   function updatePresetGuide(preset) {
     const guideEl = document.getElementById("preset-details-guide");
     if (!guideEl) return;
     const detail = PRESET_DETAILS[preset] || "";
     guideEl.innerHTML = detail ? `✦ <strong>${preset} Preset Sizing:</strong> ${detail}` : "";
+    
+    // Suggest millimeter values into inputs as placeholders if empty
+    const presetMm = PRESET_MEASUREMENTS[preset];
+    if (presetMm) {
+      const thumb = document.getElementById("measure-thumb");
+      const index = document.getElementById("measure-index");
+      const middle = document.getElementById("measure-middle");
+      const ring = document.getElementById("measure-ring");
+      const pinky = document.getElementById("measure-pinky");
+      if (thumb) thumb.placeholder = String(presetMm.thumb);
+      if (index) index.placeholder = String(presetMm.index);
+      if (middle) middle.placeholder = String(presetMm.middle);
+      if (ring) ring.placeholder = String(presetMm.ring);
+      if (pinky) pinky.placeholder = String(presetMm.pinky);
+    }
+
     const measurementsContainer = document.querySelector(".measurements-container");
     if (measurementsContainer) {
       if (preset === "Custom") {
@@ -160,11 +183,12 @@
       rawName.trim().toLowerCase() === "bespoke client";
 
     const hasRealName = !isSynthetic && rawName.trim().length > 0;
-    const displayName = hasRealName ? rawName.trim() : "Welcome";
-    const initial = hasRealName ? displayName.charAt(0).toUpperCase() : "💅🏻";
+    const greetingName = hasRealName ? rawName.trim() : "";
+    const greetingText = hasRealName ? `Welcome, ${greetingName}` : "Welcome";
+    const initial = hasRealName ? greetingName.charAt(0).toUpperCase() : "💅🏻";
     const phone = currentUser.phone || "+91 Mobile";
 
-    if (clientNameDisplayEl) clientNameDisplayEl.textContent = displayName;
+    if (clientNameDisplayEl) clientNameDisplayEl.textContent = greetingText;
     if (clientPhoneDisplayEl) clientPhoneDisplayEl.textContent = phone;
     if (clientInitialsEl) clientInitialsEl.textContent = initial;
   }

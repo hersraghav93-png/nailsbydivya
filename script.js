@@ -1059,7 +1059,15 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
   // Synchronously update all text fields so information never carries over from previously opened design
   if (titleEl) titleEl.textContent = title || "Bespoke Artistry";
   if (catEl) catEl.textContent = category || "Handmade Collection";
-  if (skuEl) skuEl.textContent = sku ? `SKU: ${sku}` : "";
+  if (skuEl) {
+    if (sku) {
+      skuEl.textContent = `SKU: ${sku}`;
+      skuEl.style.display = "inline-block";
+    } else {
+      skuEl.textContent = "";
+      skuEl.style.display = "none";
+    }
+  }
   if (descEl) descEl.textContent = description || "";
   if (feedbackEl) { feedbackEl.textContent = ""; feedbackEl.style.display = "none"; }
 
@@ -1076,16 +1084,16 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
   }
 
   const originalPrice = sku && PRODUCT_PRICES[sku] ? PRODUCT_PRICES[sku] : null;
-  const isEligible = FESTIVE_OFFER_CONFIG.isEligible(sku);
-  const effectivePrice = FESTIVE_OFFER_CONFIG.getEffectivePrice(sku) || (originalPrice || "₹999");
+  const isEligible = sku ? FESTIVE_OFFER_CONFIG.isEligible(sku) : false;
+  const effectivePrice = sku ? (FESTIVE_OFFER_CONFIG.getEffectivePrice(sku) || (originalPrice || "₹999")) : null;
 
   // Privacy-first product view analytics tracking
   if (window.NBD_Analytics) {
     window.NBD_Analytics.track("product_view", {
-      sku: sku || "WED-005",
+      sku: sku || "LOOKBOOK",
       title: title || "Press-On Set",
       category: category || "Handmade Collection",
-      price: effectivePrice,
+      price: effectivePrice || "Custom Quotation",
     });
   }
 
@@ -1114,7 +1122,16 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
   }
 
   if (addBagLabel) {
-    addBagLabel.textContent = `Add to Bag • ${effectivePrice}`;
+    addBagLabel.textContent = sku ? `Add to Bag • ${effectivePrice}` : "Order Bespoke Set on WhatsApp →";
+  }
+  if (checkoutBtn) {
+    const checkoutSpan = checkoutBtn.querySelector("span");
+    if (checkoutSpan) {
+      checkoutSpan.textContent = sku ? "Direct Checkout →" : "Book Salon Service →";
+    }
+  }
+  if (actionBtn) {
+    actionBtn.style.display = sku ? "block" : "none";
   }
 
   // Active attributes
@@ -1219,8 +1236,17 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
   // Add to Bag Button
   if (addBagBtn) {
     addBagBtn.onclick = async () => {
+      if (!sku) {
+        // Bespoke Lookbook / Portfolio design: order directly via WhatsApp concierge
+        const sizeDetail = activeSize === "Custom"
+          ? `Custom Sizing (${activeShape}, ${activeLength})`
+          : `Size ${activeSize} (${activeShape}, ${activeLength})`;
+        const waText = encodeURIComponent(`Hi Divya! I would like to order the bespoke Lookbook design: *${title || "Bespoke Nail Art"}* [${category || "Bespoke Portfolio"}] with ${sizeDetail}. Please let me know the pricing and turnaround time.`);
+        window.open(`https://wa.me/${CHECKOUT_CONFIG.whatsappNumber}?text=${waText}`, "_blank", "noopener,noreferrer");
+        return;
+      }
       if (!window.NailsApi) return;
-      const targetSku = sku || "WED-005";
+      const targetSku = sku;
       const custom_measurements = getCustomMeasurements();
 
       try {
@@ -1267,8 +1293,14 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
   // Direct Checkout Button
   if (checkoutBtn) {
     checkoutBtn.onclick = async () => {
+      if (!sku) {
+        // Lookbook design: transition directly to at-home salon appointment consultation
+        closeAllModals();
+        openServiceModal(title, description);
+        return;
+      }
       if (!window.NailsApi) return;
-      const targetSku = sku || "WED-005";
+      const targetSku = sku;
       const custom_measurements = getCustomMeasurements();
 
       try {
@@ -1604,7 +1636,11 @@ async function openServiceModal(title, description) {
           const nameInput = document.getElementById("service-customer-name");
           const phoneInput = document.getElementById("service-customer-phone");
           const emailInput = document.getElementById("service-customer-email");
-          if (nameInput && !nameInput.value) nameInput.value = (u.profile && u.profile.full_name) || "";
+          if (nameInput && !nameInput.value) {
+            const rawName = (u.profile && u.profile.full_name) || "";
+            const isSynthetic = !rawName || rawName.trim().toLowerCase() === "customer" || rawName.trim().toLowerCase() === "bespoke client";
+            nameInput.value = isSynthetic ? "" : rawName.trim();
+          }
           if (phoneInput && !phoneInput.value) phoneInput.value = (u.phone || "").replace(/^\+91/, "");
           if (emailInput && !emailInput.value) emailInput.value = u.email || "";
 
@@ -1715,7 +1751,7 @@ async function refreshCartView() {
 
         return `
           <div class="cart-item-card" data-item-id="${it.id}">
-            <img src="${it.heroImageUrl || "assets/products/wedding/WED-005/herowedd5.png"}" alt="${escapeHtml(it.productName)}" class="cart-item-img" onerror="this.src='assets/products/wedding/WED-005/herowedd5.png'" />
+            <img src="${it.heroImageUrl || "assets/branding/icon1submark%20gold.png"}" alt="${escapeHtml(it.productName)}" class="cart-item-img" onerror="this.src='assets/branding/icon1submark%20gold.png'" />
             <div class="cart-item-details">
               <h4 class="cart-item-title">${escapeHtml(it.productName)}</h4>
               <span class="cart-item-spec">${escapeHtml(specParts.join(" • "))}</span>
@@ -1849,7 +1885,11 @@ async function openCheckoutModal() {
         const nameInput = document.getElementById("checkout-name");
         const phoneInput = document.getElementById("checkout-phone");
         const emailInput = document.getElementById("checkout-email");
-        if (nameInput && !nameInput.value) nameInput.value = (u.profile && u.profile.full_name) || "Customer";
+        if (nameInput && !nameInput.value) {
+          const rawName = (u.profile && u.profile.full_name) || "";
+          const isSynthetic = !rawName || rawName.trim().toLowerCase() === "customer" || rawName.trim().toLowerCase() === "bespoke client";
+          nameInput.value = isSynthetic ? "" : rawName.trim();
+        }
         if (phoneInput && !phoneInput.value) phoneInput.value = (u.phone || "").replace(/^\+91/, "");
         if (emailInput && !emailInput.value) emailInput.value = u.email || "";
 
