@@ -30,9 +30,14 @@
           <strong style="color: #2e7d32; font-size: 0.9rem;">Active Studio Session Detected</strong>
         </div>
         <p id="storefront-auth-user-label" style="margin: 0 0 0.75rem; font-size: 0.82rem; color: var(--text-primary);"></p>
-        <button type="button" id="btn-sync-storefront-auth" class="btn btn-primary" style="width: 100%; padding: 0.65rem;">
-          <span>Enter Studio Dashboard &rarr;</span>
-        </button>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          <button type="button" id="btn-sync-storefront-auth" class="btn btn-primary" style="flex: 1; padding: 0.65rem;">
+            <span>Enter Studio Dashboard &rarr;</span>
+          </button>
+          <button type="button" id="btn-sync-signout" class="btn btn-secondary" style="padding: 0.65rem 0.9rem; font-size: 0.82rem;">
+            <span>Sign Out</span>
+          </button>
+        </div>
       </div>
 
       <!-- 1B. CLIENT ACCOUNT DETECTED NOTICE -->
@@ -1106,7 +1111,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
   <script src="firebase-config.js"></script>
   <script src="account-api.js"></script>
-  <script src="auth.js?v=2"></script>
-  <script src="admin.js?v=13"></script>
+  <script src="auth.js?v=3"></script>
+  <script src="admin.js?v=14"></script>
 </body>
 </html>

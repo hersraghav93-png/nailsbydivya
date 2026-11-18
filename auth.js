@@ -397,20 +397,23 @@
                   const meRes = await window.NailsApi.getCurrentUser();
                   currentUser = (meRes && meRes.user) || {
                     id: fbUser.uid,
-                    phone: fbUser.phoneNumber,
+                    phone: fbUser.phoneNumber || null,
+                    email: fbUser.email || null,
                     firebase_uid: fbUser.uid,
                   };
                 } catch {
                   currentUser = {
                     id: fbUser.uid,
-                    phone: fbUser.phoneNumber,
+                    phone: fbUser.phoneNumber || null,
+                    email: fbUser.email || null,
                     firebase_uid: fbUser.uid,
                   };
                 }
               } else {
                 currentUser = {
                   id: fbUser.uid,
-                  phone: fbUser.phoneNumber,
+                  phone: fbUser.phoneNumber || null,
+                  email: fbUser.email || null,
                   firebase_uid: fbUser.uid,
                 };
               }
@@ -717,6 +720,9 @@
      */
     async signInWithEmail(email, password) {
       if (!isConfigured || !firebaseAuth) {
+        init();
+      }
+      if (!isConfigured || !firebaseAuth) {
         throw new Error("Authentication service is not configured.");
       }
       const cleanEmail = (email || "").trim().toLowerCase();
@@ -781,6 +787,9 @@
      * @returns {Promise<{ success: boolean, user: object, token: string }>}
      */
     async signInWithGoogle() {
+      if (!isConfigured || !firebaseAuth) {
+        init();
+      }
       if (!isConfigured || !firebaseAuth) {
         throw new Error("Authentication service is not configured.");
       }

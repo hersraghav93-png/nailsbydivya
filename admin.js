@@ -45,9 +45,12 @@
         // Fallback
       }
     }
-    const host = window.location.hostname || "";
+    const host = (window.location.hostname || "").toLowerCase().trim();
     if (host === "localhost" || host === "127.0.0.1" || host === "") {
       return "http://localhost:3000";
+    }
+    if (host === "nailsbydivya.store" || host === "www.nailsbydivya.store") {
+      return "https://nails-ai-backend.onrender.com";
     }
     return "https://nailsbydivya-staging-api.onrender.com";
   }
@@ -58,27 +61,33 @@
    * Makes an authenticated HTTP request to the admin backend.
    */
   async function adminFetch(endpoint, options = {}) {
-    const headers = options.headers || {};
+    const headers = { ...(options.headers || {}) };
     if (state.token) {
       headers["Authorization"] = `Bearer ${state.token}`;
     }
-    headers["Content-Type"] = headers["Content-Type"] || "application/json";
+    if (!headers["Content-Type"] && !(options.body instanceof FormData)) {
+      headers["Content-Type"] = "application/json";
+    }
 
     const res = await fetch(`${API_BASE}${endpoint}`, {
       ...options,
       headers,
     });
 
-    if (res.status === 401 || res.status === 403) {
-      if (res.status === 401) {
-        logout();
-      }
+    if (res.status === 401) {
+      state.token = null;
+      sessionStorage.removeItem("nbd_admin_token");
     }
 
-    const data = await res.json().catch(() => ({}));
+    const contentType = (res.headers.get("content-type") || "").toLowerCase();
+    const isJson = contentType.includes("application/json");
+    const data = isJson ? await res.json().catch(() => ({})) : {};
     if (!res.ok) {
-      const err = new Error(data.error || `HTTP ${res.status}: ${res.statusText}`);
-      err.code = data.code;
+      const apiErr = isJson && typeof data.error === "string" && !data.error.includes("<")
+        ? data.error
+        : `Server returned HTTP ${res.status}. Please verify backend availability.`;
+      const err = new Error(apiErr);
+      err.code = data.code || "HTTP_ERROR";
       err.status = res.status;
       err.data = data;
       throw err;
@@ -91,6 +100,20 @@
   // 1. AUTHENTICATION & IDENTITY DERIVATION
   // ---------------------------------------------------------------------------
   let adminResendInterval = null;
+  let authServiceBlocked = false;
+  let adminSessionCheckInFlight = false;
+
+  function formatSessionIdentity(user) {
+    if (!user) return "Authenticated Account";
+    return user.email || user.phone || "Authenticated Account";
+  }
+
+  function hideSessionSyncBoxes() {
+    const syncBox = document.getElementById("storefront-auth-sync-box");
+    const custBox = document.getElementById("admin-customer-session-box");
+    if (syncBox) syncBox.style.display = "none";
+    if (custBox) custBox.style.display = "none";
+  }
 
   function showAuthStatus(msg, isError = true) {
     const statusMsg = document.getElementById("auth-status-msg");
@@ -113,67 +136,111 @@
     if (statusMsg) statusMsg.style.display = "none";
   }
 
-  async function checkAuth() {
-    // 1. If we already have a session token stored in sessionStorage, verify it directly
-    if (state.token) {
-      try {
-        const data = await adminFetch("/api/admin/me");
-        state.adminUser = data.admin;
-        renderAdminUserPill();
-        showAppView();
-        loadActiveTabData();
-        return;
-      } catch (err) {
-        console.warn("[Admin Auth] Stored session invalid or expired:", err.message);
-        state.token = null;
-        sessionStorage.removeItem("nbd_admin_token");
-      }
+  async function verifyAdminToken(token) {
+    state.token = token;
+    const data = await adminFetch("/api/admin/me");
+    authServiceBlocked = false;
+    state.adminUser = data.admin;
+    sessionStorage.setItem("nbd_admin_token", token);
+    hideSessionSyncBoxes();
+    renderAdminUserPill();
+    showAppView();
+    loadActiveTabData();
+    return data;
+  }
+
+  function handleAdminVerificationError(err, user = null) {
+    state.token = null;
+    sessionStorage.removeItem("nbd_admin_token");
+    const syncBox = document.getElementById("storefront-auth-sync-box");
+    const custBox = document.getElementById("admin-customer-session-box");
+    const custPhone = document.getElementById("customer-session-phone");
+
+    if (err && (err.status === 503 || err.code === "AUTH_SERVICE_UNCONFIGURED")) {
+      authServiceBlocked = true;
+      if (syncBox) syncBox.style.display = "none";
+      if (custBox) custBox.style.display = "none";
+      showAuthStatus(
+        "Backend authentication verification is not configured on the production server (missing Firebase Admin credentials). Please contact studio support.",
+        true
+      );
+      return;
     }
 
-    // 2. Check if user is logged into Firebase/NailsAuth
-    if (typeof NailsAuth !== "undefined") {
-      if (typeof NailsAuth.init === "function") {
-        NailsAuth.init();
+    if (err && (err.status === 403 || err.code === "FORBIDDEN_ROLE")) {
+      authServiceBlocked = true;
+      if (syncBox) syncBox.style.display = "none";
+      if (custBox) {
+        custBox.style.display = "block";
+        if (custPhone) custPhone.textContent = formatSessionIdentity(user);
       }
-      if (typeof NailsAuth.isLoggedIn === "function" && NailsAuth.isLoggedIn()) {
-        const user = NailsAuth.getUser ? NailsAuth.getUser() : null;
-        const syncBox = document.getElementById("storefront-auth-sync-box");
-        const userLabel = document.getElementById("storefront-auth-user-label");
-        const custBox = document.getElementById("admin-customer-session-box");
-        const custPhone = document.getElementById("customer-session-phone");
+      showAuthStatus(
+        "Access Denied: The signed-in account does not have administrator privileges (requires artist_divya or super_operator).",
+        true
+      );
+      return;
+    }
 
-        // Attempt seamless auto-login with existing session token
+    if (syncBox) syncBox.style.display = "none";
+    if (err && err.status === 401) {
+      showAuthStatus("Your studio session has expired or could not be verified. Please sign in again.", true);
+      return;
+    }
+
+    showAuthStatus(
+      (err && err.message) || "Unable to verify administrator credentials. Please try again.",
+      true
+    );
+  }
+
+  async function checkAuth() {
+    adminSessionCheckInFlight = true;
+    hideSessionSyncBoxes();
+
+    try {
+      // 1. If we already have a session token stored in sessionStorage, verify it directly
+      if (state.token) {
         try {
-          const token = await NailsAuth.getToken();
-          if (token) {
-            state.token = token;
-            const data = await adminFetch("/api/admin/me");
-            state.adminUser = data.admin;
-            sessionStorage.setItem("nbd_admin_token", token);
-            renderAdminUserPill();
-            showAppView();
-            loadActiveTabData();
+          await verifyAdminToken(state.token);
+          return;
+        } catch (err) {
+          console.warn("[Admin Auth] Stored session invalid or unverified:", err.message);
+          if (err.status === 503 || err.code === "AUTH_SERVICE_UNCONFIGURED") {
+            handleAdminVerificationError(err);
+            showAuthView();
             return;
           }
-        } catch (autoErr) {
           state.token = null;
-          console.debug("[Admin Auth] Seamless auto-login notice:", autoErr.message);
-          if (autoErr.status === 403 || autoErr.code === "FORBIDDEN_ROLE") {
-            if (custBox) {
-              custBox.style.display = "block";
-              if (custPhone && user) custPhone.textContent = user.phone || user.id || "+91 Mobile";
+          sessionStorage.removeItem("nbd_admin_token");
+        }
+      }
+
+      // 2. Check if user is logged into Firebase/NailsAuth
+      if (typeof NailsAuth !== "undefined") {
+        if (typeof NailsAuth.init === "function") {
+          NailsAuth.init();
+        }
+        if (typeof NailsAuth.isLoggedIn === "function" && NailsAuth.isLoggedIn()) {
+          const user = NailsAuth.getUser ? NailsAuth.getUser() : null;
+
+          // Attempt seamless auto-login with existing session token
+          try {
+            const token = await NailsAuth.getToken();
+            if (token) {
+              await verifyAdminToken(token);
+              return;
             }
-            if (syncBox) syncBox.style.display = "none";
-            showAuthStatus("Access Denied: The active session does not have administrator privileges (requires artist_divya or super_operator).", true);
-          } else if (syncBox && user) {
-            syncBox.style.display = "block";
-            if (userLabel) userLabel.textContent = `Studio User: ${user.phone || user.id || "Authenticated Session"}`;
+          } catch (autoErr) {
+            console.debug("[Admin Auth] Seamless auto-login notice:", autoErr.message);
+            handleAdminVerificationError(autoErr, user);
           }
         }
       }
-    }
 
-    showAuthView();
+      showAuthView();
+    } finally {
+      adminSessionCheckInFlight = false;
+    }
   }
 
   function showAuthView() {
@@ -195,7 +262,7 @@
     const isArtist = roles.includes("artist_divya");
 
     if (nameEl) {
-      nameEl.textContent = state.adminUser.displayName || (isOwner ? "Raghav (Owner)" : (isArtist ? "Divya (Artist)" : state.adminUser.phone || "Admin"));
+      nameEl.textContent = state.adminUser.displayName || (isOwner ? "Raghav (Owner)" : (isArtist ? "Divya (Artist)" : state.adminUser.email || state.adminUser.phone || "Admin"));
     }
     if (roleEl) {
       roleEl.textContent = isOwner
@@ -212,53 +279,72 @@
   function logout() {
     state.token = null;
     state.adminUser = null;
+    authServiceBlocked = false;
     sessionStorage.removeItem("nbd_admin_token");
+    hideSessionSyncBoxes();
     if (typeof NailsAuth !== "undefined" && typeof NailsAuth.signOut === "function") {
       NailsAuth.signOut().catch(() => {});
     }
     showAuthView();
   }
 
-  // Subscribe to NailsAuth state changes for real-time storefront session synchrony
+  // Subscribe to NailsAuth state changes — never show conflicting "Active Studio Session" box
+  // while verification is in flight or backend rejected/unconfigured the session.
   if (typeof NailsAuth !== "undefined" && typeof NailsAuth.onAuthChange === "function") {
     NailsAuth.onAuthChange(async (user) => {
       const syncBox = document.getElementById("storefront-auth-sync-box");
       const userLabel = document.getElementById("storefront-auth-user-label");
-      if (syncBox && user && !state.token) {
+      if (!syncBox) return;
+      if (!user || state.token || authServiceBlocked || adminSessionCheckInFlight) {
+        syncBox.style.display = "none";
+        return;
+      }
+      // Only show sync banner if the user has an admin role already known from backend sync
+      const roles = Array.isArray(user.roles) ? user.roles : [];
+      const hasKnownAdminRole = roles.some((r) => ["super_operator", "artist_divya", "staff_artist", "support_staff"].includes(r));
+      if (hasKnownAdminRole) {
         syncBox.style.display = "block";
-        if (userLabel) userLabel.textContent = `Studio Artist: ${user.phone || user.id || "Authenticated Session"}`;
-      } else if (syncBox && !user) {
+        if (userLabel) userLabel.textContent = `Studio Account: ${formatSessionIdentity(user)}`;
+      } else {
         syncBox.style.display = "none";
       }
     });
   }
 
-  // Handle Storefront Session Sync Button
+  // Handle Storefront Session Sync Button (verifies token directly in memory without touching DOM inputs)
   const syncBtn = document.getElementById("btn-sync-storefront-auth");
   if (syncBtn) {
     syncBtn.addEventListener("click", async () => {
       if (typeof NailsAuth !== "undefined" && typeof NailsAuth.getToken === "function") {
         syncBtn.disabled = true;
         const originalText = syncBtn.innerHTML;
-        syncBtn.innerHTML = "<span>Retrieving Session Token...</span>";
+        syncBtn.innerHTML = "<span>Verifying Studio Session...</span>";
         clearAuthStatus();
         try {
           const token = await NailsAuth.getToken();
           if (token) {
-            const tokenInput = document.getElementById("admin-token-input");
-            if (tokenInput) tokenInput.value = token;
-            await handleAdminLogin();
+            await verifyAdminToken(token);
           } else {
-            showAuthStatus("No active Firebase session token found. Please sign in with phone OTP below.", true);
+            hideSessionSyncBoxes();
+            showAuthStatus("No active Firebase session token found. Please sign in below.", true);
           }
         } catch (err) {
           console.error("Token sync error:", err);
-          showAuthStatus(err.message || "Failed to retrieve session token.", true);
+          const user = NailsAuth.getUser ? NailsAuth.getUser() : null;
+          handleAdminVerificationError(err, user);
         } finally {
           syncBtn.disabled = false;
           syncBtn.innerHTML = originalText;
         }
       }
+    });
+  }
+
+  const syncSignoutBtn = document.getElementById("btn-sync-signout");
+  if (syncSignoutBtn) {
+    syncSignoutBtn.addEventListener("click", () => {
+      logout();
+      clearAuthStatus();
     });
   }
 
@@ -352,18 +438,11 @@
         const token = res.token || (await NailsAuth.getToken());
         if (!token) throw new Error("Failed to retrieve authentication token.");
 
-        state.token = token;
-        sessionStorage.setItem("nbd_admin_token", token);
-        const data = await adminFetch("/api/admin/me");
-        state.adminUser = data.admin;
-        renderAdminUserPill();
-        showAppView();
-        loadActiveTabData();
+        await verifyAdminToken(token);
       } catch (err) {
         console.error("[Admin Auth Error]:", err);
-        showAuthStatus(err.message || "Failed to sign in. Please verify your email and password.", true);
-        state.token = null;
-        sessionStorage.removeItem("nbd_admin_token");
+        const user = typeof NailsAuth !== "undefined" && NailsAuth.getUser ? NailsAuth.getUser() : { email };
+        handleAdminVerificationError(err, user);
       } finally {
         emailLoginBtn.disabled = false;
         emailLoginBtn.innerHTML = origHtml;
@@ -395,18 +474,11 @@
         const token = res.token || (await NailsAuth.getToken());
         if (!token) throw new Error("Failed to retrieve authentication token.");
 
-        state.token = token;
-        sessionStorage.setItem("nbd_admin_token", token);
-        const data = await adminFetch("/api/admin/me");
-        state.adminUser = data.admin;
-        renderAdminUserPill();
-        showAppView();
-        loadActiveTabData();
+        await verifyAdminToken(token);
       } catch (err) {
         console.error("[Admin Google Auth Error]:", err);
-        showAuthStatus(err.message || "Google sign-in was not completed.", true);
-        state.token = null;
-        sessionStorage.removeItem("nbd_admin_token");
+        const user = typeof NailsAuth !== "undefined" && NailsAuth.getUser ? NailsAuth.getUser() : null;
+        handleAdminVerificationError(err, user);
       } finally {
         googleLoginBtn.disabled = false;
         googleLoginBtn.innerHTML = origHtml;
@@ -1268,7 +1340,7 @@
 
     try {
       const data = await adminFetch(`/api/admin/bookings?${params.toString()}`);
-      state.bookings = data.appointments || [];
+      state.bookings = data.bookings || data.appointments || [];
       renderBookingsTable();
     } catch (err) {
       console.error("[Bookings Error]:", err.message);
@@ -1288,22 +1360,36 @@
     }
 
     tbody.innerHTML = state.bookings.map((b) => {
-      const dateStr = b.requested_date ? new Date(b.requested_date).toLocaleDateString("en-IN") : "-";
-      const isReq = b.booking_status === "REQUESTED";
-      const isConf = b.booking_status === "CONFIRMED";
+      const bookingNumber = b.bookingNumber || b.booking_number || "-";
+      const requestedDateRaw = b.requestedDate || b.requested_date;
+      const dateStr = requestedDateRaw ? new Date(requestedDateRaw).toLocaleDateString("en-IN") : "-";
+      const timeSlot = b.requestedTimeSlot || b.requested_time_slot || "-";
+      const customerName = b.customerName || b.customer_name || "Guest Client";
+      const customerPhone = b.customerPhone || b.customer_phone || "";
+      const serviceName = b.serviceName || b.service_name || b.serviceId || b.service_id || "-";
+      const addr = b.serviceAddress || b.service_address || {};
+      const locality =
+        b.locality ||
+        addr.locality ||
+        addr.landmark ||
+        [addr.city, addr.postalCode || addr.postal_code].filter(Boolean).join(" ") ||
+        "Delhi NCR";
+      const status = b.bookingStatus || b.booking_status || "REQUESTED";
+      const isReq = status === "REQUESTED";
+      const isConf = status === "CONFIRMED";
 
       return `
         <tr>
-          <td><strong style="color: var(--gold-primary);">${b.booking_number}</strong></td>
-          <td><strong>${dateStr}</strong></td>
-          <td>${b.requested_time_slot}</td>
+          <td><strong style="color: var(--gold-primary);">${escapeHtml(bookingNumber)}</strong></td>
+          <td><strong>${escapeHtml(dateStr)}</strong></td>
+          <td>${escapeHtml(timeSlot)}</td>
           <td>
-            <div style="font-weight: 600;">${escapeHtml(b.customer_name)}</div>
-            <div style="font-size: 0.75rem; color: var(--text-muted);">${b.customer_phone}</div>
+            <div style="font-weight: 600;">${escapeHtml(customerName)}</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted);">${escapeHtml(customerPhone)}</div>
           </td>
-          <td>${escapeHtml(b.service_name || b.service_id)}</td>
-          <td>${escapeHtml(b.locality || "Delhi NCR")}</td>
-          <td><span class="badge ${isConf ? 'badge-confirmed' : (isReq ? 'badge-pending' : 'badge-completed')}">${b.booking_status}</span></td>
+          <td>${escapeHtml(serviceName)}</td>
+          <td>${escapeHtml(locality)}</td>
+          <td><span class="badge ${isConf ? 'badge-confirmed' : (isReq ? 'badge-pending' : 'badge-completed')}">${escapeHtml(status)}</span></td>
           <td>
             <div class="actions-cell">
               ${isReq ? `
@@ -1311,7 +1397,7 @@
                 <button type="button" class="btn btn-secondary btn-sm" onclick="adminProposeBookingSlot('${b.id}')">Alt Slot</button>
                 <button type="button" class="btn btn-danger btn-sm" onclick="adminRejectBooking('${b.id}')">Decline</button>
               ` : `
-                <button type="button" class="btn btn-outline btn-sm" onclick="adminContactBookingClient('${b.customer_phone}', '${b.booking_number}')">WhatsApp</button>
+                <button type="button" class="btn btn-outline btn-sm" onclick="adminContactBookingClient('${escapeHtml(customerPhone)}', '${escapeHtml(bookingNumber)}')">WhatsApp</button>
               `}
             </div>
           </td>

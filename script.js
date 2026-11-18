@@ -1310,6 +1310,35 @@ const CANONICAL_SERVICES_MAP = {
   "nail extension removal": { id: "extension_removal", name: "Safe Extension Removal", price: "Price on Enquiry", isCustomQuote: true },
 };
 
+let cachedServiceCatalog = null;
+
+async function getLiveServiceCatalog() {
+  if (Array.isArray(cachedServiceCatalog) && cachedServiceCatalog.length > 0) {
+    return cachedServiceCatalog;
+  }
+  if (window.NailsApi && typeof window.NailsApi.listServices === "function") {
+    try {
+      const res = await window.NailsApi.listServices();
+      if (res && Array.isArray(res.services)) {
+        cachedServiceCatalog = res.services;
+        return cachedServiceCatalog;
+      }
+    } catch (err) {
+      console.warn("[Booking] Could not load live service catalog:", err.message);
+    }
+  }
+  return null;
+}
+
+function escapeBookingHtml(str) {
+  return String(str || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 /**
  * Opens the Editorial Service Modal (`#service-modal`) with interactive booking request.
  */
@@ -1344,76 +1373,19 @@ async function openServiceModal(title, description) {
 
   if (priceValEl) priceValEl.textContent = matchedService.price;
 
-  // Set min date to tomorrow
+  // Set min date to tomorrow and max date to +60 days (matching backend validation window)
   if (dateInput) {
     const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const maxDate = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
     dateInput.min = tomorrow.toISOString().split("T")[0];
+    dateInput.max = maxDate.toISOString().split("T")[0];
     dateInput.value = tomorrow.toISOString().split("T")[0];
   }
 
-  // Pre-fill customer details if authenticated
-  try {
-    if (window.NailsApi) {
-      const userRes = await window.NailsApi.getCurrentUser().catch(() => null);
-      if (userRes && userRes.user) {
-        const u = userRes.user;
-        const nameInput = document.getElementById("service-customer-name");
-        const phoneInput = document.getElementById("service-customer-phone");
-        const emailInput = document.getElementById("service-customer-email");
-        if (nameInput && !nameInput.value) nameInput.value = (u.profile && u.profile.full_name) || "Customer";
-        if (phoneInput && !phoneInput.value) phoneInput.value = (u.phone || "").replace(/^\+91/, "");
-        if (emailInput && !emailInput.value) emailInput.value = u.email || "";
-
-        // Also check saved addresses for default service address
-        const addrRes = await window.NailsApi.getCustomerAddresses().catch(() => null);
-        if (addrRes && addrRes.addresses && addrRes.addresses.length) {
-          const srvAddr = addrRes.addresses.find((a) => a.isDefaultService || a.is_default_service) || addrRes.addresses[0];
-          if (srvAddr) {
-            const l1 = document.getElementById("service-addr-line1");
-            const lm = document.getElementById("service-addr-landmark");
-            const city = document.getElementById("service-addr-city");
-            const pin = document.getElementById("service-addr-pin");
-            if (l1 && !l1.value) l1.value = srvAddr.addressLine1 || srvAddr.address_line1 || "";
-            if (lm && !lm.value) lm.value = srvAddr.landmark || "";
-            if (city && !city.value) city.value = srvAddr.city || "Delhi NCR";
-            if (pin && !pin.value) pin.value = srvAddr.postalCode || srvAddr.postal_code || "";
-          }
-        }
-      }
-    }
-  } catch {}
-
-  // Render addons dynamically
+  // Clear addons immediately while live database add-ons load
   if (addonsWrapper && addonsContainer) {
-    if (matchedService.id === "gel_extensions" || matchedService.id === "natural_overlay") {
-      addonsWrapper.style.display = "block";
-      addonsContainer.innerHTML = `
-        <label class="addon-checkbox-card">
-          <div class="addon-checkbox-left">
-            <input type="checkbox" name="service_addon" value="542e1dc4-f980-46bf-a160-c69b5788a453" />
-            <span>French Tip Precision Detailing</span>
-          </div>
-          <span class="addon-checkbox-price">Custom Quote</span>
-        </label>
-        <label class="addon-checkbox-card">
-          <div class="addon-checkbox-left">
-            <input type="checkbox" name="service_addon" value="ded5fc10-a4ce-4be0-8dc2-307aaa00aaf3" />
-            <span>Liquid Chrome Mirror Finish</span>
-          </div>
-          <span class="addon-checkbox-price">Custom Quote</span>
-        </label>
-        <label class="addon-checkbox-card">
-          <div class="addon-checkbox-left">
-            <input type="checkbox" name="service_addon" value="3c85fb85-43fc-4534-a85e-a0907f5bdbda" />
-            <span>3D Dimensional Art Accents (Per Pair)</span>
-          </div>
-          <span class="addon-checkbox-price">Custom Quote</span>
-        </label>
-      `;
-    } else {
-      addonsWrapper.style.display = "none";
-      addonsContainer.innerHTML = "";
-    }
+    addonsWrapper.style.display = "none";
+    addonsContainer.innerHTML = "";
   }
 
   // Active time slot handling
@@ -1436,7 +1408,7 @@ async function openServiceModal(title, description) {
 
       const submitBtn = document.getElementById("service-submit-btn");
       const name = document.getElementById("service-customer-name")?.value.trim();
-      const phone = document.getElementById("service-customer-phone")?.value.trim();
+      const rawPhone = document.getElementById("service-customer-phone")?.value.trim();
       const email = document.getElementById("service-customer-email")?.value.trim();
       const line1 = document.getElementById("service-addr-line1")?.value.trim();
       const landmark = document.getElementById("service-addr-landmark")?.value.trim();
@@ -1445,30 +1417,55 @@ async function openServiceModal(title, description) {
       const reqDate = document.getElementById("service-requested-date")?.value;
       const notes = document.getElementById("service-customer-notes")?.value.trim();
 
-      // Check selected addons
+      // Check selected addons (populated directly from live /api/services UUIDs)
       const selectedAddons = [];
       formEl.querySelectorAll('input[name="service_addon"]:checked').forEach((cb) => {
-        selectedAddons.push(cb.value);
+        if (cb.value) selectedAddons.push(cb.value);
       });
 
-      if (!name || !phone || !line1 || !pin || !reqDate) {
+      const showBookingError = (msg) => {
         if (errorEl) {
-          errorEl.textContent = "Please fill in all required fields (Name, Phone, Address, PIN, Date).";
+          errorEl.textContent = msg;
           errorEl.style.display = "block";
         }
+      };
+
+      if (!name || !rawPhone || !line1 || !pin || !reqDate) {
+        showBookingError("Please fill in all required fields (Name, Phone, Address, PIN, Date).");
+        return;
+      }
+
+      if (name.length < 2) {
+        showBookingError("Please enter your full name (at least 2 characters).");
+        return;
+      }
+
+      const phoneDigits = rawPhone.replace(/\D/g, "");
+      const tenDigitPhone = phoneDigits.length === 12 && phoneDigits.startsWith("91")
+        ? phoneDigits.slice(2)
+        : (phoneDigits.length === 11 && phoneDigits.startsWith("0") ? phoneDigits.slice(1) : phoneDigits);
+      if (!/^[6-9]\d{9}$/.test(tenDigitPhone)) {
+        showBookingError("Please provide a valid 10-digit Indian mobile number.");
+        return;
+      }
+      const normalizedPhone = `+91${tenDigitPhone}`;
+
+      if (line1.length < 5) {
+        showBookingError("Please enter a complete street/flat address (at least 5 characters).");
         return;
       }
 
       if (!/^[1-9][0-9]{5}$/.test(pin)) {
-        if (errorEl) {
-          errorEl.textContent = "Please provide a valid 6-digit Indian PIN code.";
-          errorEl.style.display = "block";
-        }
+        showBookingError("Please provide a valid 6-digit Indian PIN code.");
         return;
       }
 
+      const origBtnHtml = submitBtn ? submitBtn.innerHTML : "";
       try {
-        if (submitBtn) submitBtn.disabled = true;
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.innerHTML = "<span>Submitting Request...</span>";
+        }
         if (errorEl) errorEl.style.display = "none";
 
         const bookingPayload = {
@@ -1478,7 +1475,7 @@ async function openServiceModal(title, description) {
           addon_ids: selectedAddons,
           customer: {
             name,
-            phone,
+            phone: normalizedPhone,
             email: email || null,
           },
           serviceAddress: {
@@ -1504,7 +1501,7 @@ async function openServiceModal(title, description) {
         };
 
         const result = await window.NailsApi.createBooking(bookingPayload);
-        const bookingNum = result.booking?.bookingNumber || "NBD-BKG-CONFIRMED";
+        const bookingNum = result.booking?.bookingNumber || "NBD-BKG-REQUESTED";
 
         // Privacy-first booking submission analytics (strictly zero customer PII)
         if (window.NBD_Analytics) {
@@ -1534,22 +1531,86 @@ async function openServiceModal(title, description) {
           if (closeBtn) closeBtn.onclick = closeAllModals;
         }
       } catch (err) {
-        if (errorEl) {
-          let msg = err.message || "We're having trouble connecting. Please try again or contact Divya on WhatsApp.";
-          if (msg.includes("<") || msg.toLowerCase().startsWith("cannot ")) {
-            msg = "We're having trouble connecting. Please try again or contact Divya on WhatsApp.";
-          }
-          errorEl.textContent = msg;
-          errorEl.style.display = "block";
+        let msg = err.message || "We're having trouble connecting. Please try again or contact Divya on WhatsApp.";
+        if (msg.includes("<") || msg.toLowerCase().startsWith("cannot ")) {
+          msg = "We're having trouble connecting. Please try again or contact Divya on WhatsApp.";
         }
+        showBookingError(msg);
       } finally {
-        if (submitBtn) submitBtn.disabled = false;
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = origBtnHtml;
+        }
       }
     };
   }
 
+  // Open modal immediately without blocking on background API calls
+  modal.setAttribute("aria-hidden", "false");
   modal.classList.add("is-open");
   document.body.style.overflow = "hidden";
+
+  // Populate live service add-ons from backend catalog so UUIDs always match production DB
+  getLiveServiceCatalog().then((services) => {
+    if (!services || !addonsWrapper || !addonsContainer) return;
+    const liveSvc = services.find((s) => s.id === matchedService.id);
+    if (liveSvc && priceValEl && liveSvc.pricingDisplay && !matchedService.isCustomQuote) {
+      priceValEl.textContent = liveSvc.pricingDisplay;
+    }
+    const addons = liveSvc && Array.isArray(liveSvc.addons) ? liveSvc.addons : [];
+    if (addons.length > 0) {
+      addonsWrapper.style.display = "block";
+      addonsContainer.innerHTML = addons
+        .map(
+          (addon) => `
+        <label class="addon-checkbox-card">
+          <div class="addon-checkbox-left">
+            <input type="checkbox" name="service_addon" value="${escapeBookingHtml(addon.id)}" />
+            <span>${escapeBookingHtml(addon.name)}</span>
+          </div>
+          <span class="addon-checkbox-price">${escapeBookingHtml(addon.priceDisplay || "Custom Quote")}</span>
+        </label>
+      `
+        )
+        .join("");
+    } else {
+      addonsWrapper.style.display = "none";
+      addonsContainer.innerHTML = "";
+    }
+  });
+
+  // Pre-fill customer details only when an authenticated client session is active
+  if (window.NailsApi && window.NailsAuth && typeof window.NailsAuth.isAuthenticated === "function" && window.NailsAuth.isAuthenticated()) {
+    (async () => {
+      try {
+        const userRes = await window.NailsApi.getCurrentUser().catch(() => null);
+        if (userRes && userRes.user) {
+          const u = userRes.user;
+          const nameInput = document.getElementById("service-customer-name");
+          const phoneInput = document.getElementById("service-customer-phone");
+          const emailInput = document.getElementById("service-customer-email");
+          if (nameInput && !nameInput.value) nameInput.value = (u.profile && u.profile.full_name) || "";
+          if (phoneInput && !phoneInput.value) phoneInput.value = (u.phone || "").replace(/^\+91/, "");
+          if (emailInput && !emailInput.value) emailInput.value = u.email || "";
+
+          const addrRes = await window.NailsApi.getCustomerAddresses().catch(() => null);
+          if (addrRes && addrRes.addresses && addrRes.addresses.length) {
+            const srvAddr = addrRes.addresses.find((a) => a.isDefaultService || a.is_default_service) || addrRes.addresses[0];
+            if (srvAddr) {
+              const l1 = document.getElementById("service-addr-line1");
+              const lm = document.getElementById("service-addr-landmark");
+              const city = document.getElementById("service-addr-city");
+              const pin = document.getElementById("service-addr-pin");
+              if (l1 && !l1.value) l1.value = srvAddr.addressLine1 || srvAddr.address_line1 || "";
+              if (lm && !lm.value) lm.value = srvAddr.landmark || "";
+              if (city && !city.value) city.value = srvAddr.city || "Delhi NCR";
+              if (pin && !pin.value) pin.value = srvAddr.postalCode || srvAddr.postal_code || "";
+            }
+          }
+        }
+      } catch {}
+    })();
+  }
 }
 
 // ---------------------------------------------------------------------------
