@@ -390,18 +390,30 @@ function initMobileNav() {
   // Quick Cart trigger on mobile header
   const mobileCartBtn = document.getElementById("mobile-nav-cart-btn");
   if (mobileCartBtn) {
-    mobileCartBtn.addEventListener("click", () => {
+    mobileCartBtn.addEventListener("click", (e) => {
       toggleMenu(false);
-      if (typeof openCartDrawer === "function") openCartDrawer();
+      const overlay = document.getElementById("cart-drawer-overlay");
+      if (overlay) {
+        e.preventDefault();
+        if (typeof openCartDrawer === "function") openCartDrawer();
+      } else {
+        window.location.href = "index.html#shop";
+      }
     });
   }
 
   // Shopping Bag action inside mobile drawer
   const drawerCartBtn = document.getElementById("mobile-drawer-cart-btn");
   if (drawerCartBtn) {
-    drawerCartBtn.addEventListener("click", () => {
+    drawerCartBtn.addEventListener("click", (e) => {
       toggleMenu(false);
-      if (typeof openCartDrawer === "function") openCartDrawer();
+      const overlay = document.getElementById("cart-drawer-overlay");
+      if (overlay) {
+        e.preventDefault();
+        if (typeof openCartDrawer === "function") openCartDrawer();
+      } else {
+        window.location.href = "index.html#shop";
+      }
     });
   }
 
@@ -913,8 +925,11 @@ function initModals() {
   const navCartBtn = document.getElementById("nav-cart-btn");
   if (navCartBtn) {
     navCartBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      openCartDrawer();
+      const overlay = document.getElementById("cart-drawer-overlay");
+      if (overlay) {
+        e.preventDefault();
+        openCartDrawer();
+      }
     });
   }
 
@@ -1944,7 +1959,11 @@ async function openCheckoutModal() {
         }
       } catch (err) {
         if (errorEl) {
-          errorEl.textContent = err.message || "Failed to place order. Please try again.";
+          let msg = err.message || "Failed to place order. Please try again.";
+          if (msg.includes("<") || msg.toLowerCase().startsWith("cannot ")) {
+            msg = "We're having trouble connecting. Please try again or contact Divya on WhatsApp.";
+          }
+          errorEl.textContent = msg;
           errorEl.style.display = "block";
         }
       } finally {

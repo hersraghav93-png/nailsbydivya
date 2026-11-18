@@ -74,7 +74,7 @@
         <form id="admin-email-login-form" onsubmit="return false;" style="text-align: left;">
           <div style="margin-bottom: 1rem;">
             <label class="form-label" for="admin-email-input">Administrator Email</label>
-            <input type="email" id="admin-email-input" class="form-input" placeholder="e.g. hersraghav93@gmail.com" autocomplete="username" style="width: 100%;" required>
+            <input type="email" id="admin-email-input" class="form-input" placeholder="admin@example.com" autocomplete="username" style="width: 100%;" required>
             <p style="font-size: 0.74rem; color: var(--text-muted); margin-top: 0.35rem;">
               Authorized owner or artist email address configured in the studio registry.
             </p>
@@ -256,8 +256,8 @@
 
       <div class="sidebar-footer">
         <div class="admin-user-pill">
-          <span class="user-display-name" id="user-display-name">Divya (Artist)</span>
-          <span class="user-role-tag" id="user-role-tag">Lead Artist</span>
+          <span class="user-display-name" id="user-display-name">Studio Administrator</span>
+          <span class="user-role-tag" id="user-role-tag">Authorized Staff</span>
         </div>
         <button type="button" id="btn-logout" class="btn-logout">Logout</button>
       </div>
@@ -1111,7 +1111,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
   <script src="firebase-config.js"></script>
   <script src="account-api.js"></script>
-  <script src="auth.js?v=3"></script>
-  <script src="admin.js?v=14"></script>
+  <script src="auth.js?v=4"></script>
+  <script src="admin.js?v=15"></script>
 </body>
 </html>

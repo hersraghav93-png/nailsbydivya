@@ -684,7 +684,7 @@
                 id: fbUser.uid,
                 phone: fbUser.phoneNumber || pendingPhone,
                 firebase_uid: fbUser.uid,
-                profile: { full_name: "Customer" },
+                profile: null,
               };
             }
           }
@@ -693,7 +693,7 @@
             id: fbUser.uid,
             phone: fbUser.phoneNumber || pendingPhone,
             firebase_uid: fbUser.uid,
-            profile: { full_name: "Customer" },
+            profile: null,
           };
         }
 

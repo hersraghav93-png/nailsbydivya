@@ -119,21 +119,52 @@
     renderBookings();
   }
 
+  const PRESET_DETAILS = {
+    "XS": "Thumb 14mm · Index 11mm · Middle 12mm · Ring 10mm · Pinky 8mm",
+    "S": "Thumb 15mm · Index 12mm · Middle 13mm · Ring 11mm · Pinky 8mm",
+    "M": "Thumb 16mm · Index 12mm · Middle 13mm · Ring 11mm · Pinky 9mm (Most Common)",
+    "L": "Thumb 17mm · Index 13mm · Middle 14mm · Ring 12mm · Pinky 10mm",
+    "Custom": "Tailored sizing — enter exact measurements in millimeters below.",
+  };
+
+  function updatePresetGuide(preset) {
+    const guideEl = document.getElementById("preset-details-guide");
+    if (!guideEl) return;
+    const detail = PRESET_DETAILS[preset] || "";
+    guideEl.innerHTML = detail ? `✦ <strong>${preset} Preset Sizing:</strong> ${detail}` : "";
+    const measurementsContainer = document.querySelector(".measurements-container");
+    if (measurementsContainer) {
+      if (preset === "Custom") {
+        measurementsContainer.style.borderColor = "var(--accent-strong, #d9899b)";
+        measurementsContainer.style.background = "rgba(255, 240, 243, 0.75)";
+      } else {
+        measurementsContainer.style.borderColor = "rgba(125, 86, 92, 0.25)";
+        measurementsContainer.style.background = "rgba(255, 248, 246, 0.7)";
+      }
+    }
+  }
+
   /**
    * Renders header overview with user initials, name, and verified phone.
    */
   function renderUserOverview() {
     if (!currentUser) return;
 
-    const fullName =
+    const rawName =
       (currentProfile && currentProfile.full_name) ||
       (currentUser.profile && currentUser.profile.full_name) ||
-      "Bespoke Client";
+      "";
 
+    const isSynthetic = !rawName ||
+      rawName.trim().toLowerCase() === "customer" ||
+      rawName.trim().toLowerCase() === "bespoke client";
+
+    const hasRealName = !isSynthetic && rawName.trim().length > 0;
+    const displayName = hasRealName ? rawName.trim() : "Welcome";
+    const initial = hasRealName ? displayName.charAt(0).toUpperCase() : "💅🏻";
     const phone = currentUser.phone || "+91 Mobile";
-    const initial = fullName.charAt(0).toUpperCase();
 
-    if (clientNameDisplayEl) clientNameDisplayEl.textContent = fullName;
+    if (clientNameDisplayEl) clientNameDisplayEl.textContent = displayName;
     if (clientPhoneDisplayEl) clientPhoneDisplayEl.textContent = phone;
     if (clientInitialsEl) clientInitialsEl.textContent = initial;
   }
@@ -146,8 +177,10 @@
 
     const p = currentProfile || (currentUser && currentUser.profile) || {};
 
+    const rawName = p.full_name || (currentUser && currentUser.profile && currentUser.profile.full_name) || "";
+    const isSynthetic = !rawName || rawName.trim().toLowerCase() === "customer" || rawName.trim().toLowerCase() === "bespoke client";
     const nameInput = document.getElementById("profile-name-input");
-    if (nameInput) nameInput.value = p.full_name || "Customer";
+    if (nameInput) nameInput.value = isSynthetic ? "" : rawName.trim();
 
     // Nail Shape Selection Pills
     const shapeContainer = document.getElementById("profile-shapes-grid");
@@ -198,10 +231,14 @@
         </label>
       `).join("");
 
+      updatePresetGuide(selectedPreset);
+
       presetContainer.querySelectorAll(".pref-pill").forEach((pill) => {
         pill.addEventListener("click", () => {
           presetContainer.querySelectorAll(".pref-pill").forEach((el) => el.classList.remove("is-selected"));
           pill.classList.add("is-selected");
+          const radio = pill.querySelector("input");
+          if (radio) updatePresetGuide(radio.value);
         });
       });
     }
@@ -247,20 +284,26 @@
     const pinky = parseFloat(document.getElementById("measure-pinky")?.value);
 
     const custom_measurements = {};
-    if (!isNaN(thumb)) custom_measurements.thumb = thumb;
-    if (!isNaN(index)) custom_measurements.index = index;
-    if (!isNaN(middle)) custom_measurements.middle = middle;
-    if (!isNaN(ring)) custom_measurements.ring = ring;
-    if (!isNaN(pinky)) custom_measurements.pinky = pinky;
+    if (!isNaN(thumb) && thumb > 0) custom_measurements.thumb = thumb;
+    if (!isNaN(index) && index > 0) custom_measurements.index = index;
+    if (!isNaN(middle) && middle > 0) custom_measurements.middle = middle;
+    if (!isNaN(ring) && ring > 0) custom_measurements.ring = ring;
+    if (!isNaN(pinky) && pinky > 0) custom_measurements.pinky = pinky;
 
+    const enteredName = nameInput ? nameInput.value.trim() : "";
     const payload = {
-      full_name: (nameInput && nameInput.value.trim()) || "Customer",
       preferred_nail_shape: (shapeRadio && shapeRadio.value) || "Almond",
       preferred_nail_length: (lengthRadio && lengthRadio.value) || "Medium",
       sizing_preset: (presetRadio && presetRadio.value) || "M",
       custom_nail_measurements: Object.keys(custom_measurements).length ? custom_measurements : null,
       allergies_or_notes: (document.getElementById("profile-notes-input")?.value.trim()) || null,
     };
+
+    if (enteredName) {
+      payload.full_name = enteredName;
+    } else if (currentProfile && currentProfile.full_name && currentProfile.full_name.trim().toLowerCase() !== "customer") {
+      payload.full_name = currentProfile.full_name;
+    }
 
     try {
       if (window.NailsApi) {
@@ -272,7 +315,11 @@
         showProfileFeedback("✓ Preferences updated locally.", true);
       }
     } catch (err) {
-      showProfileFeedback(err.message || "Failed to update profile.", false);
+      let msg = err.message || "Failed to update profile.";
+      if (msg.includes("<") || msg.toLowerCase().startsWith("cannot ")) {
+        msg = "We're having trouble connecting. Please try again or contact Divya on WhatsApp.";
+      }
+      showProfileFeedback(msg, false);
     } finally {
       setButtonLoading(saveBtn, false);
     }
@@ -286,37 +333,51 @@
 
     if (!savedAddresses || savedAddresses.length === 0) {
       addressListEl.innerHTML = `
-        <div class="empty-state-card" style="padding: 1.5rem; text-align: center; color: var(--text-muted); background: var(--bg-soft); border-radius: var(--radius-md);">
-          <p style="margin: 0; font-size: 0.92rem;">No delivery addresses saved yet.</p>
-          <p style="margin: 0.25rem 0 0; font-size: 0.82rem;">Add your address for rapid press-on dispatch and at-home appointments.</p>
+        <div class="empty-state-card">
+          <span class="empty-state-icon" aria-hidden="true">📍</span>
+          <h4>No Saved Delivery Addresses</h4>
+          <p>Save your home address for rapid press-on dispatch and seamless at-home appointment scheduling across Delhi NCR.</p>
+          <button type="button" class="button secondary-button" id="empty-add-address-btn" style="min-height: 40px; padding: 0.5rem 1.25rem; font-size: 0.88rem; margin-top: 0.5rem;">
+            + Add First Address
+          </button>
         </div>
       `;
+      const emptyBtn = document.getElementById("empty-add-address-btn");
+      if (emptyBtn) emptyBtn.addEventListener("click", () => openAddressModal());
       return;
     }
 
     addressListEl.innerHTML = savedAddresses.map((addr) => {
       const isDefault = addr.isDefault || addr.is_default_shipping;
       const isService = addr.isDefaultService || addr.is_default_service;
+      const recipientName = addr.recipientName || addr.recipient_name || "";
+      const displayRecipient = (recipientName && recipientName.toLowerCase() !== "customer") ? recipientName : "Delivery Address";
+      const phone = addr.recipientPhone || addr.recipient_phone || "";
+      const line1 = addr.addressLine1 || addr.address_line1 || "";
+      const line2 = addr.addressLine2 || addr.address_line2 || "";
+      const landmark = addr.landmark || "";
+      const city = addr.city || "";
+      const state = addr.state || "";
+      const pin = addr.postalCode || addr.postal_code || "";
 
       return `
-        <div class="address-item-card ${isDefault ? "is-default" : ""}" data-id="${addr.id}">
-          <div class="address-item-header">
-            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-              <strong style="color: var(--heading); font-size: 0.95rem;">${escapeHtml(addr.recipientName || addr.recipient_name)}</strong>
-              ${isDefault ? '<span class="address-badge">Default Shipping</span>' : ""}
-              ${isService ? '<span class="address-badge" style="background: rgba(197, 160, 89, 0.18); color: #8c6a23;">Default Appointment</span>' : ""}
-            </div>
-            <div class="address-actions-menu">
-              <button type="button" class="addr-action-btn edit-addr-btn" data-id="${addr.id}" aria-label="Edit address">Edit</button>
-              <button type="button" class="addr-action-btn delete-addr-btn" data-id="${addr.id}" aria-label="Delete address">Delete</button>
+        <div class="address-card" data-id="${addr.id}">
+          <div class="address-card-header">
+            <h4 class="addr-recipient-name">${escapeHtml(displayRecipient)}</h4>
+            <div class="addr-badges">
+              ${isDefault ? '<span class="addr-badge badge-shipping">Default Press-On Delivery</span>' : ""}
+              ${isService ? '<span class="addr-badge badge-service">Default At-Home Location</span>' : ""}
             </div>
           </div>
-
-          <div class="address-item-body">
-            <p>${escapeHtml(addr.addressLine1 || addr.address_line1)}${addr.addressLine2 || addr.address_line2 ? `, ${escapeHtml(addr.addressLine2 || addr.address_line2)}` : ""}</p>
-            ${addr.landmark ? `<p class="address-landmark">Near ${escapeHtml(addr.landmark)}</p>` : ""}
-            <p>${escapeHtml(addr.city)}, ${escapeHtml(addr.state)} — ${escapeHtml(addr.postalCode || addr.postal_code)}</p>
-            <p class="address-phone">Mobile: ${escapeHtml(addr.recipientPhone || addr.recipient_phone)}</p>
+          ${phone ? `<p class="addr-phone">Phone: ${escapeHtml(phone)}</p>` : ""}
+          <p class="addr-lines">
+            ${escapeHtml(line1)}${line2 ? `, ${escapeHtml(line2)}` : ""}${landmark ? `<br><span style="font-size: 0.82rem; color: var(--text-muted);">Landmark: ${escapeHtml(landmark)}</span>` : ""}<br>
+            ${escapeHtml(city)}, ${escapeHtml(state)} — ${escapeHtml(pin)}
+          </p>
+          <div class="address-card-actions">
+            <button type="button" class="addr-action-btn edit-addr-btn" data-id="${addr.id}" aria-label="Edit address">Edit</button>
+            <span style="color: rgba(125, 86, 92, 0.25);">&bull;</span>
+            <button type="button" class="addr-action-btn delete-addr-btn" data-id="${addr.id}" aria-label="Delete address" style="color: #9b1c1c;">Delete</button>
           </div>
         </div>
       `;
@@ -345,11 +406,14 @@
 
     if (!savedOrders || savedOrders.length === 0) {
       ordersListEl.innerHTML = `
-        <div style="padding: 1.75rem 1rem; text-align: center; color: var(--text-muted); background: var(--bg-soft); border-radius: var(--radius-md); border: 1px solid var(--line);">
-          <span style="font-size: 1.8rem; display: block; margin-bottom: 0.35rem;">📦</span>
-          <p style="margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--heading);">No Press-On Orders Placed Yet</p>
-          <p style="margin: 0.35rem 0 0.85rem; font-size: 0.84rem;">Explore our 22 collectible handcrafted press-on sets. Delivery arrangements confirmed by studio.</p>
-          <a href="index.html#shop" class="button secondary-button" style="min-height: 38px; padding: 0.4rem 1rem; font-size: 0.84rem; display: inline-flex;">Explore Press-On Sets &rarr;</a>
+        <div class="empty-state-card">
+          <span class="empty-state-icon" aria-hidden="true">🛍️</span>
+          <h4>No Press-On Orders Placed Yet</h4>
+          <p>Explore our collectible handcrafted press-on sets. Each set is custom hand-painted by Divya with salon-grade soft gel and delivered across India.</p>
+          <a href="index.html#shop" class="button secondary-button" style="min-height: 40px; padding: 0.5rem 1.25rem; font-size: 0.88rem; display: inline-flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem;">
+            <span>Explore Press-On Sets</span>
+            <span aria-hidden="true">&rarr;</span>
+          </a>
         </div>
       `;
       return;
@@ -428,11 +492,14 @@
 
     if (!savedBookings || savedBookings.length === 0) {
       bookingsListEl.innerHTML = `
-        <div style="padding: 1.75rem 1rem; text-align: center; color: var(--text-muted); background: var(--bg-soft); border-radius: var(--radius-md); border: 1px solid var(--line);">
-          <span style="font-size: 1.8rem; display: block; margin-bottom: 0.35rem;">💅🏻</span>
-          <p style="margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--heading);">No Salon Appointments Requested Yet</p>
-          <p style="margin: 0.35rem 0 0.85rem; font-size: 0.84rem;">Enjoy luxury salon-grade nail extensions &amp; overlays in your home across Delhi NCR.</p>
-          <a href="index.html#services" class="button secondary-button" style="min-height: 38px; padding: 0.4rem 1rem; font-size: 0.84rem; display: inline-flex;">Explore At-Home Services &rarr;</a>
+        <div class="empty-state-card">
+          <span class="empty-state-icon" aria-hidden="true">💅🏻</span>
+          <h4>No Salon Appointments Scheduled</h4>
+          <p>Enjoy luxury salon-grade nail extensions &amp; overlays in the comfort of your home across Delhi NCR.</p>
+          <a href="index.html#services" class="button secondary-button" style="min-height: 40px; padding: 0.5rem 1.25rem; font-size: 0.88rem; display: inline-flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem;">
+            <span>Explore At-Home Services</span>
+            <span aria-hidden="true">&rarr;</span>
+          </a>
         </div>
       `;
       return;

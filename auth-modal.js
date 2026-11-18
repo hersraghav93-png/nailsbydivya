@@ -627,8 +627,10 @@
 
       if (user) {
         btn.classList.add("is-logged-in");
-        const displayName = (user.profile && user.profile.full_name) || "My Account";
-        const initial = displayName.charAt(0).toUpperCase();
+        const rawName = (user.profile && user.profile.full_name) || "";
+        const isSynthetic = !rawName || rawName.trim().toLowerCase() === "customer" || rawName.trim().toLowerCase() === "bespoke client";
+        const displayName = isSynthetic ? "My Account" : rawName.trim();
+        const initial = isSynthetic ? "👤" : displayName.charAt(0).toUpperCase();
         btn.innerHTML = `
           <span class="nav-auth-avatar" aria-hidden="true">${initial}</span>
           <span class="nav-auth-label">Account</span>

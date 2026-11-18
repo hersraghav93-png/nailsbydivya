@@ -256,13 +256,22 @@
   function renderAdminUserPill() {
     if (!state.adminUser) return;
     const nameEl = document.getElementById("user-display-name");
-    const roleEl = document.getElementById("user-role-tag");
+    const roleEl = document.getElementById("user-role-tag") || document.getElementById("user-role-badge");
     const roles = state.adminUser.roles || [];
     const isOwner = roles.includes("super_operator");
     const isArtist = roles.includes("artist_divya");
 
     if (nameEl) {
-      nameEl.textContent = state.adminUser.displayName || (isOwner ? "Raghav (Owner)" : (isArtist ? "Divya (Artist)" : state.adminUser.email || state.adminUser.phone || "Admin"));
+      const realDisplayName = state.adminUser.displayName || state.adminUser.name || "";
+      if (realDisplayName) {
+        nameEl.textContent = realDisplayName;
+      } else if (isOwner) {
+        nameEl.textContent = state.adminUser.email || "Studio Administrator";
+      } else if (isArtist) {
+        nameEl.textContent = "Divya (Artist)";
+      } else {
+        nameEl.textContent = state.adminUser.email || state.adminUser.phone || "Administrator";
+      }
     }
     if (roleEl) {
       roleEl.textContent = isOwner
@@ -551,7 +560,7 @@
 
       if (isBillingDisabled || (typeof NailsAuth !== "undefined" && NailsAuth.isBillingDisabled && NailsAuth.isBillingDisabled())) {
         showAuthStatus(
-          "⚠️ Phone verification is temporarily unavailable: SMS billing (Blaze plan) is not enabled on the Firebase project. Verification codes cannot be sent to mobile devices (+91) at this time. Please use the ID Token sign-in below or contact Raghav.",
+          "⚠️ Phone verification is temporarily unavailable: SMS billing (Blaze plan) is not enabled on the Firebase project. Verification codes cannot be sent to mobile devices (+91) at this time. Please use the Email & Password sign-in above or contact studio administrator.",
           true
         );
         sendOtpBtn.disabled = true;
@@ -603,7 +612,7 @@
           sendOtpBtn.innerHTML = "<span>SMS Verification Unavailable</span>";
           sendOtpBtn.title = "SMS billing is disabled on the Firebase project.";
           showAuthStatus(
-            "⚠️ Phone verification is temporarily unavailable: SMS billing (Blaze plan) is not enabled on the Firebase project. Verification codes cannot be sent to mobile devices (+91) at this time. Please use the ID Token sign-in below or contact Raghav.",
+            "⚠️ Phone verification is temporarily unavailable: SMS billing (Blaze plan) is not enabled on the Firebase project. Verification codes cannot be sent to mobile devices (+91) at this time. Please use the Email & Password sign-in above or contact studio administrator.",
             true
           );
         } else {
