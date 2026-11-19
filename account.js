@@ -185,7 +185,7 @@
     const hasRealName = !isSynthetic && rawName.trim().length > 0;
     const greetingName = hasRealName ? rawName.trim() : "";
     const greetingText = hasRealName ? `Welcome, ${greetingName}` : "Welcome";
-    const initial = hasRealName ? greetingName.charAt(0).toUpperCase() : "💅🏻";
+    const initial = hasRealName ? greetingName.charAt(0).toUpperCase() : "D";
     const phone = currentUser.phone || "+91 Mobile";
 
     if (clientNameDisplayEl) clientNameDisplayEl.textContent = greetingText;
@@ -358,7 +358,9 @@
     if (!savedAddresses || savedAddresses.length === 0) {
       addressListEl.innerHTML = `
         <div class="empty-state-card">
-          <span class="empty-state-icon" aria-hidden="true">📍</span>
+          <span class="empty-state-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          </span>
           <h4>No Saved Delivery Addresses</h4>
           <p>Save your home address for rapid press-on dispatch and seamless at-home appointment scheduling across Delhi NCR.</p>
           <button type="button" class="button secondary-button" id="empty-add-address-btn" style="min-height: 40px; padding: 0.5rem 1.25rem; font-size: 0.88rem; margin-top: 0.5rem;">
@@ -431,7 +433,9 @@
     if (!savedOrders || savedOrders.length === 0) {
       ordersListEl.innerHTML = `
         <div class="empty-state-card">
-          <span class="empty-state-icon" aria-hidden="true">🛍️</span>
+          <span class="empty-state-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+          </span>
           <h4>No Press-On Orders Placed Yet</h4>
           <p>Explore our collectible handcrafted press-on sets. Each set is custom hand-painted by Divya with salon-grade soft gel and delivered across India.</p>
           <a href="index.html#shop" class="button secondary-button" style="min-height: 40px; padding: 0.5rem 1.25rem; font-size: 0.88rem; display: inline-flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem;">
@@ -517,7 +521,9 @@
     if (!savedBookings || savedBookings.length === 0) {
       bookingsListEl.innerHTML = `
         <div class="empty-state-card">
-          <span class="empty-state-icon" aria-hidden="true">💅🏻</span>
+          <span class="empty-state-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          </span>
           <h4>No Salon Appointments Scheduled</h4>
           <p>Enjoy luxury salon-grade nail extensions &amp; overlays in the comfort of your home across Delhi NCR.</p>
           <a href="index.html#services" class="button secondary-button" style="min-height: 40px; padding: 0.5rem 1.25rem; font-size: 0.88rem; display: inline-flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem;">

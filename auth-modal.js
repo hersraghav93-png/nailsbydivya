@@ -78,7 +78,7 @@
             </form>
 
             <p class="auth-step-note">
-              <span>🔒</span> We'll send a 6-digit verification code. No password required.
+              We'll send a 6-digit verification code. No password required.
             </p>
           </div>
 
@@ -284,7 +284,7 @@
         <span style="font-weight: 700; color: #9b1c1c;">Online Client Accounts Notice</span>
         <span>SMS authentication is currently undergoing maintenance. Online accounts are temporarily offline, but you can complete your order as a guest or contact Nails by Divya on WhatsApp.</span>
         <a href="https://wa.me/918447391310?text=Hi%20Divya!%20I%20have%20an%20enquiry%20about%20my%20order." target="_blank" rel="noopener" style="display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; margin-top: 0.25rem; padding: 0.45rem 0.85rem; background: #25D366; color: #ffffff; border-radius: 6px; font-weight: 600; font-size: 0.84rem; text-decoration: none;">
-          <span>💬 Contact on WhatsApp</span>
+          <span>Contact on WhatsApp &rarr;</span>
         </a>
       </div>
     `;
@@ -298,11 +298,11 @@
     if (!errorBannerEl) return;
     errorBannerEl.innerHTML = `
       <div class="auth-maintenance-notice" style="display: flex; flex-direction: column; gap: 0.45rem;">
-        <span style="font-weight: 700; color: #9b1c1c;">⚠️ Phone Verification Temporarily Unavailable</span>
+        <span style="font-weight: 700; color: #9b1c1c;">Phone Verification Temporarily Unavailable</span>
         <span>SMS verification is currently unavailable because SMS delivery is not enabled for this project. No verification code was sent to your phone.</span>
         <span style="font-size: 0.82rem; color: #4b5563;">You can complete bespoke press-on orders as a guest or reach out directly to Nails by Divya on WhatsApp for booking enquiries and custom sets.</span>
         <a href="https://wa.me/918447391310?text=Hi%20Divya!%20I'd%20like%20to%20enquire%20about%20an%20order%20or%20booking." target="_blank" rel="noopener" style="display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; margin-top: 0.35rem; padding: 0.5rem 0.85rem; background: #25D366; color: #ffffff; border-radius: 6px; font-weight: 600; font-size: 0.84rem; text-decoration: none;">
-          <span>💬 Contact on WhatsApp</span>
+          <span>Contact on WhatsApp &rarr;</span>
         </a>
       </div>
     `;
@@ -630,7 +630,7 @@
         const rawName = (user.profile && user.profile.full_name) || "";
         const isSynthetic = !rawName || rawName.trim().toLowerCase() === "customer" || rawName.trim().toLowerCase() === "bespoke client";
         const displayName = isSynthetic ? "My Account" : rawName.trim();
-        const initial = isSynthetic ? "👤" : displayName.charAt(0).toUpperCase();
+        const initial = isSynthetic ? "D" : displayName.charAt(0).toUpperCase();
         btn.innerHTML = `
           <span class="nav-auth-avatar" aria-hidden="true">${initial}</span>
           <span class="nav-auth-label">Account</span>
@@ -644,7 +644,6 @@
       } else {
         btn.classList.remove("is-logged-in");
         btn.innerHTML = `
-          <span class="nav-auth-icon" aria-hidden="true">👤</span>
           <span class="nav-auth-label">Sign In</span>
         `;
         btn.setAttribute("aria-label", "Sign In or Register");

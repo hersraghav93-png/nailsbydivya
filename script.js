@@ -2428,15 +2428,15 @@ function initDivvStylist() {
   const renderWelcomeScreen = () => {
     bodyEl.innerHTML = `
       <div class="divv-welcome-screen">
-        <span class="divv-welcome-badge">✨ Luxury AI Consultation</span>
+        <span class="divv-welcome-badge">✦ Studio AI Consultation</span>
         <h4 class="divv-welcome-title">Welcome to Nails by Divya</h4>
-        <p class="divv-welcome-text">Hi! I'm Divv 💅🏻 — Your Nail Stylist. I'm here to help you discover the perfect press-on set, explain customisations, or guide you through our at-home services.</p>
+        <p class="divv-welcome-text">Hi! I'm Divv — Your Nail Stylist. I'm here to help you discover the perfect press-on set, explain customisations, or guide you through our at-home services.</p>
         <div class="divv-chips-grid">
-          <button type="button" class="divv-chip" data-chip="How do I choose my perfect press-on nails?">💅 Find my perfect nails</button>
-          <button type="button" class="divv-chip" data-chip="What press-on nail sets do you offer?">✨ Browse Press-On Nails</button>
-          <button type="button" class="divv-chip" data-chip="Can I customize lengths, shapes, or chrome art?">🎨 Custom Designs</button>
-          <button type="button" class="divv-chip" data-chip="How does delivery and the 10-minute prep kit work?">📦 Delivery Questions</button>
-          <button type="button" class="divv-chip" data-chip="How do at-home nail appointments work across Delhi NCR?">📅 Book an Appointment</button>
+          <button type="button" class="divv-chip" data-chip="How do I choose my perfect press-on nails?">Find My Perfect Nails</button>
+          <button type="button" class="divv-chip" data-chip="What press-on nail sets do you offer?">Browse Press-On Nails</button>
+          <button type="button" class="divv-chip" data-chip="Can I customize lengths, shapes, or chrome art?">Custom Designs</button>
+          <button type="button" class="divv-chip" data-chip="How does delivery and the 10-minute prep kit work?">Delivery &amp; Application</button>
+          <button type="button" class="divv-chip" data-chip="How do at-home nail appointments work across Delhi NCR?">Book At-Home Appointment</button>
         </div>
       </div>
     `;
@@ -2459,7 +2459,7 @@ function initDivvStylist() {
       if (showHandoff) {
         handoffMarkup = `
           <a href="https://wa.me/${CHECKOUT_CONFIG.whatsappNumber}?text=Hi%20Divya!%20I%20was%20chatting%20with%20Divv%20and%20I'd%20love%20some%20help%20with%20my%20nails." target="_blank" rel="noopener noreferrer" class="divv-handoff-btn">
-            <span>💬 Chat with the Artist</span>
+            <span>Consult Divya on WhatsApp &rarr;</span>
           </a>
         `;
       }

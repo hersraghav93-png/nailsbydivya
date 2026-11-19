@@ -80,6 +80,26 @@ htmlFiles.forEach(file => {
   }
 });
 
+// Verify canonical navigation architecture across all pages
+console.log('\n▶ TEST SECTION 3B: Canonical Navigation Architecture & Responsiveness');
+htmlFiles.forEach(file => {
+  const content = fs.readFileSync(path.join(ROOT_DIR, file), 'utf8');
+  assert(content.includes('class="nav-primary"'), `${file}: defines canonical desktop .nav-primary`);
+  assert(content.includes('class="nav-actions"'), `${file}: defines canonical desktop .nav-actions`);
+  assert(content.includes('class="nav-mobile-bar"'), `${file}: defines responsive mobile quick bar .nav-mobile-bar`);
+  assert(content.includes('id="nav-links"') && content.includes('class="mobile-drawer-header"'), `${file}: defines accessible slide-in drawer with header`);
+});
+
+// Verify script UI strings are free of emoji clutter
+const scriptContent = fs.readFileSync(path.join(ROOT_DIR, 'script.js'), 'utf8');
+const accountJsContent = fs.readFileSync(path.join(ROOT_DIR, 'account.js'), 'utf8');
+const authModalContent = fs.readFileSync(path.join(ROOT_DIR, 'auth-modal.js'), 'utf8');
+
+assert(!scriptContent.includes("Hi! I'm Divv 💅🏻"), "script.js: Divv greeting is free of raw emojis");
+assert(!scriptContent.includes("✨ Luxury AI Consultation"), "script.js: Divv consultation badge uses elegant editorial styling");
+assert(!accountJsContent.includes('const initial = hasRealName ? greetingName.charAt(0).toUpperCase() : "💅🏻";'), "account.js: Fallback avatar uses monogram 'D' instead of emoji");
+assert(!authModalContent.includes('<span>🔒</span>'), "auth-modal.js: Passwordless note free of cartoon lock emoji");
+
 console.log('\n▶ TEST SECTION 4: CSS Typography, Sticky Nav Offset, & Responsive Layouts');
 const cssContent = fs.readFileSync(path.join(ROOT_DIR, 'style.css'), 'utf8');
 

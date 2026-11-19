@@ -2368,6 +2368,26 @@ p {
   .lookbook-carousel-pagination {
     display: flex !important;
     justify-content: center !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .lookbook-grid {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+    margin-left: -0.75rem !important;
+    margin-right: -0.75rem !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .lookbook-grid {
+    padding-left: 0.625rem !important;
+    padding-right: 0.625rem !important;
+    margin-left: -0.625rem !important;
+    margin-right: -0.625rem !important;
+  }
+}
     align-items: center !important;
     padding: 0.35rem 1rem 0.5rem !important;
     margin-top: -0.25rem !important;
