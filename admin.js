@@ -105,7 +105,7 @@
 
   function formatSessionIdentity(user) {
     if (!user) return "Authenticated Account";
-    return user.email || user.phone || "Authenticated Account";
+    return user.email || user.phone || user.displayName || "Authenticated Account";
   }
 
   function hideSessionSyncBoxes() {
@@ -119,21 +119,24 @@
     const statusMsg = document.getElementById("auth-status-msg");
     if (!statusMsg) return;
     statusMsg.style.display = "block";
-    if (isError) {
-      statusMsg.style.background = "rgba(198, 40, 40, 0.12)";
-      statusMsg.style.border = "1px solid rgba(198, 40, 40, 0.3)";
-      statusMsg.style.color = "#c62828";
+    statusMsg.className = "auth-status-banner";
+    if (isError === true || isError === "error") {
+      statusMsg.classList.add("is-error");
+    } else if (isError === "success") {
+      statusMsg.classList.add("is-success");
     } else {
-      statusMsg.style.background = "rgba(46, 125, 50, 0.12)";
-      statusMsg.style.border = "1px solid rgba(46, 125, 50, 0.3)";
-      statusMsg.style.color = "#2e7d32";
+      statusMsg.classList.add("is-info");
     }
     statusMsg.textContent = msg;
   }
 
   function clearAuthStatus() {
     const statusMsg = document.getElementById("auth-status-msg");
-    if (statusMsg) statusMsg.style.display = "none";
+    if (statusMsg) {
+      statusMsg.style.display = "none";
+      statusMsg.className = "auth-status-banner";
+      statusMsg.textContent = "";
+    }
   }
 
   async function verifyAdminToken(token) {
@@ -161,7 +164,7 @@
       if (syncBox) syncBox.style.display = "none";
       if (custBox) custBox.style.display = "none";
       showAuthStatus(
-        "Backend authentication verification is not configured on the production server (missing Firebase Admin credentials). Please contact studio support.",
+        "Studio authentication service is currently initializing. Please try again shortly or contact the studio administrator.",
         true
       );
       return;
@@ -205,13 +208,13 @@
           return;
         } catch (err) {
           console.warn("[Admin Auth] Stored session invalid or unverified:", err.message);
+          state.token = null;
+          sessionStorage.removeItem("nbd_admin_token");
           if (err.status === 503 || err.code === "AUTH_SERVICE_UNCONFIGURED") {
             handleAdminVerificationError(err);
             showAuthView();
             return;
           }
-          state.token = null;
-          sessionStorage.removeItem("nbd_admin_token");
         }
       }
 
@@ -223,15 +226,35 @@
         if (typeof NailsAuth.isLoggedIn === "function" && NailsAuth.isLoggedIn()) {
           const user = NailsAuth.getUser ? NailsAuth.getUser() : null;
 
-          // Attempt seamless auto-login with existing session token
           try {
             const token = await NailsAuth.getToken();
             if (token) {
-              await verifyAdminToken(token);
-              return;
+              // Verify backend session and role BEFORE showing any active session box
+              const data = await adminFetch("/api/admin/me", {
+                headers: { Authorization: `Bearer ${token}` }
+              });
+              const roles = data.admin?.roles || [];
+              const isAuthorized = roles.includes("super_operator") || roles.includes("artist_divya");
+              if (isAuthorized) {
+                state.token = token;
+                state.adminUser = data.admin;
+                const syncBox = document.getElementById("storefront-auth-sync-box");
+                const userLabel = document.getElementById("storefront-auth-user-label");
+                if (syncBox) {
+                  syncBox.style.display = "block";
+                  const roleName = roles.includes("super_operator") ? "Owner / Super Operator" : "Lead Artist (Divya)";
+                  if (userLabel) userLabel.textContent = `Verified Studio Account: ${formatSessionIdentity(data.admin)} (${roleName})`;
+                }
+                showAuthView();
+                return;
+              } else {
+                handleAdminVerificationError({ status: 403, code: "FORBIDDEN_ROLE" }, user);
+                showAuthView();
+                return;
+              }
             }
           } catch (autoErr) {
-            console.debug("[Admin Auth] Seamless auto-login notice:", autoErr.message);
+            console.debug("[Admin Auth] Session check notice:", autoErr.message);
             handleAdminVerificationError(autoErr, user);
           }
         }
@@ -294,11 +317,12 @@
     if (typeof NailsAuth !== "undefined" && typeof NailsAuth.signOut === "function") {
       NailsAuth.signOut().catch(() => {});
     }
+    clearAuthStatus();
     showAuthView();
   }
 
-  // Subscribe to NailsAuth state changes — never show conflicting "Active Studio Session" box
-  // while verification is in flight or backend rejected/unconfigured the session.
+  // Subscribe to NailsAuth state changes — never show "Active Studio Session" box
+  // unless backend has verified the session and confirmed an administrator role.
   if (typeof NailsAuth !== "undefined" && typeof NailsAuth.onAuthChange === "function") {
     NailsAuth.onAuthChange(async (user) => {
       const syncBox = document.getElementById("storefront-auth-sync-box");
@@ -308,14 +332,30 @@
         syncBox.style.display = "none";
         return;
       }
-      // Only show sync banner if the user has an admin role already known from backend sync
-      const roles = Array.isArray(user.roles) ? user.roles : [];
-      const hasKnownAdminRole = roles.some((r) => ["super_operator", "artist_divya", "staff_artist", "support_staff"].includes(r));
-      if (hasKnownAdminRole) {
-        syncBox.style.display = "block";
-        if (userLabel) userLabel.textContent = `Studio Account: ${formatSessionIdentity(user)}`;
-      } else {
+      try {
+        const token = await NailsAuth.getToken();
+        if (!token) {
+          syncBox.style.display = "none";
+          return;
+        }
+        const data = await adminFetch("/api/admin/me", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const roles = data.admin?.roles || [];
+        const isAuthorized = roles.includes("super_operator") || roles.includes("artist_divya");
+        if (isAuthorized) {
+          state.token = token;
+          state.adminUser = data.admin;
+          syncBox.style.display = "block";
+          const roleName = roles.includes("super_operator") ? "Owner / Super Operator" : "Lead Artist (Divya)";
+          if (userLabel) userLabel.textContent = `Verified Studio Account: ${formatSessionIdentity(data.admin)} (${roleName})`;
+        } else {
+          syncBox.style.display = "none";
+          handleAdminVerificationError({ status: 403, code: "FORBIDDEN_ROLE" }, user);
+        }
+      } catch (err) {
         syncBox.style.display = "none";
+        handleAdminVerificationError(err, user);
       }
     });
   }
@@ -324,27 +364,25 @@
   const syncBtn = document.getElementById("btn-sync-storefront-auth");
   if (syncBtn) {
     syncBtn.addEventListener("click", async () => {
-      if (typeof NailsAuth !== "undefined" && typeof NailsAuth.getToken === "function") {
-        syncBtn.disabled = true;
-        const originalText = syncBtn.innerHTML;
-        syncBtn.innerHTML = "<span>Verifying Studio Session...</span>";
-        clearAuthStatus();
-        try {
-          const token = await NailsAuth.getToken();
-          if (token) {
-            await verifyAdminToken(token);
-          } else {
-            hideSessionSyncBoxes();
-            showAuthStatus("No active Firebase session token found. Please sign in below.", true);
-          }
-        } catch (err) {
-          console.error("Token sync error:", err);
-          const user = NailsAuth.getUser ? NailsAuth.getUser() : null;
-          handleAdminVerificationError(err, user);
-        } finally {
-          syncBtn.disabled = false;
-          syncBtn.innerHTML = originalText;
+      syncBtn.disabled = true;
+      const originalText = syncBtn.innerHTML;
+      syncBtn.innerHTML = "<span>Entering Studio Dashboard...</span>";
+      clearAuthStatus();
+      try {
+        const token = state.token || (typeof NailsAuth !== "undefined" && typeof NailsAuth.getToken === "function" ? await NailsAuth.getToken() : null);
+        if (token) {
+          await verifyAdminToken(token);
+        } else {
+          hideSessionSyncBoxes();
+          showAuthStatus("No verified studio session token found. Please sign in below.", true);
         }
+      } catch (err) {
+        console.error("Token sync error:", err);
+        const user = typeof NailsAuth !== "undefined" && NailsAuth.getUser ? NailsAuth.getUser() : null;
+        handleAdminVerificationError(err, user);
+      } finally {
+        syncBtn.disabled = false;
+        syncBtn.innerHTML = originalText;
       }
     });
   }
@@ -378,16 +416,10 @@
     tabEmail.addEventListener("click", () => {
       clearAuthStatus();
       tabEmail.classList.add("is-active");
-      tabEmail.style.background = "var(--bg-surface)";
-      tabEmail.style.borderColor = "var(--border-light)";
-      tabEmail.style.color = "var(--text-primary)";
-      tabEmail.style.fontWeight = "600";
+      tabEmail.setAttribute("aria-selected", "true");
 
       tabPhone.classList.remove("is-active");
-      tabPhone.style.background = "transparent";
-      tabPhone.style.borderColor = "transparent";
-      tabPhone.style.color = "var(--text-muted)";
-      tabPhone.style.fontWeight = "500";
+      tabPhone.setAttribute("aria-selected", "false");
 
       if (emailAuthContainer) emailAuthContainer.style.display = "block";
       if (phoneAuthContainer) phoneAuthContainer.style.display = "none";
@@ -396,16 +428,10 @@
     tabPhone.addEventListener("click", () => {
       clearAuthStatus();
       tabPhone.classList.add("is-active");
-      tabPhone.style.background = "var(--bg-surface)";
-      tabPhone.style.borderColor = "var(--border-light)";
-      tabPhone.style.color = "var(--text-primary)";
-      tabPhone.style.fontWeight = "600";
+      tabPhone.setAttribute("aria-selected", "true");
 
       tabEmail.classList.remove("is-active");
-      tabEmail.style.background = "transparent";
-      tabEmail.style.borderColor = "transparent";
-      tabEmail.style.color = "var(--text-muted)";
-      tabEmail.style.fontWeight = "500";
+      tabEmail.setAttribute("aria-selected", "false");
 
       if (phoneAuthContainer) phoneAuthContainer.style.display = "block";
       if (emailAuthContainer) emailAuthContainer.style.display = "none";
@@ -560,7 +586,7 @@
 
       if (isBillingDisabled || (typeof NailsAuth !== "undefined" && NailsAuth.isBillingDisabled && NailsAuth.isBillingDisabled())) {
         showAuthStatus(
-          "⚠️ Phone verification is temporarily unavailable: SMS billing (Blaze plan) is not enabled on the Firebase project. Verification codes cannot be sent to mobile devices (+91) at this time. Please use the Email & Password sign-in above or contact studio administrator.",
+          "Mobile phone SMS verification is currently unavailable. Please sign in using your Administrator Email & Password above.",
           true
         );
         sendOtpBtn.disabled = true;
@@ -612,7 +638,7 @@
           sendOtpBtn.innerHTML = "<span>SMS Verification Unavailable</span>";
           sendOtpBtn.title = "SMS billing is disabled on the Firebase project.";
           showAuthStatus(
-            "⚠️ Phone verification is temporarily unavailable: SMS billing (Blaze plan) is not enabled on the Firebase project. Verification codes cannot be sent to mobile devices (+91) at this time. Please use the Email & Password sign-in above or contact studio administrator.",
+            "Mobile phone SMS verification is currently unavailable. Please sign in using your Administrator Email & Password above.",
             true
           );
         } else {
@@ -882,15 +908,90 @@
   }
 
   // ---------------------------------------------------------------------------
+  // TEST DATA COHORT DISTINCTION HELPERS
+  // ---------------------------------------------------------------------------
+  const KNOWN_TEST_CUSTOMERS = new Set([
+    "Ananya Roy",
+    "Ops Customer",
+    "Cancel Customer",
+    "Customer A",
+    "Aditi Sharma",
+    "Idem User",
+    "Rhea Sen",
+    "Verified Customer",
+    "Aanya Verma",
+    "Staging Test Customer",
+    "Ops Booking Customer",
+    "Meera Kapoor",
+    "Aarti Verma",
+    "Radhika Mehra",
+    "Pooja Malhotra",
+    "Pooja Verma",
+  ]);
+
+  function isSmokeTestRecord(item) {
+    if (!item) return false;
+    const name = (item.customer_name || item.customerName || "").trim();
+    const phone = (item.customer_phone || item.customerPhone || "").trim();
+    return name.includes("Raghavendra") || phone.includes("7307622189");
+  }
+
+  function isTestRecord(item) {
+    if (!item) return false;
+    if (isSmokeTestRecord(item)) return false;
+    const name = (item.customer_name || item.customerName || "").trim();
+    const orderNum = (item.order_number || item.orderNumber || "").trim();
+    const bkgNum = (item.booking_number || item.bookingNumber || "").trim();
+    if (KNOWN_TEST_CUSTOMERS.has(name)) return true;
+    if (orderNum.startsWith("NBD-ORD-PAY-") || orderNum.startsWith("NBD-ORD-OPS-")) return true;
+    if (bkgNum.startsWith("NBD-BKG-OPS-")) return true;
+    return false;
+  }
+
+  // ---------------------------------------------------------------------------
   // 3. OVERVIEW METRICS & FINANCIALS
   // ---------------------------------------------------------------------------
   async function loadOverview() {
+    const errorBanner = document.getElementById("overview-error-banner");
+    if (errorBanner) {
+      errorBanner.style.display = "none";
+      errorBanner.innerHTML = "";
+    }
+
     try {
       const data = await adminFetch("/api/admin/overview");
       state.overview = data.overview;
       renderOverview();
     } catch (err) {
       console.error("[Overview Error]:", err.message);
+      // DO NOT DISPLAY MISLEADING ZEROES ON API FAILURE
+      const setText = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = val;
+      };
+      setText("metric-new-orders", "—");
+      setText("metric-pending-payments", "—");
+      setText("metric-confirmed-orders", "—");
+      setText("metric-booking-requests", "—");
+      setText("metric-awaiting-dispatch", "—");
+      setText("fin-paid-revenue", "—");
+      setText("fin-pending-amount", "—");
+      setText("fin-aov", "—");
+
+      if (errorBanner) {
+        errorBanner.style.display = "block";
+        errorBanner.innerHTML = `
+          <div style="background: rgba(158, 61, 72, 0.08); border: 1px solid rgba(158, 61, 72, 0.28); border-radius: var(--radius-sm); padding: 0.9rem 1.15rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
+            <div>
+              <strong style="color: var(--danger); font-size: 0.88rem;">Failed to retrieve live operational metrics</strong>
+              <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem;">${escapeHtml(err.message || "The studio API server could not be reached.")}</div>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="loadOverview()">
+              <span>↻ Retry Metrics</span>
+            </button>
+          </div>
+        `;
+      }
     }
   }
 
@@ -904,11 +1005,18 @@
       if (el) el.textContent = val !== undefined ? val : "0";
     };
 
-    setText("metric-new-orders", ov.orders ? ov.orders.pendingOrders : 0);
-    setText("metric-pending-payments", ov.orders ? ov.orders.pendingOrders : 0);
-    setText("metric-confirmed-orders", ov.orders ? ov.orders.confirmedOrders : 0);
-    setText("metric-booking-requests", ov.bookings ? ov.bookings.requestedBookings : 0);
-    setText("metric-awaiting-dispatch", ov.orders ? ov.orders.awaitingDispatchOrders : 0);
+    // Metrics: support both camelCase descriptive keys and compact backend keys
+    const pendingOrders = ov.orders ? (ov.orders.pendingOrders ?? ov.orders.pending ?? 0) : 0;
+    const confirmedOrders = ov.orders ? (ov.orders.confirmedOrders ?? ov.orders.confirmed ?? 0) : 0;
+    const requestedBookings = ov.bookings ? (ov.bookings.requestedBookings ?? ov.bookings.newRequests ?? 0) : 0;
+    const awaitingDispatch = ov.orders ? (ov.orders.awaitingDispatchOrders ?? ov.orders.awaitingDispatch ?? 0) : 0;
+    const pendingPaymentsCount = ov.orders ? (ov.orders.pendingPayments ?? ov.orders.pendingPaymentOrders ?? ov.orders.pending ?? 0) : 0;
+
+    setText("metric-new-orders", pendingOrders);
+    setText("metric-pending-payments", pendingPaymentsCount);
+    setText("metric-confirmed-orders", confirmedOrders);
+    setText("metric-booking-requests", requestedBookings);
+    setText("metric-awaiting-dispatch", awaitingDispatch);
 
     // Badges in sidebar
     const setBadge = (id, count) => {
@@ -923,15 +1031,28 @@
       }
     };
 
-    setBadge("badge-pending-orders", ov.orders ? ov.orders.pendingOrders : 0);
-    setBadge("badge-unverified-payments", ov.orders ? ov.orders.pendingOrders : 0);
-    setBadge("badge-requested-bookings", ov.bookings ? ov.bookings.requestedBookings : 0);
+    setBadge("badge-pending-orders", pendingOrders);
+    setBadge("badge-unverified-payments", pendingPaymentsCount);
+    setBadge("badge-requested-bookings", requestedBookings);
 
     // Financials
     if (ov.financials) {
-      setText("fin-paid-revenue", `₹${Number(ov.financials.paidRevenue || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`);
-      setText("fin-pending-amount", `₹${Number(ov.financials.pendingPaymentAmount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`);
-      setText("fin-aov", `₹${Number(ov.financials.averageOrderValue || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`);
+      const paidRev = Number(ov.financials.paidRevenue || 0);
+      const pendingAmt = Number(ov.financials.pendingPaymentAmount || 0);
+      const calculatedAov = Number(ov.financials.averageOrderValue || 0);
+
+      setText("fin-paid-revenue", `₹${paidRev.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`);
+      setText("fin-pending-amount", `₹${pendingAmt.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`);
+      setText("fin-aov", `₹${calculatedAov.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`);
+    }
+
+    // Update Ground-Truth ledger badge
+    const cohortBadge = document.getElementById("overview-cohort-badge");
+    if (cohortBadge) {
+      const totalOrd = ov.orders?.total ?? 0;
+      const totalBkg = ov.bookings?.total ?? 0;
+      cohortBadge.textContent = `${totalOrd} Total Orders • ${totalBkg} Bookings`;
+      cohortBadge.title = `Staging database holds ${totalOrd} total orders (including historical test suites and smoke test records) and ${totalBkg} bookings.`;
     }
   }
 
@@ -939,6 +1060,11 @@
   // 4. ORDER MANAGEMENT
   // ---------------------------------------------------------------------------
   async function loadOrders() {
+    const tbody = document.getElementById("orders-table-body");
+    if (tbody) {
+      tbody.innerHTML = `<tr><td colspan="9" class="table-empty-cell"><span class="spinner-sm"></span> Loading customer orders...</td></tr>`;
+    }
+
     const status = document.getElementById("orders-filter-status")?.value || "";
     const paymentStatus = document.getElementById("orders-filter-payment")?.value || "";
     const search = document.getElementById("orders-search-input")?.value || "";
@@ -947,7 +1073,7 @@
     if (status) params.append("status", status);
     if (paymentStatus) params.append("payment_status", paymentStatus);
     if (search) params.append("search", search);
-    params.append("limit", "50");
+    params.append("limit", "100");
 
     try {
       const data = await adminFetch(`/api/admin/orders?${params.toString()}`);
@@ -955,6 +1081,9 @@
       renderOrdersTable();
     } catch (err) {
       console.error("[Orders Error]:", err.message);
+      if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="9" class="table-error-cell">Failed to load orders: ${escapeHtml(err.message || "Network error")}. <button type="button" class="btn btn-secondary btn-sm" onclick="loadOrders()" style="margin-left: 0.5rem;">↻ Retry</button></td></tr>`;
+      }
     }
   }
 
@@ -962,24 +1091,45 @@
     const tbody = document.getElementById("orders-table-body");
     if (!tbody) return;
 
-    if (state.orders.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 2rem; color: var(--text-muted);">No orders found matching current filters.</td></tr>`;
+    const cohortFilter = document.getElementById("orders-filter-cohort")?.value || "";
+    let ordersToDisplay = state.orders;
+    if (cohortFilter === "live") {
+      ordersToDisplay = ordersToDisplay.filter((o) => !isTestRecord(o));
+    } else if (cohortFilter === "test") {
+      ordersToDisplay = ordersToDisplay.filter((o) => isTestRecord(o));
+    }
+
+    if (ordersToDisplay.length === 0) {
+      const emptyMsg = cohortFilter === "live"
+        ? "No live customer orders found matching current filters."
+        : (cohortFilter === "test" ? "No test cohort records found matching current filters." : "No orders found matching current filters.");
+      tbody.innerHTML = `<tr><td colspan="9" class="table-empty-cell">${emptyMsg}</td></tr>`;
       return;
     }
 
-    tbody.innerHTML = state.orders.map((order) => {
+    tbody.innerHTML = ordersToDisplay.map((order) => {
       const dateStr = order.created_at ? new Date(order.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "-";
       const totalStr = `₹${parseFloat(order.total_amount).toFixed(2)}`;
       const paymentBadgeClass = order.payment_status === "VERIFIED" ? "badge-verified" : (order.payment_status === "FAILED" ? "badge-failed" : "badge-pending");
       const orderBadgeClass = order.order_status === "CONFIRMED" || order.order_status === "DELIVERED" ? "badge-confirmed" : (order.order_status === "CANCELLED" ? "badge-cancelled" : (order.order_status === "IN_PRODUCTION" ? "badge-production" : "badge-pending"));
 
+      let cohortBadge = `<span class="badge badge-live" title="Live Customer Order">Live</span>`;
+      if (isSmokeTestRecord(order)) {
+        cohortBadge = `<span class="badge badge-smoke" title="Developer Smoke-Test Order (Preserved)">Smoke</span>`;
+      } else if (isTestRecord(order)) {
+        cohortBadge = `<span class="badge badge-test" title="Automated Synthetic Test Order">Test</span>`;
+      }
+
       return `
         <tr>
-          <td><strong style="color: var(--gold-primary);">${order.order_number}</strong></td>
+          <td><strong style="color: var(--gold-primary);">${escapeHtml(order.order_number)}</strong></td>
           <td>${dateStr}</td>
           <td>
-            <div style="font-weight: 600;">${escapeHtml(order.customer_name)}</div>
-            <div style="font-size: 0.75rem; color: var(--text-muted);">${order.customer_phone || ""}</div>
+            <div style="font-weight: 600; display: flex; align-items: center; gap: 0.35rem;">
+              <span>${escapeHtml(order.customer_name)}</span>
+              ${cohortBadge}
+            </div>
+            <div style="font-size: 0.75rem; color: var(--text-muted);">${escapeHtml(order.customer_phone || "")}</div>
           </td>
           <td>${order.item_count || 1} sets</td>
           <td><strong>${totalStr}</strong></td>
@@ -989,8 +1139,8 @@
           <td>
             <div class="actions-cell">
               <button type="button" class="btn btn-secondary btn-sm" onclick="adminViewOrder('${order.id}')">View</button>
-              ${order.payment_status !== "VERIFIED" ? `<button type="button" class="btn btn-primary btn-sm" onclick="adminOpenPaymentModal('${order.id}', '${order.order_number}', ${order.total_amount})">Verify ₹</button>` : ""}
-              ${order.order_status === "IN_PRODUCTION" || order.order_status === "READY_FOR_DISPATCH" ? `<button type="button" class="btn btn-outline btn-sm" onclick="adminOpenDispatchModal('${order.id}', '${order.customer_phone}')">Dispatch</button>` : ""}
+              ${order.payment_status !== "VERIFIED" ? `<button type="button" class="btn btn-primary btn-sm" onclick="adminOpenPaymentModal('${order.id}', '${escapeHtml(order.order_number)}', ${order.total_amount})">Verify ₹</button>` : ""}
+              ${order.order_status === "IN_PRODUCTION" || order.order_status === "READY_FOR_DISPATCH" ? `<button type="button" class="btn btn-outline btn-sm" onclick="adminOpenDispatchModal('${order.id}', '${escapeHtml(order.customer_phone)}')">Dispatch</button>` : ""}
             </div>
           </td>
         </tr>
@@ -999,9 +1149,9 @@
   }
 
   // Filter Listeners
-  ["orders-filter-status", "orders-filter-payment"].forEach((id) => {
+  ["orders-filter-status", "orders-filter-payment", "orders-filter-cohort"].forEach((id) => {
     const el = document.getElementById(id);
-    if (el) el.addEventListener("change", loadOrders);
+    if (el) el.addEventListener("change", (id === "orders-filter-cohort" ? renderOrdersTable : loadOrders));
   });
   const orderSearch = document.getElementById("orders-search-input");
   if (orderSearch) {
@@ -1140,16 +1290,24 @@
   // 5. PAYMENT VERIFICATION (PHASE 5.1A DEDICATED)
   // ---------------------------------------------------------------------------
   async function loadPayments() {
+    const tbody = document.getElementById("payments-table-body");
+    if (tbody) {
+      tbody.innerHTML = `<tr><td colspan="8" class="table-empty-cell"><span class="spinner-sm"></span> Loading payment verification records...</td></tr>`;
+    }
+
     const filter = document.getElementById("payments-filter-status")?.value || "";
     const params = new URLSearchParams();
     if (filter) params.append("payment_status", filter);
-    params.append("limit", "50");
+    params.append("limit", "100");
 
     try {
       const data = await adminFetch(`/api/admin/orders?${params.toString()}`);
       renderPaymentsTable(data.orders || []);
     } catch (err) {
       console.error("[Payments Error]:", err.message);
+      if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="8" class="table-error-cell">Failed to load payments: ${escapeHtml(err.message || "Network error")}. <button type="button" class="btn btn-secondary btn-sm" onclick="loadPayments()" style="margin-left: 0.5rem;">↻ Retry</button></td></tr>`;
+      }
     }
   }
 
@@ -1161,25 +1319,37 @@
     if (!tbody) return;
 
     if (orders.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-muted);">No payment records found.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" class="table-empty-cell">No payment records found matching current filters.</td></tr>`;
       return;
     }
 
     tbody.innerHTML = orders.map((o) => {
       const isVerified = o.payment_status === "VERIFIED";
       const total = parseFloat(o.total_amount).toFixed(2);
+      let cohortBadge = `<span class="badge badge-live" title="Live Customer Order">Live</span>`;
+      if (isSmokeTestRecord(o)) {
+        cohortBadge = `<span class="badge badge-smoke" title="Developer Smoke-Test Order (Preserved)">Smoke</span>`;
+      } else if (isTestRecord(o)) {
+        cohortBadge = `<span class="badge badge-test" title="Automated Synthetic Test Order">Test</span>`;
+      }
+
       return `
         <tr>
-          <td><strong style="color: var(--gold-primary);">${o.order_number}</strong></td>
-          <td>${escapeHtml(o.customer_name)}</td>
-          <td>${o.customer_phone || "-"}</td>
+          <td><strong style="color: var(--gold-primary);">${escapeHtml(o.order_number)}</strong></td>
+          <td>
+            <div style="font-weight: 600; display: flex; align-items: center; gap: 0.35rem;">
+              <span>${escapeHtml(o.customer_name)}</span>
+              ${cohortBadge}
+            </div>
+          </td>
+          <td>${escapeHtml(o.customer_phone || "-")}</td>
           <td><strong>₹${total}</strong></td>
-          <td><span class="badge ${isVerified ? 'badge-verified' : 'badge-pending'}">${o.payment_status}</span></td>
-          <td>${o.transaction_reference || "-"}</td>
+          <td><span class="badge ${isVerified ? 'badge-verified' : 'badge-pending'}">${escapeHtml(o.payment_status)}</span></td>
+          <td>${escapeHtml(o.transaction_reference || "-")}</td>
           <td>${o.verified_at ? new Date(o.verified_at).toLocaleDateString("en-IN") : "-"}</td>
           <td>
             ${!isVerified
-              ? `<button type="button" class="btn btn-primary btn-sm" onclick="adminOpenPaymentModal('${o.id}', '${o.order_number}', ${o.total_amount})">Verify Payment</button>`
+              ? `<button type="button" class="btn btn-primary btn-sm" onclick="adminOpenPaymentModal('${o.id}', '${escapeHtml(o.order_number)}', ${o.total_amount})">Verify Payment</button>`
               : `<span style="color: var(--success); font-size: 0.8rem; font-weight: 600;">✓ Verified</span>`
             }
           </td>
@@ -1342,10 +1512,15 @@
   // 7. APPOINTMENTS & BOOKINGS (DELHI NCR)
   // ---------------------------------------------------------------------------
   async function loadBookings() {
+    const tbody = document.getElementById("bookings-table-body");
+    if (tbody) {
+      tbody.innerHTML = `<tr><td colspan="8" class="table-empty-cell"><span class="spinner-sm"></span> Loading appointment bookings...</td></tr>`;
+    }
+
     const status = document.getElementById("bookings-filter-status")?.value || "";
     const params = new URLSearchParams();
     if (status) params.append("status", status);
-    params.append("limit", "50");
+    params.append("limit", "100");
 
     try {
       const data = await adminFetch(`/api/admin/bookings?${params.toString()}`);
@@ -1353,22 +1528,38 @@
       renderBookingsTable();
     } catch (err) {
       console.error("[Bookings Error]:", err.message);
+      if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="8" class="table-error-cell">Failed to load bookings: ${escapeHtml(err.message || "Network error")}. <button type="button" class="btn btn-secondary btn-sm" onclick="loadBookings()" style="margin-left: 0.5rem;">↻ Retry</button></td></tr>`;
+      }
     }
   }
 
   const bkgFilter = document.getElementById("bookings-filter-status");
   if (bkgFilter) bkgFilter.addEventListener("change", loadBookings);
+  const bkgCohortFilter = document.getElementById("bookings-filter-cohort");
+  if (bkgCohortFilter) bkgCohortFilter.addEventListener("change", renderBookingsTable);
 
   function renderBookingsTable() {
     const tbody = document.getElementById("bookings-table-body");
     if (!tbody) return;
 
-    if (state.bookings.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-muted);">No bookings found.</td></tr>`;
+    const cohortFilter = document.getElementById("bookings-filter-cohort")?.value || "";
+    let bookingsToDisplay = state.bookings;
+    if (cohortFilter === "live") {
+      bookingsToDisplay = bookingsToDisplay.filter((b) => !isTestRecord(b));
+    } else if (cohortFilter === "test") {
+      bookingsToDisplay = bookingsToDisplay.filter((b) => isTestRecord(b));
+    }
+
+    if (bookingsToDisplay.length === 0) {
+      const emptyMsg = cohortFilter === "live"
+        ? "No live customer bookings found matching current filters."
+        : (cohortFilter === "test" ? "No test cohort bookings found matching current filters." : "No bookings found matching current filters.");
+      tbody.innerHTML = `<tr><td colspan="8" class="table-empty-cell">${emptyMsg}</td></tr>`;
       return;
     }
 
-    tbody.innerHTML = state.bookings.map((b) => {
+    tbody.innerHTML = bookingsToDisplay.map((b) => {
       const bookingNumber = b.bookingNumber || b.booking_number || "-";
       const requestedDateRaw = b.requestedDate || b.requested_date;
       const dateStr = requestedDateRaw ? new Date(requestedDateRaw).toLocaleDateString("en-IN") : "-";
@@ -1387,13 +1578,23 @@
       const isReq = status === "REQUESTED";
       const isConf = status === "CONFIRMED";
 
+      let cohortBadge = `<span class="badge badge-live" title="Live Customer Booking">Live</span>`;
+      if (isSmokeTestRecord(b)) {
+        cohortBadge = `<span class="badge badge-smoke" title="Developer Smoke-Test Booking (Preserved)">Smoke</span>`;
+      } else if (isTestRecord(b)) {
+        cohortBadge = `<span class="badge badge-test" title="Automated Synthetic Test Booking">Test</span>`;
+      }
+
       return `
         <tr>
           <td><strong style="color: var(--gold-primary);">${escapeHtml(bookingNumber)}</strong></td>
           <td><strong>${escapeHtml(dateStr)}</strong></td>
           <td>${escapeHtml(timeSlot)}</td>
           <td>
-            <div style="font-weight: 600;">${escapeHtml(customerName)}</div>
+            <div style="font-weight: 600; display: flex; align-items: center; gap: 0.35rem;">
+              <span>${escapeHtml(customerName)}</span>
+              ${cohortBadge}
+            </div>
             <div style="font-size: 0.75rem; color: var(--text-muted);">${escapeHtml(customerPhone)}</div>
           </td>
           <td>${escapeHtml(serviceName)}</td>
@@ -1487,6 +1688,11 @@
   // 8. PRODUCT CATALOG CMS
   // ---------------------------------------------------------------------------
   async function loadProducts() {
+    const tbody = document.getElementById("products-table-body");
+    if (tbody) {
+      tbody.innerHTML = `<tr><td colspan="7" class="table-empty-cell"><span class="spinner-sm"></span> Loading product catalog...</td></tr>`;
+    }
+
     const cat = document.getElementById("products-filter-category")?.value || "";
     const search = document.getElementById("products-search-input")?.value || "";
     const params = new URLSearchParams();
@@ -1500,6 +1706,9 @@
       renderProductsTable();
     } catch (err) {
       console.error("[Products Error]:", err.message);
+      if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="7" class="table-error-cell">Failed to load products: ${escapeHtml(err.message || "Network error")}. <button type="button" class="btn btn-secondary btn-sm" onclick="loadProducts()" style="margin-left: 0.5rem;">↻ Retry</button></td></tr>`;
+      }
     }
   }
 
@@ -1696,6 +1905,11 @@
   // 9. PORTFOLIO LOOKBOOK CMS
   // ---------------------------------------------------------------------------
   async function loadPortfolio() {
+    const grid = document.getElementById("portfolio-grid");
+    if (grid) {
+      grid.innerHTML = `<div class="table-empty-cell" style="grid-column: 1 / -1;"><span class="spinner-sm"></span> Loading portfolio artworks...</div>`;
+    }
+
     const cat = document.getElementById("portfolio-filter-category")?.value || "";
     const params = new URLSearchParams();
     if (cat) params.append("category", cat);
@@ -1707,6 +1921,9 @@
       renderPortfolioGrid();
     } catch (err) {
       console.error("[Portfolio Error]:", err.message);
+      if (grid) {
+        grid.innerHTML = `<div class="table-error-cell" style="grid-column: 1 / -1;">Failed to load portfolio: ${escapeHtml(err.message || "Network error")}. <button type="button" class="btn btn-secondary btn-sm" onclick="loadPortfolio()" style="margin-left: 0.5rem;">↻ Retry</button></div>`;
+      }
     }
   }
 
@@ -1869,6 +2086,11 @@
   // 10. REVIEWS MODERATION CMS
   // ---------------------------------------------------------------------------
   async function loadReviews() {
+    const tbody = document.getElementById("reviews-table-body");
+    if (tbody) {
+      tbody.innerHTML = `<tr><td colspan="7" class="table-empty-cell"><span class="spinner-sm"></span> Loading customer reviews...</td></tr>`;
+    }
+
     const status = document.getElementById("reviews-filter-status")?.value || "all";
     const params = new URLSearchParams();
     if (status) params.append("status", status);
@@ -1879,6 +2101,9 @@
       renderReviewsTable();
     } catch (err) {
       console.error("[Reviews Error]:", err.message);
+      if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="7" class="table-error-cell">Failed to load reviews: ${escapeHtml(err.message || "Network error")}. <button type="button" class="btn btn-secondary btn-sm" onclick="loadReviews()" style="margin-left: 0.5rem;">↻ Retry</button></td></tr>`;
+      }
     }
   }
 
@@ -1966,6 +2191,11 @@
   // 11. COMMUNICATIONS & WHATSAPP QUEUE
   // ---------------------------------------------------------------------------
   async function loadCommunications() {
+    const tbody = document.getElementById("comms-table-body");
+    if (tbody) {
+      tbody.innerHTML = `<tr><td colspan="7" class="table-empty-cell"><span class="spinner-sm"></span> Loading notifications log...</td></tr>`;
+    }
+
     const status = document.getElementById("comms-filter-status")?.value || "";
     const params = new URLSearchParams();
     if (status) params.append("status", status);
@@ -1977,6 +2207,9 @@
       renderCommunicationsTable();
     } catch (err) {
       console.error("[Communications Error]:", err.message);
+      if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="7" class="table-error-cell">Failed to load communications: ${escapeHtml(err.message || "Network error")}. <button type="button" class="btn btn-secondary btn-sm" onclick="loadCommunications()" style="margin-left: 0.5rem;">↻ Retry</button></td></tr>`;
+      }
     }
   }
 

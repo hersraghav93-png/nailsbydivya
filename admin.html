@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="admin.css?v=14">
+  <link rel="stylesheet" href="admin.css?v=15">
 </head>
 <body>
 
@@ -16,80 +16,80 @@
        1. AUTHENTICATION SCREEN (Shown when unauthenticated)
        ========================================================================= -->
   <div id="admin-auth-view" class="admin-auth-screen">
-    <div class="auth-card" style="max-width: 480px; width: 100%;">
+    <div class="auth-card">
       <h1 class="auth-logo">Nails by Divya</h1>
       <p class="auth-tagline">Studio Administration &amp; Operations</p>
 
       <!-- Status / Error Notification Banner -->
-      <div id="auth-status-msg" style="display: none; font-size: 0.85rem; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1.25rem; line-height: 1.45; text-align: left;"></div>
+      <div id="auth-status-msg" class="auth-status-banner" style="display: none;"></div>
 
-      <!-- 1. ACTIVE STUDIO SESSION DETECTED -->
-      <div id="storefront-auth-sync-box" style="display: none; background: rgba(46, 125, 50, 0.08); border: 1px solid rgba(46, 125, 50, 0.3); border-radius: 8px; padding: 1rem; margin-bottom: 1.25rem; text-align: left;">
-        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem;">
-          <span style="font-size: 1.1rem;">✨</span>
-          <strong style="color: #2e7d32; font-size: 0.9rem;">Active Studio Session Detected</strong>
+      <!-- 1. ACTIVE STUDIO SESSION DETECTED (Rendered ONLY after backend role verification) -->
+      <div id="storefront-auth-sync-box" class="auth-sync-card" style="display: none;">
+        <div class="auth-sync-header">
+          <span class="auth-sync-icon">✨</span>
+          <strong class="auth-sync-title">Active Studio Session Detected</strong>
         </div>
-        <p id="storefront-auth-user-label" style="margin: 0 0 0.75rem; font-size: 0.82rem; color: var(--text-primary);"></p>
-        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-          <button type="button" id="btn-sync-storefront-auth" class="btn btn-primary" style="flex: 1; padding: 0.65rem;">
+        <p id="storefront-auth-user-label" class="auth-sync-label"></p>
+        <div class="auth-sync-actions">
+          <button type="button" id="btn-sync-storefront-auth" class="btn btn-primary" style="flex: 1; padding: 0.7rem;">
             <span>Enter Studio Dashboard &rarr;</span>
           </button>
-          <button type="button" id="btn-sync-signout" class="btn btn-secondary" style="padding: 0.65rem 0.9rem; font-size: 0.82rem;">
+          <button type="button" id="btn-sync-signout" class="btn btn-secondary" style="padding: 0.7rem 1rem; font-size: 0.82rem;">
             <span>Sign Out</span>
           </button>
         </div>
       </div>
 
       <!-- 1B. CLIENT ACCOUNT DETECTED NOTICE -->
-      <div id="admin-customer-session-box" style="display: none; background: rgba(231, 175, 184, 0.15); border: 1px solid rgba(217, 137, 155, 0.4); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.25rem; text-align: left;">
-        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem;">
-          <span style="font-size: 1.1rem;">💅🏻</span>
-          <strong style="color: var(--heading, #3d2a2f); font-size: 0.95rem;">Client Account Detected</strong>
+      <div id="admin-customer-session-box" class="auth-client-card" style="display: none;">
+        <div class="auth-client-header">
+          <span class="auth-client-icon">💅🏻</span>
+          <strong class="auth-client-title">Client Account Detected</strong>
         </div>
-        <p style="font-size: 0.82rem; color: var(--text-primary, #4e4446); margin: 0 0 0.85rem; line-height: 1.45;">
-          You are signed in with a client account (<strong id="customer-session-phone">+91...</strong>). Studio Operations is reserved for Nails by Divya artists and management.
+        <p class="auth-client-text">
+          You are currently signed in with a client account (<strong id="customer-session-phone">+91...</strong>). Studio Operations is reserved for Nails by Divya artists and management.
         </p>
-        <div style="display: flex; gap: 0.65rem; flex-wrap: wrap;">
-          <a href="account.html" class="btn btn-primary btn-sm" style="flex: 1; text-align: center; text-decoration: none; padding: 0.55rem;">
+        <div class="auth-client-actions">
+          <a href="account.html" class="btn btn-primary btn-sm" style="flex: 1; text-align: center; text-decoration: none; padding: 0.65rem;">
             <span>Go to My Client Account &rarr;</span>
           </a>
-          <button type="button" id="btn-customer-logout-switch" class="btn btn-secondary btn-sm" style="flex: 1; padding: 0.55rem;">
+          <button type="button" id="btn-customer-logout-switch" class="btn btn-secondary btn-sm" style="flex: 1; padding: 0.65rem;">
             <span>Sign Out &amp; Switch</span>
           </button>
         </div>
       </div>
 
       <!-- 2. AUTHENTICATION METHOD SELECTOR (Email / Phone) -->
-      <div class="auth-tabs" style="display: flex; gap: 0.5rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border-light); padding-bottom: 0.75rem;">
-        <button type="button" id="tab-admin-email" class="auth-tab-btn is-active" style="flex: 1; padding: 0.6rem 0.5rem; font-size: 0.82rem; font-weight: 600; background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 6px; cursor: pointer; color: var(--text-primary); transition: all 0.2s ease;">
-          ✉️ Email &amp; Password
+      <div class="auth-tabs" role="tablist">
+        <button type="button" id="tab-admin-email" class="auth-tab-btn is-active" role="tab" aria-selected="true">
+          <span>✉️ Email &amp; Password</span>
         </button>
-        <button type="button" id="tab-admin-phone" class="auth-tab-btn" style="flex: 1; padding: 0.6rem 0.5rem; font-size: 0.82rem; font-weight: 500; background: transparent; border: 1px solid transparent; border-radius: 6px; cursor: pointer; color: var(--text-muted); transition: all 0.2s ease;">
-          📱 Mobile Phone
+        <button type="button" id="tab-admin-phone" class="auth-tab-btn" role="tab" aria-selected="false">
+          <span>📱 Mobile Phone</span>
         </button>
       </div>
 
       <!-- 2A. SECURE EMAIL & PASSWORD AUTHENTICATION (PRIMARY NON-SMS METHOD) -->
-      <div id="admin-email-auth-container">
+      <div id="admin-email-auth-container" class="auth-method-panel">
         <form id="admin-email-login-form" onsubmit="return false;" style="text-align: left;">
-          <div style="margin-bottom: 1rem;">
+          <div style="margin-bottom: 1.15rem;">
             <label class="form-label" for="admin-email-input">Administrator Email</label>
-            <input type="email" id="admin-email-input" class="form-input" placeholder="admin@example.com" autocomplete="username" style="width: 100%;" required>
+            <input type="email" id="admin-email-input" class="form-input" placeholder="studio@nailsbydivya.store" autocomplete="username" style="width: 100%;" required>
             <p style="font-size: 0.74rem; color: var(--text-muted); margin-top: 0.35rem;">
               Authorized owner or artist email address configured in the studio registry.
             </p>
           </div>
 
-          <div style="margin-bottom: 1.25rem;">
+          <div style="margin-bottom: 1.35rem;">
             <label class="form-label" for="admin-password-input">Password</label>
             <input type="password" id="admin-password-input" class="form-input" placeholder="Enter administrator password..." autocomplete="current-password" style="width: 100%;" required>
           </div>
 
-          <button type="button" id="btn-admin-email-login" class="btn btn-primary" style="width: 100%; padding: 0.75rem; margin-bottom: 0.75rem;">
+          <button type="button" id="btn-admin-email-login" class="btn btn-primary" style="width: 100%; padding: 0.75rem; margin-bottom: 0.85rem;">
             <span>Sign In to Studio Dashboard &rarr;</span>
           </button>
 
-          <button type="button" id="btn-admin-google-login" class="btn btn-secondary" style="width: 100%; padding: 0.65rem; font-size: 0.82rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+          <button type="button" id="btn-admin-google-login" class="btn btn-secondary" style="width: 100%; padding: 0.7rem; font-size: 0.84rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
               <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -102,11 +102,11 @@
       </div>
 
       <!-- 2B. DIRECT PHONE SMS OTP AUTHENTICATION -->
-      <div id="admin-phone-auth-container" style="display: none;">
+      <div id="admin-phone-auth-container" class="auth-method-panel" style="display: none;">
         
         <!-- Step A: Enter Phone Number -->
         <div id="admin-step-phone">
-          <div style="text-align: left; margin-bottom: 1rem;">
+          <div style="text-align: left; margin-bottom: 1.15rem;">
             <label class="form-label" for="admin-phone-input">Studio Mobile Number</label>
             <div style="display: flex; gap: 0.5rem; align-items: center;">
               <span style="padding: 0.65rem 0.85rem; background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 6px; font-weight: 600; font-size: 0.9rem; color: var(--text-primary);">+91</span>
@@ -127,10 +127,10 @@
 
         <!-- Step B: Enter 6-digit OTP -->
         <div id="admin-step-otp" style="display: none; text-align: left;">
-          <div style="margin-bottom: 1rem;">
+          <div style="margin-bottom: 1.15rem;">
             <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.35rem;">
               <label class="form-label" for="admin-otp-input">6-Digit Verification Code</label>
-              <button type="button" id="btn-admin-change-phone" style="background: none; border: none; color: var(--accent-strong, #d9899b); font-size: 0.75rem; cursor: pointer; text-decoration: underline;">
+              <button type="button" id="btn-admin-change-phone" style="background: none; border: none; color: var(--accent-strong); font-size: 0.75rem; cursor: pointer; text-decoration: underline;">
                 Change Number
               </button>
             </div>
@@ -154,24 +154,8 @@
 
       </div>
 
-      <!-- 3. ADVANCED DEVELOPER / MANUAL ID TOKEN FALLBACK -->
-      <details style="margin-top: 1.5rem; text-align: left; font-size: 0.78rem; color: var(--text-muted); border-top: 1px solid var(--border-light); padding-top: 1rem;">
-        <summary style="cursor: pointer; color: var(--text-muted); font-weight: 500;">
-          ⚙️ Advanced: Sign in with ID Token directly
-        </summary>
-        <form id="admin-login-form" onsubmit="return false;" style="margin-top: 0.75rem;">
-          <div class="form-group" style="text-align: left;">
-            <label class="form-label" for="admin-token-input" style="font-size: 0.75rem;">Firebase Administrator ID Token</label>
-            <input type="password" id="admin-token-input" class="form-input" placeholder="Paste verified Firebase Administrator ID Token..." autocomplete="current-password" style="font-size: 0.78rem;">
-          </div>
-          <button type="submit" id="btn-admin-login" class="btn btn-secondary" style="width: 100%; padding: 0.5rem; font-size: 0.8rem;">
-            <span>Verify ID Token &rarr;</span>
-          </button>
-        </form>
-      </details>
-
-      <div style="margin-top: 1.25rem; font-size: 0.78rem; color: var(--text-muted); text-align: center;">
-        <a href="index.html" style="color: var(--gold-primary); text-decoration: none;">&larr; Return to Client Storefront</a>
+      <div style="margin-top: 1.5rem; font-size: 0.8rem; color: var(--text-muted); text-align: center;">
+        <a href="index.html" style="color: var(--gold-primary); text-decoration: none; font-weight: 500;">&larr; Return to Client Storefront</a>
       </div>
     </div>
   </div>
@@ -291,6 +275,20 @@
              =================================================================== -->
         <section class="tab-content active" id="panel-overview">
           
+          <!-- In-Panel Error Banner (Shown on fetch failure with Retry) -->
+          <div id="overview-error-banner" style="display: none; margin-bottom: 1.25rem;"></div>
+
+          <!-- Studio Database Ground-Truth Indicator -->
+          <div id="overview-data-indicator" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1.25rem; padding: 0.75rem 1.15rem; background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-sm); font-size: 0.82rem; color: var(--text-muted);">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="color: var(--success); font-size: 0.9rem;">●</span>
+              <span>Ground Truth Ledger: <strong>PostgreSQL Production/Staging Store</strong></span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span id="overview-cohort-badge" style="font-size: 0.74rem; background: var(--gold-light); color: var(--gold-primary); padding: 0.2rem 0.65rem; border-radius: 999px; font-weight: 600;">Verified Active</span>
+            </div>
+          </div>
+
           <!-- Key Operational Metrics -->
           <div class="metrics-grid">
             <div class="metric-card gold-border">
@@ -298,7 +296,7 @@
                 <span class="metric-label">New Orders</span>
                 <span class="metric-icon">📦</span>
               </div>
-              <div class="metric-value" id="metric-new-orders">-</div>
+              <div class="metric-value" id="metric-new-orders">—</div>
               <div class="metric-subtext">Total active orders in pipeline</div>
             </div>
 
@@ -307,7 +305,7 @@
                 <span class="metric-label">Pending Payments</span>
                 <span class="metric-icon">💳</span>
               </div>
-              <div class="metric-value" id="metric-pending-payments">-</div>
+              <div class="metric-value" id="metric-pending-payments">—</div>
               <div class="metric-subtext">Awaiting manual UTR verification</div>
             </div>
 
@@ -316,7 +314,7 @@
                 <span class="metric-label">Confirmed Orders</span>
                 <span class="metric-icon">✨</span>
               </div>
-              <div class="metric-value" id="metric-confirmed-orders">-</div>
+              <div class="metric-value" id="metric-confirmed-orders">—</div>
               <div class="metric-subtext">Payment verified &bull; Ready for production</div>
             </div>
 
@@ -325,7 +323,7 @@
                 <span class="metric-label">Booking Requests</span>
                 <span class="metric-icon">🗓️</span>
               </div>
-              <div class="metric-value" id="metric-booking-requests">-</div>
+              <div class="metric-value" id="metric-booking-requests">—</div>
               <div class="metric-subtext">Delhi NCR at-home salon slots</div>
             </div>
 
@@ -334,7 +332,7 @@
                 <span class="metric-label">Awaiting Dispatch</span>
                 <span class="metric-icon">🚚</span>
               </div>
-              <div class="metric-value" id="metric-awaiting-dispatch">-</div>
+              <div class="metric-value" id="metric-awaiting-dispatch">—</div>
               <div class="metric-subtext">Sets ready for courier dispatch</div>
             </div>
           </div>
@@ -348,20 +346,20 @@
             <div style="padding: 1.5rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem;">
               <div>
                 <span style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 600;">Verified Paid Revenue</span>
-                <div style="font-family: var(--font-serif); font-size: 2.2rem; font-weight: 700; color: var(--success); margin-top: 0.25rem;" id="fin-paid-revenue">₹0.00</div>
+                <div style="font-family: var(--font-serif); font-size: 2.2rem; font-weight: 700; color: var(--success); margin-top: 0.25rem;" id="fin-paid-revenue">—</div>
                 <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.25rem;">Exclusively orders verified by Divya</p>
               </div>
 
               <div>
                 <span style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 600;">Pending Payment Pipeline</span>
-                <div style="font-family: var(--font-serif); font-size: 2.2rem; font-weight: 700; color: var(--warning); margin-top: 0.25rem;" id="fin-pending-amount">₹0.00</div>
+                <div style="font-family: var(--font-serif); font-size: 2.2rem; font-weight: 700; color: var(--warning); margin-top: 0.25rem;" id="fin-pending-amount">—</div>
                 <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.25rem;">Unpaid or pending verification</p>
               </div>
 
               <div>
                 <span style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 600;">Average Order Value (AOV)</span>
-                <div style="font-family: var(--font-serif); font-size: 2.2rem; font-weight: 700; color: var(--text-primary); margin-top: 0.25rem;" id="fin-aov">₹0.00</div>
-                <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.25rem;">Across all placed orders</p>
+                <div style="font-family: var(--font-serif); font-size: 2.2rem; font-weight: 700; color: var(--text-primary); margin-top: 0.25rem;" id="fin-aov">—</div>
+                <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.25rem;">Across placed orders</p>
               </div>
             </div>
           </div>
@@ -405,6 +403,11 @@
                   <option value="PENDING">Payment Pending</option>
                   <option value="VERIFIED">Payment Verified</option>
                   <option value="FAILED">Payment Failed</option>
+                </select>
+                <select id="orders-filter-cohort" class="filter-select">
+                  <option value="">All Cohorts</option>
+                  <option value="live">Live &amp; Smoke Orders</option>
+                  <option value="test">Synthetic Test Records</option>
                 </select>
               </div>
             </div>
@@ -500,6 +503,11 @@
                   <option value="COMPLETED">Completed</option>
                   <option value="DECLINED">Declined</option>
                   <option value="CANCELLED">Cancelled</option>
+                </select>
+                <select id="bookings-filter-cohort" class="filter-select">
+                  <option value="">All Cohorts</option>
+                  <option value="live">Live &amp; Smoke Bookings</option>
+                  <option value="test">Synthetic Test Bookings</option>
                 </select>
               </div>
             </div>
