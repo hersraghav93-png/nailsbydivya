@@ -485,12 +485,33 @@
     });
   }
 
+  if (emailInput) {
+    emailInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        if (passwordInput && !passwordInput.value) {
+          passwordInput.focus();
+        } else if (emailLoginBtn) {
+          emailLoginBtn.click();
+        }
+      }
+    });
+  }
+
   if (passwordInput && emailLoginBtn) {
     passwordInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         e.preventDefault();
         emailLoginBtn.click();
       }
+    });
+  }
+
+  const emailLoginForm = document.getElementById("admin-email-login-form");
+  if (emailLoginForm) {
+    emailLoginForm.addEventListener("submit", (e) => {
+      if (e && typeof e.preventDefault === "function") e.preventDefault();
+      if (emailLoginBtn) emailLoginBtn.click();
     });
   }
 
@@ -746,56 +767,6 @@
     });
   }
 
-  // Handle Login Execution (ID Token or Session Token)
-  async function handleAdminLogin() {
-    const tokenInput = document.getElementById("admin-token-input");
-    const submitBtn = document.getElementById("btn-admin-login");
-    const token = tokenInput ? tokenInput.value.trim() : "";
-
-    if (!token) return;
-
-    if (submitBtn) {
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = "<span>Verifying Credentials...</span>";
-    }
-    clearAuthStatus();
-
-    try {
-      state.token = token;
-      const data = await adminFetch("/api/admin/me");
-      state.adminUser = data.admin;
-      sessionStorage.setItem("nbd_admin_token", token);
-      renderAdminUserPill();
-      showAppView();
-      loadActiveTabData();
-    } catch (err) {
-      state.token = null;
-      let friendlyMsg = err.message || "Invalid administrative credentials or insufficient privileges.";
-      if (err.status === 401) {
-        friendlyMsg = "Authentication Required: The provided administrator token is invalid or has expired.";
-      } else if (err.status === 403 || err.code === "FORBIDDEN_ROLE") {
-        friendlyMsg = "Access Denied: Your account does not have administrator privileges for Nails by Divya. Required roles: artist_divya or super_operator.";
-      } else if (err.message && (err.message.includes("Failed to fetch") || err.message.includes("NetworkError"))) {
-        friendlyMsg = "Connection Error: Unable to contact the Nails by Divya API server. Please check your internet connection or server status.";
-      }
-      showAuthStatus(friendlyMsg, true);
-    } finally {
-      if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = "<span>Sign In to Admin Portal &rarr;</span>";
-      }
-    }
-  }
-
-  // Handle Login Form Submission
-  const loginForm = document.getElementById("admin-login-form");
-  if (loginForm) {
-    loginForm.addEventListener("submit", async (e) => {
-      if (e && typeof e.preventDefault === "function") e.preventDefault();
-      await handleAdminLogin();
-    });
-  }
-
   const logoutBtn = document.getElementById("btn-logout");
   if (logoutBtn) logoutBtn.addEventListener("click", logout);
 
@@ -931,9 +902,12 @@
 
   function isSmokeTestRecord(item) {
     if (!item) return false;
-    const name = (item.customer_name || item.customerName || "").trim();
-    const phone = (item.customer_phone || item.customerPhone || "").trim();
-    return name.includes("Raghavendra") || phone.includes("7307622189");
+    const name = (item.customer_name || item.customerName || "").toLowerCase().trim();
+    const phone = (item.customer_phone || item.customerPhone || "").replace(/\D/g, "");
+    const orderNum = (item.order_number || item.orderNumber || "").trim();
+    const bkgNum = (item.booking_number || item.bookingNumber || "").trim();
+    return name.includes("raghavendra") || phone.includes("7307622189") ||
+      orderNum === "NBD-ORD-1241" || orderNum === "NBD-ORD-1298" || bkgNum === "NBD-BKG-599";
   }
 
   function isTestRecord(item) {
