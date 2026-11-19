@@ -458,6 +458,10 @@ function initHeroShowcase() {
   const slides = Array.from(showcase.querySelectorAll(".hero-slide"));
   if (slides.length <= 1) return;
 
+  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    return;
+  }
+
   let currentIndex = 0;
 
   setInterval(() => {
