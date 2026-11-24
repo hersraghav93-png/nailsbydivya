@@ -1051,6 +1051,82 @@ p {
   50% { opacity: 0.4; transform: scale(0.85); }
 }
 
+/* Hero Offerings Dual Pills & Trust Proofs */
+.hero-offerings-pills {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 1.25rem;
+}
+
+.hero-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.35rem 0.85rem;
+  border-radius: var(--radius-pill);
+  background: rgba(250, 228, 231, 0.65);
+  color: var(--accent-strong);
+  border: 1px solid rgba(217, 137, 155, 0.3);
+}
+
+.hero-pill svg {
+  color: var(--accent-strong);
+  flex-shrink: 0;
+}
+
+.hero-trust-proofs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.15rem;
+  margin-top: 1.5rem;
+  align-items: center;
+}
+
+.hero-proof-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.hero-proof-item .proof-check {
+  color: #2e7d32;
+  font-weight: 800;
+}
+
+.hero-showcase-indicators {
+  position: absolute;
+  bottom: 1rem;
+  right: 1.25rem;
+  display: flex;
+  gap: 0.45rem;
+  z-index: 5;
+}
+
+.showcase-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(107, 56, 67, 0.25);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  padding: 0;
+}
+
+.showcase-dot.is-active {
+  background: var(--accent-strong);
+  width: 22px;
+  border-radius: 9999px;
+}
+
 @media (max-width: 980px) {
   .hero {
     min-height: auto;
@@ -1070,6 +1146,12 @@ p {
     text-align: center;
     max-width: 100%;
   }
+  .hero-offerings-pills {
+    justify-content: center;
+  }
+  .hero-trust-proofs {
+    justify-content: center;
+  }
   .hero-text {
     margin-inline: auto;
   }
@@ -1086,6 +1168,16 @@ p {
 }
 
 @media (max-width: 480px) {
+  .hero-offerings-pills {
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .hero-trust-proofs {
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+  }
   .hero-actions {
     width: 100%;
     flex-direction: column;
@@ -2066,6 +2158,81 @@ p {
   gap: 0.5rem;
 }
 
+.service-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.service-type-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-pill);
+  background: var(--bg-soft);
+  color: var(--accent-strong);
+  border: 1px solid var(--line);
+}
+
+.service-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+  font-size: 0.82rem;
+}
+
+.service-duration {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.service-duration svg {
+  color: var(--accent-strong);
+  flex-shrink: 0;
+}
+
+.service-badge-tag {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--accent-strong);
+  background: rgba(217, 137, 155, 0.14);
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+}
+
+.service-features {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.5rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.service-features li {
+  position: relative;
+  padding-left: 1.25rem;
+  font-size: 0.85rem;
+  color: var(--text);
+  line-height: 1.45;
+}
+
+.service-features li::before {
+  content: "✦";
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: var(--accent-strong);
+  font-size: 0.75rem;
+}
+
 .service-promo-price {
   font-family: "Manrope", sans-serif;
   font-size: 1.15rem;
@@ -2368,26 +2535,6 @@ p {
   .lookbook-carousel-pagination {
     display: flex !important;
     justify-content: center !important;
-  }
-}
-
-@media (max-width: 480px) {
-  .lookbook-grid {
-    padding-left: 0.75rem !important;
-    padding-right: 0.75rem !important;
-    margin-left: -0.75rem !important;
-    margin-right: -0.75rem !important;
-  }
-}
-
-@media (max-width: 360px) {
-  .lookbook-grid {
-    padding-left: 0.625rem !important;
-    padding-right: 0.625rem !important;
-    margin-left: -0.625rem !important;
-    margin-right: -0.625rem !important;
-  }
-}
     align-items: center !important;
     padding: 0.35rem 1rem 0.5rem !important;
     margin-top: -0.25rem !important;
@@ -2422,12 +2569,160 @@ p {
   }
 }
 
+@media (max-width: 480px) {
+  .lookbook-grid {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+    margin-left: -0.75rem !important;
+    margin-right: -0.75rem !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .lookbook-grid {
+    padding-left: 0.625rem !important;
+    padding-right: 0.625rem !important;
+    margin-left: -0.625rem !important;
+    margin-right: -0.625rem !important;
+  }
+}
+
+/* Press-On Kit Inclusions & Sizing Assurance Banner */
+.presson-kit-banner {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 1.75rem 2rem;
+  margin-bottom: 2.25rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.kit-banner-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: var(--accent-strong);
+  text-transform: uppercase;
+  margin-bottom: 1.25rem;
+}
+
+.kit-badge-icon {
+  color: var(--accent-strong);
+  font-size: 0.95rem;
+}
+
+.kit-inclusions-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.5rem;
+}
+
+@media (max-width: 900px) {
+  .kit-inclusions-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.25rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .kit-inclusions-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  .presson-kit-banner {
+    padding: 1.25rem;
+  }
+}
+
+.kit-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.kit-num {
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent-strong);
+  line-height: 1;
+  background: var(--bg-soft);
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.kit-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.kit-text strong {
+  font-size: 0.9rem;
+  color: var(--heading);
+  font-weight: 700;
+}
+
+.kit-text span {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* Lookbook Inspiration & Custom Vision Callout */
+.lookbook-inspiration-cta {
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 2.25rem 2.5rem;
+  margin-top: 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.inspiration-cta-content {
+  max-width: 600px;
+}
+
+.inspiration-cta-content h3 {
+  font-size: 1.6rem;
+  color: var(--heading);
+  margin-bottom: 0.5rem;
+}
+
+.inspiration-cta-content p {
+  font-size: 0.94rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+@media (max-width: 768px) {
+  .lookbook-inspiration-cta {
+    padding: 1.6rem 1.25rem;
+    flex-direction: column;
+    text-align: center;
+    gap: 1.25rem;
+  }
+  .lookbook-inspiration-cta .button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
 /* --------------------------------------------------------------------------
    10. HYGIENE PROTOCOL, FAQS & REVIEWS
    -------------------------------------------------------------------------- */
 .trust-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
   gap: 2rem;
   margin-bottom: 4rem;
 }

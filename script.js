@@ -458,16 +458,29 @@ function initHeroShowcase() {
   const slides = Array.from(showcase.querySelectorAll(".hero-slide"));
   if (slides.length <= 1) return;
 
+  const dots = Array.from(document.querySelectorAll("#hero-showcase-indicators .showcase-dot"));
+
+  let currentIndex = 0;
+
+  function goToSlide(index) {
+    slides.forEach((s, i) => s.classList.toggle("is-active", i === index));
+    dots.forEach((d, i) => d.classList.toggle("is-active", i === index));
+    currentIndex = index;
+  }
+
+  dots.forEach((dot, idx) => {
+    dot.addEventListener("click", () => {
+      goToSlide(idx);
+    });
+  });
+
   if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
     return;
   }
 
-  let currentIndex = 0;
-
   setInterval(() => {
-    slides[currentIndex].classList.remove("is-active");
-    currentIndex = (currentIndex + 1) % slides.length;
-    slides[currentIndex].classList.add("is-active");
+    const nextIndex = (currentIndex + 1) % slides.length;
+    goToSlide(nextIndex);
   }, 5000);
 }
 

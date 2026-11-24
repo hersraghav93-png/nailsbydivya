@@ -197,7 +197,16 @@
       <div class="hero-container">
         <div class="hero-grid">
           <div class="hero-copy">
-            <p class="eyebrow">At-Home Service in Delhi NCR &bull; Handmade Press-Ons Across India</p>
+            <div class="hero-offerings-pills">
+              <span class="hero-pill">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                At-Home Salon &bull; Delhi NCR
+              </span>
+              <span class="hero-pill">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                Handmade Press-Ons &bull; Pan-India
+              </span>
+            </div>
             <h1>Nails by Divya</h1>
             <p class="tagline">Beautiful nails, however you want them.</p>
             <p class="hero-text">
@@ -206,11 +215,19 @@
             
             <div class="hero-actions">
               <a class="button primary-button" href="#shop">
-                Explore Press-On Nails
+                <span>Explore Press-On Nails</span>
+                <span aria-hidden="true">&rarr;</span>
               </a>
               <a class="button secondary-button" href="#services">
-                Book Appointment
+                <span>Book Appointment</span>
+                <span aria-hidden="true">&rarr;</span>
               </a>
+            </div>
+
+            <div class="hero-trust-proofs">
+              <span class="hero-proof-item"><span class="proof-check" aria-hidden="true">&#10003;</span> 100% Hand-Painted Soft Gel</span>
+              <span class="hero-proof-item"><span class="proof-check" aria-hidden="true">&#10003;</span> Custom Millimeter Sizing</span>
+              <span class="hero-proof-item"><span class="proof-check" aria-hidden="true">&#10003;</span> Autoclave Sanitized Tools</span>
             </div>
             <p class="hero-subnote">Every press-on set is handmade fresh after your order &bull; Never mass-produced</p>
           </div>
@@ -224,9 +241,18 @@
               <img src="assets/portfolio/dv1.jpeg" alt="Imperial gold foil flecks over soft white gel" class="hero-slide" decoding="async">
               <img src="assets/portfolio/dv2.jpeg" alt="Silver liquid chrome ripple texture nail art" class="hero-slide" decoding="async">
               
+              <div class="hero-showcase-indicators" id="hero-showcase-indicators" role="tablist" aria-label="Showcase slides">
+                <button type="button" class="showcase-dot is-active" data-slide="0" aria-label="Showcase slide 1"></button>
+                <button type="button" class="showcase-dot" data-slide="1" aria-label="Showcase slide 2"></button>
+                <button type="button" class="showcase-dot" data-slide="2" aria-label="Showcase slide 3"></button>
+                <button type="button" class="showcase-dot" data-slide="3" aria-label="Showcase slide 4"></button>
+                <button type="button" class="showcase-dot" data-slide="4" aria-label="Showcase slide 5"></button>
+                <button type="button" class="showcase-dot" data-slide="5" aria-label="Showcase slide 6"></button>
+              </div>
+
               <div class="floating-badge">
                 <span class="badge-dot"></span>
-                <span>Handcrafted with Care</span>
+                <span>Crafted Fresh on Order</span>
               </div>
             </div>
           </div>
@@ -350,6 +376,44 @@
           <span class="editorial-label">JOURNEY 01 &bull; PAN-INDIA DELIVERY</span>
           <h2 id="shop-title">Handmade Press-On Nails</h2>
           <p class="section-subtext">Reusable, collectible press-on sets crafted fresh after confirmation. Choose your style or explore all designs.</p>
+        </div>
+
+        <!-- Press-On Kit Inclusions & Sizing Assurance Banner -->
+        <div class="presson-kit-banner">
+          <div class="kit-banner-badge">
+            <span class="kit-badge-icon">&#10022;</span>
+            <span>WHAT EVERY HANDMADE SET INCLUDES</span>
+          </div>
+          <div class="kit-inclusions-grid">
+            <div class="kit-item">
+              <span class="kit-num">10</span>
+              <div class="kit-text">
+                <strong>Custom Soft Gel Nails</strong>
+                <span>Handcrafted individually to your exact millimeter sizes</span>
+              </div>
+            </div>
+            <div class="kit-item">
+              <span class="kit-num">2-in-1</span>
+              <div class="kit-text">
+                <strong>Glue &amp; Sticky Tabs</strong>
+                <span>Salon glue for 2–3 week wear + 24 adhesive tabs for reusable wear</span>
+              </div>
+            </div>
+            <div class="kit-item">
+              <span class="kit-num">Pro</span>
+              <div class="kit-text">
+                <strong>Complete Prep Kit</strong>
+                <span>Cuticle pusher, dual-grit buffer &amp; alcohol prep wipe</span>
+              </div>
+            </div>
+            <div class="kit-item">
+              <span class="kit-num">100%</span>
+              <div class="kit-text">
+                <strong>Sizing Verification</strong>
+                <span>Measurements personally verified with Divya before crafting</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Category Discovery Filter Tabs -->
@@ -966,87 +1030,183 @@
         <div class="service-grid">
 
           <!-- 01. Nail Extensions -->
-          <article class="service-card">
+          <article class="service-card" data-service-type="extensions">
             <div class="service-card-header">
-              <span class="service-number">01</span>
+              <div class="service-header-left">
+                <span class="service-number">01</span>
+                <span class="service-type-badge">Core Extension</span>
+              </div>
               <div class="service-pricing">
                 <span class="service-promo-price">₹999</span>
                 <del class="service-base-price">₹1,499</del>
               </div>
             </div>
+            <div class="service-meta-row">
+              <span class="service-duration">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                90–120 mins
+              </span>
+              <span class="service-badge-tag">Soft Gel Tips</span>
+            </div>
             <h3>Nail Extensions</h3>
             <p>Sculpted soft gel and full-cover extension tips customized to your preferred length and shape (Almond, Square, Coffin, Stiletto, Oval).</p>
+            <ul class="service-features" aria-label="Service includes">
+              <li>Full cuticle dry manicure prep</li>
+              <li>Custom tip sizing &amp; shaping</li>
+              <li>Structured builder gel architecture</li>
+              <li>Long-lasting high-gloss top coat</li>
+            </ul>
             <div class="service-card-action">
               <button type="button" class="button secondary-button" data-action="service-book" data-service-title="Nail Extensions">Book Extensions &rarr;</button>
             </div>
           </article>
 
           <!-- 02. Natural Nail Overlay -->
-          <article class="service-card">
+          <article class="service-card" data-service-type="overlay">
             <div class="service-card-header">
-              <span class="service-number">02</span>
+              <div class="service-header-left">
+                <span class="service-number">02</span>
+                <span class="service-type-badge">Natural Reinforcement</span>
+              </div>
               <div class="service-pricing">
                 <span class="service-promo-price">₹999</span>
                 <del class="service-base-price">₹1,299</del>
               </div>
             </div>
+            <div class="service-meta-row">
+              <span class="service-duration">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                60–90 mins
+              </span>
+              <span class="service-badge-tag">Builder Gel</span>
+            </div>
             <h3>Natural Nail Overlay</h3>
-            <p>Strengthen and reinforce your natural nail beds with structured builder gel, creating a durable, chip-resistant glossy surface.</p>
+            <p>Strengthen and reinforce your natural nail beds with structured builder gel, creating a durable, chip-resistant glossy surface without tip extensions.</p>
+            <ul class="service-features" aria-label="Service includes">
+              <li>Precision cuticle conditioning</li>
+              <li>Apex builder gel reinforcement</li>
+              <li>Protects against splitting &amp; peeling</li>
+              <li>High-gloss mirror finish</li>
+            </ul>
             <div class="service-card-action">
               <button type="button" class="button secondary-button" data-action="service-book" data-service-title="Natural Nail Overlay">Book Overlay &rarr;</button>
             </div>
           </article>
 
           <!-- 03. Power Polish / Shellac -->
-          <article class="service-card">
+          <article class="service-card" data-service-type="polish">
             <div class="service-card-header">
-              <span class="service-number">03</span>
+              <div class="service-header-left">
+                <span class="service-number">03</span>
+                <span class="service-type-badge">Gel Manicure</span>
+              </div>
               <div class="service-pricing">
                 <span class="service-promo-price">₹999</span>
                 <del class="service-base-price">₹1,199</del>
               </div>
             </div>
+            <div class="service-meta-row">
+              <span class="service-duration">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                45–60 mins
+              </span>
+              <span class="service-badge-tag">UV Gel Colour</span>
+            </div>
             <h3>Power Polish / Shellac</h3>
             <p>A polished, high-gloss gel manicure service on natural nails for clients seeking long-lasting vibrant colour without tip extensions.</p>
+            <ul class="service-features" aria-label="Service includes">
+              <li>Dry manicure &amp; edge smoothing</li>
+              <li>2 rich coats of salon gel colour</li>
+              <li>UV/LED cured with zero smudging</li>
+              <li>2 to 3 weeks chip-resistant wear</li>
+            </ul>
             <div class="service-card-action">
               <button type="button" class="button secondary-button" data-action="service-book" data-service-title="Power Polish / Shellac">Book Gel Polish &rarr;</button>
             </div>
           </article>
 
           <!-- 04. 3D & Custom Nail Art -->
-          <article class="service-card">
+          <article class="service-card" data-service-type="custom-art">
             <div class="service-card-header">
-              <span class="service-number">04</span>
+              <div class="service-header-left">
+                <span class="service-number">04</span>
+                <span class="service-type-badge">Artistry Upgrade</span>
+              </div>
               <span class="service-price">Bespoke Consultation</span>
+            </div>
+            <div class="service-meta-row">
+              <span class="service-duration">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                Varies by design
+              </span>
+              <span class="service-badge-tag">Hand-Painted</span>
             </div>
             <h3>3D &amp; Custom Nail Art</h3>
             <p>Sculptural dimensional finishes, liquid chrome ripples, freshwater micro-pearls, floral hand-painting, and outfit-matched motifs.</p>
+            <ul class="service-features" aria-label="Service includes">
+              <li>Liquid chrome ripples &amp; dimensional gels</li>
+              <li>Hand-painted fine floral motifs</li>
+              <li>Outfit, lehenga &amp; jewellery coordination</li>
+              <li>Applied on extensions or overlays</li>
+            </ul>
             <div class="service-card-action">
               <button type="button" class="button secondary-button" data-action="service-book" data-service-title="3D & Custom Nail Art">Enquire Art &rarr;</button>
             </div>
           </article>
 
           <!-- 05. French Nails (Design Add-On) -->
-          <article class="service-card">
+          <article class="service-card" data-service-type="french">
             <div class="service-card-header">
-              <span class="service-number">05</span>
+              <div class="service-header-left">
+                <span class="service-number">05</span>
+                <span class="service-type-badge">Design Add-On</span>
+              </div>
               <span class="service-price">From ₹399 Add-On</span>
+            </div>
+            <div class="service-meta-row">
+              <span class="service-duration">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                +20–30 mins
+              </span>
+              <span class="service-badge-tag">Timeless Finish</span>
             </div>
             <h3>French Nails</h3>
             <p>A signature design add-on featuring crisp micro-French, modern editorial double lines, coloured tips, or soft ombre baby boomer finishes on your preferred nail shape.</p>
+            <ul class="service-features" aria-label="Service includes">
+              <li>Crisp micro-French or deep smile lines</li>
+              <li>Soft baby boomer ombre fade</li>
+              <li>Glitter, chrome, or coloured tip accents</li>
+              <li>Pairs with extensions, overlays, or polish</li>
+            </ul>
             <div class="service-card-action">
               <button type="button" class="button secondary-button" data-action="service-book" data-service-title="French Nails">Book French Add-On &rarr;</button>
             </div>
           </article>
 
           <!-- 06. Safe Extension Removal -->
-          <article class="service-card">
+          <article class="service-card" data-service-type="removal">
             <div class="service-card-header">
-              <span class="service-number">06</span>
+              <div class="service-header-left">
+                <span class="service-number">06</span>
+                <span class="service-type-badge">Nail Health &amp; Care</span>
+              </div>
               <span class="service-price">From ₹499</span>
+            </div>
+            <div class="service-meta-row">
+              <span class="service-duration">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                30–45 mins
+              </span>
+              <span class="service-badge-tag">Damage-Free</span>
             </div>
             <h3>Safe Extension Removal</h3>
             <p>Gentle, damage-free removal of existing extensions or overlays, finished with deep cuticle oil hydration and nail bed conditioning.</p>
+            <ul class="service-features" aria-label="Service includes">
+              <li>Gentle foil-wrap soak-off technique</li>
+              <li>Zero mechanical prying or scraping</li>
+              <li>Keratin nail bed conditioning</li>
+              <li>Nourishing cuticle oil massage</li>
+            </ul>
             <div class="service-card-action">
               <button type="button" class="button secondary-button" data-action="service-book" data-service-title="Safe Extension Removal">Book Removal &rarr;</button>
             </div>
@@ -1659,6 +1819,18 @@
             <span class="lookbook-pagination-hint">&bull; Swipe to explore</span>
           </div>
         </div>
+
+        <!-- Custom Vision & Inspiration Callout -->
+        <div class="lookbook-inspiration-cta">
+          <div class="inspiration-cta-content">
+            <h3>Have a Pinterest Reference or Custom Design in Mind?</h3>
+            <p>Every lookbook artwork can be handcrafted as a reusable luxury press-on set delivered anywhere across India, or sculpted as custom gel extensions during your at-home appointment in Delhi NCR.</p>
+          </div>
+          <a href="https://wa.me/918447391310?text=Hi%20Divya!%20I%20have%20an%20inspiration%20photo%20from%20Pinterest%20and%20would%20like%20to%20discuss%20custom%20nails." target="_blank" rel="noopener noreferrer" class="button secondary-button whatsapp-button">
+            <span>Share Inspiration on WhatsApp</span>
+            <span aria-hidden="true">&rarr;</span>
+          </a>
+        </div>
       </div>
     </section>
 
@@ -1695,6 +1867,13 @@
             </span>
             <h4>Salon-Grade Soft Gel</h4>
             <p>We work exclusively with professional soft gel and builder gel products that protect natural nail bed integrity without harsh acrylic odours.</p>
+          </div>
+          <div class="trust-card">
+            <span class="trust-card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            </span>
+            <h4>Personal Sizing Verification</h4>
+            <p>Divya personally confirms your exact nail bed millimeter measurements on WhatsApp before hand-painting your bespoke press-on set.</p>
           </div>
         </div>
 
