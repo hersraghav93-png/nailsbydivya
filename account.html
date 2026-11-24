@@ -10,8 +10,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=23">
-  <link rel="stylesheet" href="auth.css?v=15">
+  <link rel="stylesheet" href="style.css?v=24">
+  <link rel="stylesheet" href="auth.css?v=16">
 </head>
 <body>
   <a href="#main-content" class="skip-link">Skip to main content</a>
@@ -121,16 +121,38 @@
          ======================================================================= -->
     <section class="account-auth-gate" id="account-auth-gate" style="display: block;">
       <div class="gate-icon" aria-hidden="true" style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 2.2rem; font-weight: 700; color: var(--accent-strong);">D</div>
-      <h1 class="gate-title">My Account &amp; Sizing Profile</h1>
+      <h1 class="gate-title">My Account &amp; Order History</h1>
       <p class="gate-lead">
-        Sign in with your mobile number to view your bespoke nail sizing, track handcrafted press-on orders, and manage Delhi NCR at-home appointments.
+        Enter your email address to receive a secure, single-use sign-in link. View your handcrafted press-on orders, Delhi NCR appointments, and bespoke nail sizing.
       </p>
-      <button type="button" class="button primary-button" id="gate-login-btn">
-        <span>Sign In with Mobile</span>
-        <span aria-hidden="true">&rarr;</span>
-      </button>
-      <p class="auth-step-note" style="margin-top: 1.5rem;">
-        Fast, passwordless mobile OTP sign-in. No password required.
+
+      <div id="gate-email-status" class="gate-email-status" role="status" style="display: none;"></div>
+
+      <form id="gate-email-form" class="gate-email-form" onsubmit="return false;">
+        <div class="auth-email-field">
+          <input
+            type="email"
+            id="gate-email-input"
+            class="auth-input auth-email-input"
+            placeholder="you@example.com"
+            autocomplete="email"
+            aria-label="Email address for sign-in link"
+            required
+          />
+        </div>
+        <button type="submit" class="button primary-button" id="gate-email-submit-btn" style="width: 100%;">
+          <span class="btn-text" data-default="Send Sign-In Link &rarr;">Send Sign-In Link &rarr;</span>
+        </button>
+      </form>
+
+      <div class="gate-secondary-action">
+        <button type="button" class="auth-switch-btn" id="gate-login-btn">
+          Or sign in with mobile OTP
+        </button>
+      </div>
+
+      <p class="auth-step-note" style="margin-top: 1.25rem;">
+        Secure passwordless verification link valid for 15 minutes. No password required.
       </p>
     </section>
 
@@ -138,7 +160,8 @@
          AUTHENTICATED CUSTOMER DASHBOARD
          ======================================================================= -->
     <div id="account-content" style="display: none;">
-      
+      <div id="account-linked-notice" class="account-linked-notice" role="status" style="display: none;"></div>
+
       <!-- Top Overview Card -->
       <section class="account-overview-card" aria-label="Account Overview">
         <div class="account-client-meta">
@@ -147,7 +170,8 @@
             <span class="account-profile-tag">My Account</span>
             <h1 id="client-name-display">Welcome</h1>
             <div class="client-phone-row">
-              <span id="client-phone-display">+91 Mobile</span>
+              <span id="client-email-display" style="display: none;"></span>
+              <span id="client-phone-display"></span>
               <span class="client-verified-pill">✓ Verified</span>
             </div>
           </div>
@@ -513,10 +537,10 @@
 
   <!-- Client-side Config & Authentication Layer -->
   <script src="firebase-config.js"></script>
-  <script src="account-api.js"></script>
-  <script src="auth.js?v=5"></script>
-  <script src="auth-modal.js?v=4"></script>
-  <script src="account.js?v=3"></script>
-  <script src="script.js?v=23"></script>
+  <script src="account-api.js?v=2"></script>
+  <script src="auth.js?v=6"></script>
+  <script src="auth-modal.js?v=5"></script>
+  <script src="account.js?v=4"></script>
+  <script src="script.js?v=24"></script>
 </body>
 </html>

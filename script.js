@@ -1350,6 +1350,7 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
   window.DivvCurrentProductContext = `${title}${sku ? ` [SKU: ${sku}]` : ""}${effectivePrice ? ` (${effectivePrice})` : ""}`;
   if (typeof window.updateDivvProductBanner === "function") window.updateDivvProductBanner();
 
+  modal.setAttribute("aria-hidden", "false");
   modal.classList.add("is-open");
   document.body.style.overflow = "hidden";
 }
@@ -1686,11 +1687,21 @@ async function openServiceModal(title, description) {
 // ---------------------------------------------------------------------------
 
 let activeCartData = null;
+const inFlightCartItemIds = new Set();
+
+function lockCartCardControls(cardEl, locked) {
+  if (!cardEl) return;
+  cardEl.style.opacity = locked ? "0.6" : "";
+  cardEl.querySelectorAll("button").forEach((b) => {
+    b.disabled = locked;
+  });
+}
 
 async function openCartDrawer() {
   const overlay = document.getElementById("cart-drawer-overlay");
   if (!overlay) return;
 
+  overlay.setAttribute("aria-hidden", "false");
   overlay.classList.add("is-open");
   document.body.style.overflow = "hidden";
 
@@ -1699,7 +1710,10 @@ async function openCartDrawer() {
 
 function closeCartDrawer() {
   const overlay = document.getElementById("cart-drawer-overlay");
-  if (overlay) overlay.classList.remove("is-open");
+  if (overlay) {
+    overlay.classList.remove("is-open");
+    overlay.setAttribute("aria-hidden", "true");
+  }
   document.body.style.overflow = "";
 }
 
@@ -1789,27 +1803,50 @@ async function refreshCartView() {
         `;
       }).join("");
 
-      // Wire controls
+      // Wire controls with rapid-click lock per item ID to prevent duplicate 404 requests
       itemsContainer.querySelectorAll('button[data-action="qty-minus"]').forEach((btn) => {
         btn.onclick = async () => {
           const id = btn.getAttribute("data-id");
-          const currentQty = parseInt(btn.getAttribute("data-qty"), 10) || 1;
-          if (currentQty <= 1) {
-            await window.NailsApi.removeCartItem(id);
-          } else {
-            await window.NailsApi.updateCartItem(id, { quantity: currentQty - 1 });
+          if (!id || inFlightCartItemIds.has(id)) return;
+          inFlightCartItemIds.add(id);
+          lockCartCardControls(btn.closest(".cart-item-card"), true);
+          try {
+            const currentQty = parseInt(btn.getAttribute("data-qty"), 10) || 1;
+            if (currentQty <= 1) {
+              await window.NailsApi.removeCartItem(id);
+            } else {
+              await window.NailsApi.updateCartItem(id, { quantity: currentQty - 1 });
+            }
+            await refreshCartView();
+          } catch (err) {
+            if (err && err.status === 404) {
+              await refreshCartView();
+            } else {
+              console.warn("Could not update cart item quantity:", err && err.message ? err.message : err);
+            }
+          } finally {
+            inFlightCartItemIds.delete(id);
+            lockCartCardControls(btn.closest(".cart-item-card"), false);
           }
-          await refreshCartView();
         };
       });
 
       itemsContainer.querySelectorAll('button[data-action="qty-plus"]').forEach((btn) => {
         btn.onclick = async () => {
           const id = btn.getAttribute("data-id");
+          if (!id || inFlightCartItemIds.has(id)) return;
           const currentQty = parseInt(btn.getAttribute("data-qty"), 10) || 1;
-          if (currentQty < 20) {
+          if (currentQty >= 20) return;
+          inFlightCartItemIds.add(id);
+          lockCartCardControls(btn.closest(".cart-item-card"), true);
+          try {
             await window.NailsApi.updateCartItem(id, { quantity: currentQty + 1 });
             await refreshCartView();
+          } catch (err) {
+            console.warn("Could not increment cart item quantity:", err && err.message ? err.message : err);
+          } finally {
+            inFlightCartItemIds.delete(id);
+            lockCartCardControls(btn.closest(".cart-item-card"), false);
           }
         };
       });
@@ -1817,8 +1854,22 @@ async function refreshCartView() {
       itemsContainer.querySelectorAll('button[data-action="remove-item"]').forEach((btn) => {
         btn.onclick = async () => {
           const id = btn.getAttribute("data-id");
-          await window.NailsApi.removeCartItem(id);
-          await refreshCartView();
+          if (!id || inFlightCartItemIds.has(id)) return;
+          inFlightCartItemIds.add(id);
+          lockCartCardControls(btn.closest(".cart-item-card"), true);
+          try {
+            await window.NailsApi.removeCartItem(id);
+            await refreshCartView();
+          } catch (err) {
+            if (err && err.status === 404) {
+              await refreshCartView();
+            } else {
+              console.warn("Could not remove cart item:", err && err.message ? err.message : err);
+            }
+          } finally {
+            inFlightCartItemIds.delete(id);
+            lockCartCardControls(btn.closest(".cart-item-card"), false);
+          }
         };
       });
     }
@@ -2029,6 +2080,7 @@ async function openCheckoutModal() {
     };
   }
 
+  modal.setAttribute("aria-hidden", "false");
   modal.classList.add("is-open");
   document.body.style.overflow = "hidden";
 }
@@ -2036,6 +2088,7 @@ async function openCheckoutModal() {
 function closeAllModals() {
   document.querySelectorAll(".modal-overlay").forEach((modal) => {
     modal.classList.remove("is-open");
+    modal.setAttribute("aria-hidden", "true");
   });
   closeCartDrawer();
   document.body.style.overflow = "";
@@ -2385,7 +2438,10 @@ function initDivvStylist() {
 
     // Close other modals if active
     if (typeof closeAllModals === "function") {
-      document.querySelectorAll(".modal-overlay").forEach((m) => m.classList.remove("is-open"));
+      document.querySelectorAll(".modal-overlay").forEach((m) => {
+        m.classList.remove("is-open");
+        m.setAttribute("aria-hidden", "true");
+      });
       document.body.style.overflow = "hidden";
     }
 

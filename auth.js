@@ -25,6 +25,18 @@
   let currentUser = null;
   let currentToken = null;
   let pendingPhone = null;
+  let authReadyResolved = false;
+  let resolveAuthReady = null;
+  const authReadyPromise = new Promise((resolve) => {
+    resolveAuthReady = resolve;
+  });
+
+  function markAuthReady() {
+    if (!authReadyResolved) {
+      authReadyResolved = true;
+      if (typeof resolveAuthReady === "function") resolveAuthReady();
+    }
+  }
 
   const authChangeListeners = [];
 
@@ -224,7 +236,47 @@
       };
     }
 
-    // 10. AUTH UNAVAILABLE (Maintenance / unconfigured)
+    // 10. EMAIL MAGIC-LINK TOKEN ERRORS
+    if (
+      code === "TOKEN_EXPIRED" ||
+      combinedUpper.includes("EXPIRED")
+    ) {
+      return {
+        code: "TOKEN_EXPIRED",
+        isBillingDisabled: false,
+        isBlockedPolicy: false,
+        isQuotaExceeded: false,
+        isRateLimited: false,
+        userMessage: rawMsg || "This sign-in link has expired. Please request a new sign-in link.",
+        technicalDetail: rawMsg,
+      };
+    }
+
+    if (code === "TOKEN_USED") {
+      return {
+        code: "TOKEN_USED",
+        isBillingDisabled: false,
+        isBlockedPolicy: false,
+        isQuotaExceeded: false,
+        isRateLimited: false,
+        userMessage: rawMsg || "This sign-in link has already been used. Please request a new sign-in link.",
+        technicalDetail: rawMsg,
+      };
+    }
+
+    if (code === "TOKEN_INVALID" || code === "INVALID_EMAIL") {
+      return {
+        code,
+        isBillingDisabled: false,
+        isBlockedPolicy: false,
+        isQuotaExceeded: false,
+        isRateLimited: false,
+        userMessage: rawMsg || "This sign-in link is invalid. Please request a new sign-in link.",
+        technicalDetail: rawMsg,
+      };
+    }
+
+    // 11. AUTH UNAVAILABLE (Maintenance / unconfigured)
     if (code === "AUTH_UNAVAILABLE" || combinedUpper.includes("MAINTENANCE")) {
       return {
         code: "AUTH_UNAVAILABLE",
@@ -282,19 +334,43 @@
   }
 
   /**
-   * Saves current session snapshot to localStorage.
+   * Strips any secret/token fields and persists only non-secret UI snapshot to localStorage.
+   */
+  function sanitizeUserForStorage(user) {
+    if (!user || typeof user !== "object") return null;
+    return {
+      id: user.id || null,
+      firebase_uid: user.firebase_uid || null,
+      phone: user.phone || null,
+      phone_verified_at: user.phone_verified_at || null,
+      email: user.email || null,
+      email_verified_at: user.email_verified_at || null,
+      is_active: user.is_active !== false,
+      roles: Array.isArray(user.roles) ? user.roles : [],
+      profile: user.profile
+        ? {
+            full_name: user.profile.full_name || null,
+            preferred_nail_shape: user.profile.preferred_nail_shape || null,
+            preferred_nail_length: user.profile.preferred_nail_length || null,
+            sizing_preset: user.profile.sizing_preset || null,
+          }
+        : null,
+    };
+  }
+
+  /**
+   * Saves non-secret UI snapshot to localStorage (tokens strictly kept in memory / Firebase SDK).
    */
   function persistSession() {
     const storage = getLocalStorage();
     if (!storage) return;
 
-    if (currentUser && currentToken) {
+    if (currentUser) {
       try {
         storage.setItem(
           STORAGE_KEY,
           JSON.stringify({
-            user: currentUser,
-            token: currentToken,
+            user: sanitizeUserForStorage(currentUser),
             savedAt: Date.now(),
           })
         );
@@ -309,7 +385,7 @@
   }
 
   /**
-   * Restores cached session from localStorage on startup.
+   * Restores non-secret UI snapshot from localStorage on startup (never reads tokens).
    */
   function restoreCachedSession() {
     const storage = getLocalStorage();
@@ -319,9 +395,8 @@
       const raw = storage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (parsed && parsed.user && parsed.token) {
+        if (parsed && parsed.user) {
           currentUser = parsed.user;
-          currentToken = parsed.token;
           notifyAuthChange(currentUser);
         }
       }
@@ -421,12 +496,15 @@
               notifyAuthChange(currentUser);
             } catch (err) {
               console.error("Firebase auth sync error:", err);
+            } finally {
+              markAuthReady();
             }
           } else {
             currentToken = null;
             currentUser = null;
             persistSession();
             notifyAuthChange(null);
+            markAuthReady();
           }
         });
 
@@ -440,6 +518,7 @@
     // Default: Simulator / Demo mode (strictly gated to local development)
     isConfigured = false;
     restoreCachedSession();
+    markAuthReady();
 
     if (isLocalEnvironment()) {
       console.log(
@@ -507,9 +586,15 @@
      * @returns {Promise<string|null>}
      */
     async getToken() {
+      if (isConfigured && !authReadyResolved) {
+        await Promise.race([
+          authReadyPromise,
+          new Promise((resolve) => setTimeout(resolve, 1500)),
+        ]);
+      }
       if (isConfigured && firebaseAuth && firebaseAuth.currentUser) {
         try {
-          currentToken = await firebaseAuth.currentUser.getIdToken(true);
+          currentToken = await firebaseAuth.currentUser.getIdToken(false);
           return currentToken;
         } catch (err) {
           console.warn("Failed refreshing Firebase token:", err.message);
@@ -840,6 +925,93 @@
         error.originalError = err;
         throw error;
       }
+    },
+
+    /**
+     * Requests a passwordless single-use email login link for a customer.
+     * @param {string} rawEmail
+     * @returns {Promise<{ status: string, message: string }>}
+     */
+    async requestEmailLink(rawEmail) {
+      const cleanEmail = (rawEmail || "").trim().toLowerCase();
+      if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(cleanEmail)) {
+        const err = new Error("Please enter a valid email address.");
+        err.code = "INVALID_EMAIL";
+        throw err;
+      }
+      if (!window.NailsApi || typeof window.NailsApi.requestEmailLoginLink !== "function") {
+        const err = new Error("Account API client is unavailable.");
+        err.code = "API_UNAVAILABLE";
+        throw err;
+      }
+      return await window.NailsApi.requestEmailLoginLink(cleanEmail);
+    },
+
+    /**
+     * Verifies a single-use magic link token with the backend, receives a Firebase custom token
+     * after verification succeeds, signs into Firebase Auth, and binds customer session state.
+     *
+     * @param {string} rawToken
+     * @returns {Promise<{ success: boolean, user: object, linkedOrdersCount: number, linkedBookingsCount: number }>}
+     */
+    async verifyEmailLinkToken(rawToken) {
+      const cleanToken = (rawToken || "").trim();
+      if (!cleanToken) {
+        const err = new Error("Sign-in link token is missing or invalid.");
+        err.code = "TOKEN_INVALID";
+        throw err;
+      }
+      if (!window.NailsApi || typeof window.NailsApi.verifyEmailLoginToken !== "function") {
+        const err = new Error("Account API client is unavailable.");
+        err.code = "API_UNAVAILABLE";
+        throw err;
+      }
+
+      if (!isConfigured) {
+        init();
+      }
+
+      const verifyRes = await window.NailsApi.verifyEmailLoginToken(cleanToken);
+      if (!verifyRes || !verifyRes.customToken) {
+        const err = new Error("Unable to establish authenticated session from login link.");
+        err.code = "CUSTOM_TOKEN_MISSING";
+        throw err;
+      }
+
+      if (!isConfigured || !firebaseAuth || typeof firebaseAuth.signInWithCustomToken !== "function") {
+        const err = new Error("Authentication service is not configured.");
+        err.code = "AUTH_SERVICE_UNCONFIGURED";
+        throw err;
+      }
+
+      const cred = await firebaseAuth.signInWithCustomToken(verifyRes.customToken);
+      const fbUser = cred && cred.user;
+      if (!fbUser || typeof fbUser.getIdToken !== "function") {
+        const err = new Error("Firebase session sign-in failed.");
+        err.code = "FIREBASE_SIGNIN_FAILED";
+        throw err;
+      }
+
+      currentToken = await fbUser.getIdToken();
+
+      // Fetch fresh user profile with order/booking linkage reflected
+      try {
+        const meRes = await window.NailsApi.getCurrentUser();
+        currentUser = (meRes && meRes.user) || verifyRes.user;
+      } catch {
+        currentUser = verifyRes.user;
+      }
+
+      persistSession();
+      notifyAuthChange(currentUser);
+      markAuthReady();
+
+      return {
+        success: true,
+        user: currentUser,
+        linkedOrdersCount: verifyRes.linkedOrdersCount || 0,
+        linkedBookingsCount: verifyRes.linkedBookingsCount || 0,
+      };
     },
 
     /**

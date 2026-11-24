@@ -26,8 +26,14 @@
   let authGateEl = null;
   let accountContentEl = null;
   let clientNameDisplayEl = null;
+  let clientEmailDisplayEl = null;
   let clientPhoneDisplayEl = null;
   let clientInitialsEl = null;
+  let gateEmailFormEl = null;
+  let gateEmailInputEl = null;
+  let gateEmailSubmitBtnEl = null;
+  let gateEmailStatusEl = null;
+  let accountLinkedNoticeEl = null;
   let profileFormEl = null;
   let profileFeedbackEl = null;
   let addressListEl = null;
@@ -46,8 +52,14 @@
     authGateEl = document.getElementById("account-auth-gate");
     accountContentEl = document.getElementById("account-content");
     clientNameDisplayEl = document.getElementById("client-name-display");
+    clientEmailDisplayEl = document.getElementById("client-email-display");
     clientPhoneDisplayEl = document.getElementById("client-phone-display");
     clientInitialsEl = document.getElementById("client-initials");
+    gateEmailFormEl = document.getElementById("gate-email-form");
+    gateEmailInputEl = document.getElementById("gate-email-input");
+    gateEmailSubmitBtnEl = document.getElementById("gate-email-submit-btn");
+    gateEmailStatusEl = document.getElementById("gate-email-status");
+    accountLinkedNoticeEl = document.getElementById("account-linked-notice");
     profileFormEl = document.getElementById("customer-profile-form");
     profileFeedbackEl = document.getElementById("profile-feedback");
     addressListEl = document.getElementById("saved-addresses-list");
@@ -66,6 +78,93 @@
     }
 
     bindEventListeners();
+    await handleIncomingEmailMagicLink();
+  }
+
+  function showGateStatus(htmlOrMsg, tone = "info", isHtml = false) {
+    if (!gateEmailStatusEl) return;
+    gateEmailStatusEl.className = `gate-email-status is-${tone}`;
+    if (isHtml) {
+      gateEmailStatusEl.innerHTML = htmlOrMsg;
+    } else {
+      gateEmailStatusEl.textContent = htmlOrMsg;
+    }
+    gateEmailStatusEl.style.display = htmlOrMsg ? "block" : "none";
+  }
+
+  function clearGateStatus() {
+    if (!gateEmailStatusEl) return;
+    gateEmailStatusEl.textContent = "";
+    gateEmailStatusEl.style.display = "none";
+  }
+
+  /**
+   * Checks URL query parameters for a single-use `email_token`, immediately removes
+   * it from browser history/URL bar, verifies it with the backend, and signs in.
+   */
+  async function handleIncomingEmailMagicLink() {
+    let urlToken = null;
+    try {
+      const params = new URLSearchParams(window.location.search || "");
+      urlToken = params.get("email_token");
+      if (urlToken) {
+        params.delete("email_token");
+        const remaining = params.toString();
+        const cleanUrl = window.location.pathname + (remaining ? `?${remaining}` : "") + (window.location.hash || "");
+        if (window.history && typeof window.history.replaceState === "function") {
+          window.history.replaceState({}, document.title, cleanUrl);
+        }
+      }
+    } catch {
+      return;
+    }
+
+    if (!urlToken || !window.NailsAuth || typeof window.NailsAuth.verifyEmailLinkToken !== "function") {
+      return;
+    }
+
+    if (authGateEl) authGateEl.style.display = "block";
+    if (accountContentEl) accountContentEl.style.display = "none";
+    showGateStatus("Verifying your secure sign-in link...", "info");
+    if (gateEmailSubmitBtnEl) gateEmailSubmitBtnEl.disabled = true;
+
+    try {
+      const result = await window.NailsAuth.verifyEmailLinkToken(urlToken);
+      clearGateStatus();
+      if (accountLinkedNoticeEl) {
+        const ordCount = result.linkedOrdersCount || 0;
+        const bkgCount = result.linkedBookingsCount || 0;
+        if (ordCount > 0 || bkgCount > 0) {
+          const parts = [];
+          if (ordCount > 0) parts.push(`${ordCount} press-on order${ordCount === 1 ? "" : "s"}`);
+          if (bkgCount > 0) parts.push(`${bkgCount} appointment${bkgCount === 1 ? "" : "s"}`);
+          accountLinkedNoticeEl.textContent = `Welcome! We linked ${parts.join(" and ")} previously placed with your verified email address.`;
+          accountLinkedNoticeEl.style.display = "block";
+        } else {
+          accountLinkedNoticeEl.style.display = "none";
+        }
+      }
+    } catch (err) {
+      const friendly = escapeHtml(err && err.message ? err.message : "This sign-in link is invalid or has expired.");
+      showGateStatus(
+        `<div style="display:flex;flex-direction:column;gap:0.5rem;">
+           <strong>Unable to Complete Sign-In</strong>
+           <span>${friendly}</span>
+           <button type="button" id="gate-retry-link-btn" class="auth-switch-btn" style="align-self:flex-start;padding-left:0;">Request a new sign-in link &rarr;</button>
+         </div>`,
+        "error",
+        true
+      );
+      const retryBtn = document.getElementById("gate-retry-link-btn");
+      if (retryBtn) {
+        retryBtn.addEventListener("click", () => {
+          clearGateStatus();
+          if (gateEmailInputEl) gateEmailInputEl.focus();
+        });
+      }
+    } finally {
+      if (gateEmailSubmitBtnEl) gateEmailSubmitBtnEl.disabled = false;
+    }
   }
 
   /**
@@ -185,11 +284,21 @@
     const hasRealName = !isSynthetic && rawName.trim().length > 0;
     const greetingName = hasRealName ? rawName.trim() : "";
     const greetingText = hasRealName ? `Welcome, ${greetingName}` : "Welcome";
-    const initial = hasRealName ? greetingName.charAt(0).toUpperCase() : "D";
-    const phone = currentUser.phone || "+91 Mobile";
+    const email = currentUser.email || "";
+    const phone = currentUser.phone || "";
+    const initial = hasRealName
+      ? greetingName.charAt(0).toUpperCase()
+      : (email ? email.charAt(0).toUpperCase() : "D");
 
     if (clientNameDisplayEl) clientNameDisplayEl.textContent = greetingText;
-    if (clientPhoneDisplayEl) clientPhoneDisplayEl.textContent = phone;
+    if (clientEmailDisplayEl) {
+      clientEmailDisplayEl.textContent = email;
+      clientEmailDisplayEl.style.display = email ? "inline" : "none";
+    }
+    if (clientPhoneDisplayEl) {
+      clientPhoneDisplayEl.textContent = phone ? (email ? `• ${phone}` : phone) : "";
+      clientPhoneDisplayEl.style.display = phone ? "inline" : "none";
+    }
     if (clientInitialsEl) clientInitialsEl.textContent = initial;
   }
 
@@ -852,10 +961,44 @@
    * Binds page level interactive elements.
    */
   function bindEventListeners() {
+    if (gateEmailFormEl) {
+      gateEmailFormEl.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        clearGateStatus();
+        const emailVal = gateEmailInputEl ? gateEmailInputEl.value.trim().toLowerCase() : "";
+        if (!emailVal || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(emailVal)) {
+          showGateStatus("Please enter a valid email address.", "error");
+          if (gateEmailInputEl) gateEmailInputEl.focus();
+          return;
+        }
+        if (gateEmailSubmitBtnEl) {
+          gateEmailSubmitBtnEl.disabled = true;
+          const t = gateEmailSubmitBtnEl.querySelector(".btn-text");
+          if (t) t.textContent = "Sending Sign-In Link...";
+        }
+        try {
+          const res = await window.NailsAuth.requestEmailLink(emailVal);
+          showGateStatus(
+            `<strong>Check your inbox!</strong><br>${escapeHtml((res && res.message) || "We sent a secure 15-minute sign-in link to your email address.")}`,
+            "success",
+            true
+          );
+        } catch (err) {
+          showGateStatus(err.message || "Unable to send sign-in link. Please try again.", "error");
+        } finally {
+          if (gateEmailSubmitBtnEl) {
+            gateEmailSubmitBtnEl.disabled = false;
+            const t = gateEmailSubmitBtnEl.querySelector(".btn-text");
+            if (t) t.innerHTML = t.getAttribute("data-default") || "Send Sign-In Link &rarr;";
+          }
+        }
+      });
+    }
+
     const gateLoginBtn = document.getElementById("gate-login-btn");
     if (gateLoginBtn) {
       gateLoginBtn.addEventListener("click", () => {
-        if (window.NailsAuthModal) window.NailsAuthModal.open();
+        if (window.NailsAuthModal) window.NailsAuthModal.open("", { mode: "phone" });
       });
     }
 

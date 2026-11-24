@@ -269,6 +269,30 @@
       return this.request("/api/auth/verify-phone", options);
     },
 
+    /**
+     * Requests a passwordless customer sign-in link sent via Resend email.
+     * @param {string} email
+     * @returns {Promise<{ status: string, message: string }>}
+     */
+    async requestEmailLoginLink(email) {
+      return this.request("/api/auth/email/request-link", {
+        method: "POST",
+        body: { email },
+      });
+    },
+
+    /**
+     * Exchanges a single-use email login token for a Firebase custom token and user profile.
+     * @param {string} token
+     * @returns {Promise<{ status: string, customToken: string, linkedOrdersCount: number, linkedBookingsCount: number, user: object }>}
+     */
+    async verifyEmailLoginToken(token) {
+      return this.request("/api/auth/email/verify-link", {
+        method: "POST",
+        body: { token },
+      });
+    },
+
     // --------------------------------------------------------------------------
     // CUSTOMER PROFILE
     // --------------------------------------------------------------------------

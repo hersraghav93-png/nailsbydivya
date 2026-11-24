@@ -12,6 +12,12 @@
   "use strict";
 
   let dialogEl = null;
+  let emailStepEl = null;
+  let emailSentStepEl = null;
+  let emailInputEl = null;
+  let sendEmailBtn = null;
+  let resendEmailBtn = null;
+  let emailSentTargetEl = null;
   let phoneInputEl = null;
   let otpInputs = [];
   let phoneStepEl = null;
@@ -23,6 +29,7 @@
   let resendBtn = null;
   let resendTimerEl = null;
   let countdownInterval = null;
+  let currentEmail = "";
   let currentPhone = "";
 
   const RESEND_COUNTDOWN_SECONDS = 30;
@@ -48,9 +55,61 @@
 
           <div class="auth-error-banner" id="auth-error-banner" role="alert" style="display: none;"></div>
 
+          <!-- STEP 0: EMAIL MAGIC-LINK INPUT (PRIMARY CUSTOMER SIGN-IN) -->
+          <div class="auth-step is-active" id="auth-step-email">
+            <h2 id="auth-dialog-title" class="auth-step-title">Sign In with Email</h2>
+            <p class="auth-step-subtitle">Enter your email address to receive a secure, single-use sign-in link. View orders, appointments, and your nail profile.</p>
+
+            <form id="auth-email-form" class="auth-form" onsubmit="return false;">
+              <div class="auth-email-field">
+                <input
+                  type="email"
+                  id="auth-email-input"
+                  class="auth-input auth-email-input"
+                  placeholder="you@example.com"
+                  autocomplete="email"
+                  aria-label="Email address"
+                  required
+                />
+              </div>
+
+              <button type="submit" id="auth-send-email-btn" class="button primary-button auth-submit-btn">
+                <span class="auth-btn-text">Send Sign-In Link &rarr;</span>
+                <span class="auth-btn-spinner" style="display: none;"></span>
+              </button>
+            </form>
+
+            <p class="auth-step-note">
+              Passwordless verification link valid for 15 minutes. No password required.
+            </p>
+
+            <div class="auth-mode-switch">
+              <button type="button" class="auth-switch-btn" id="auth-switch-to-phone-btn">
+                Or sign in with mobile OTP
+              </button>
+            </div>
+          </div>
+
+          <!-- STEP 0B: EMAIL SENT CONFIRMATION -->
+          <div class="auth-step" id="auth-step-email-sent" style="display: none;">
+            <div class="auth-success-icon" aria-hidden="true">&#9993;</div>
+            <h2 class="auth-step-title">Check Your Inbox</h2>
+            <p class="auth-step-subtitle">
+              If an inbox exists at <strong id="auth-email-sent-target">your email</strong>, we have sent a single-use sign-in link valid for 15 minutes.
+            </p>
+            <div class="auth-resend-row" style="justify-content: center; gap: 1rem;">
+              <button type="button" id="auth-resend-email-btn" class="auth-resend-link">Send Another Link</button>
+              <span aria-hidden="true" style="color: rgba(125,86,92,0.35);">&bull;</span>
+              <button type="button" id="auth-change-email-btn" class="auth-resend-link">Use Another Email</button>
+            </div>
+          </div>
+
           <!-- STEP 1: PHONE INPUT -->
-          <div class="auth-step is-active" id="auth-step-phone">
-            <h2 id="auth-dialog-title" class="auth-step-title">Sign In or Register</h2>
+          <div class="auth-step" id="auth-step-phone" style="display: none;">
+            <button type="button" class="auth-back-btn" id="auth-switch-to-email-btn">
+              &larr; Sign in with email instead
+            </button>
+            <h2 class="auth-step-title">Sign In with Mobile</h2>
             <p class="auth-step-subtitle">Enter your mobile number to access your bespoke nail measurements and saved delivery addresses.</p>
 
             <form id="auth-phone-form" class="auth-form" onsubmit="return false;">
@@ -133,6 +192,12 @@
   function bindDialogEvents() {
     if (!dialogEl) return;
 
+    emailStepEl = document.getElementById("auth-step-email");
+    emailSentStepEl = document.getElementById("auth-step-email-sent");
+    emailInputEl = document.getElementById("auth-email-input");
+    sendEmailBtn = document.getElementById("auth-send-email-btn");
+    resendEmailBtn = document.getElementById("auth-resend-email-btn");
+    emailSentTargetEl = document.getElementById("auth-email-sent-target");
     phoneStepEl = document.getElementById("auth-step-phone");
     otpStepEl = document.getElementById("auth-step-otp");
     successStepEl = document.getElementById("auth-step-success");
@@ -144,6 +209,10 @@
     resendTimerEl = document.getElementById("auth-resend-timer");
     const closeBtn = document.getElementById("auth-dialog-close");
     const backBtn = document.getElementById("auth-back-btn");
+    const emailForm = document.getElementById("auth-email-form");
+    const switchToPhoneBtn = document.getElementById("auth-switch-to-phone-btn");
+    const switchToEmailBtn = document.getElementById("auth-switch-to-email-btn");
+    const changeEmailBtn = document.getElementById("auth-change-email-btn");
     const phoneForm = document.getElementById("auth-phone-form");
     const otpForm = document.getElementById("auth-otp-form");
 
@@ -168,6 +237,41 @@
         if (pressedOutside && isOutside(e)) {
           closeDialog();
         }
+      });
+    }
+
+    // Email input & submit form
+    if (emailInputEl) {
+      emailInputEl.addEventListener("input", () => clearError());
+    }
+    if (emailForm) {
+      emailForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        handleSendEmailLink();
+      });
+    }
+    if (resendEmailBtn) {
+      resendEmailBtn.addEventListener("click", () => {
+        if (currentEmail) handleSendEmailLink(currentEmail);
+      });
+    }
+    if (changeEmailBtn) {
+      changeEmailBtn.addEventListener("click", () => {
+        clearError();
+        showStep("email");
+      });
+    }
+    if (switchToPhoneBtn) {
+      switchToPhoneBtn.addEventListener("click", () => {
+        clearError();
+        showStep("phone");
+        refreshPhoneBillingState();
+      });
+    }
+    if (switchToEmailBtn) {
+      switchToEmailBtn.addEventListener("click", () => {
+        clearError();
+        showStep("email");
       });
     }
 
@@ -334,16 +438,28 @@
   }
 
   /**
-   * Toggles between modal steps ('phone', 'otp', 'success').
-   * @param {'phone' | 'otp' | 'success'} stepName
+   * Toggles between modal steps ('email', 'email-sent', 'phone', 'otp', 'success').
+   * @param {'email' | 'email-sent' | 'phone' | 'otp' | 'success'} stepName
    */
   function showStep(stepName) {
     if (!phoneStepEl || !otpStepEl || !successStepEl) return;
+    if (emailStepEl) emailStepEl.style.display = stepName === "email" ? "block" : "none";
+    if (emailSentStepEl) emailSentStepEl.style.display = stepName === "email-sent" ? "block" : "none";
     phoneStepEl.style.display = stepName === "phone" ? "block" : "none";
     otpStepEl.style.display = stepName === "otp" ? "block" : "none";
     successStepEl.style.display = stepName === "success" ? "block" : "none";
 
-    if (stepName === "otp") {
+    if (stepName === "email") {
+      clearInterval(countdownInterval);
+      if (emailInputEl) {
+        if (!emailInputEl.value && currentEmail) emailInputEl.value = currentEmail;
+        setTimeout(() => emailInputEl.focus(), 100);
+      }
+    } else if (stepName === "email-sent") {
+      if (emailSentTargetEl && currentEmail) {
+        emailSentTargetEl.textContent = currentEmail;
+      }
+    } else if (stepName === "otp") {
       const displayPhone = document.getElementById("auth-display-phone");
       if (displayPhone) displayPhone.textContent = currentPhone;
       const subtitleEl = document.getElementById("auth-otp-subtitle");
@@ -364,6 +480,58 @@
         phoneInputEl.disabled = false;
         setTimeout(() => phoneInputEl.focus(), 100);
       }
+    }
+  }
+
+  /**
+   * Handles sending a passwordless email sign-in link via Resend.
+   */
+  async function handleSendEmailLink(explicitEmail = null) {
+    clearError();
+    const rawEmail = explicitEmail || (emailInputEl ? emailInputEl.value.trim() : "");
+    const cleanEmail = rawEmail.toLowerCase();
+
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(cleanEmail)) {
+      showError("Please enter a valid email address.");
+      if (emailInputEl) emailInputEl.focus();
+      return;
+    }
+
+    setButtonLoading(sendEmailBtn, true);
+    if (resendEmailBtn) resendEmailBtn.disabled = true;
+
+    try {
+      await window.NailsAuth.requestEmailLink(cleanEmail);
+      currentEmail = cleanEmail;
+      showStep("email-sent");
+    } catch (err) {
+      showError(err.message || "Unable to send sign-in link. Please try again.");
+    } finally {
+      setButtonLoading(sendEmailBtn, false);
+      if (resendEmailBtn) resendEmailBtn.disabled = false;
+    }
+  }
+
+  function refreshPhoneBillingState() {
+    const isBilling = window.NailsAuth && typeof window.NailsAuth.isBillingDisabled === "function" && window.NailsAuth.isBillingDisabled();
+    const isConfigured = window.NailsAuth && typeof window.NailsAuth.isConfigured === "function" && window.NailsAuth.isConfigured();
+    const isLocal = window.NailsAuth && typeof window.NailsAuth.isLocalEnvironment === "function" ? window.NailsAuth.isLocalEnvironment() : false;
+
+    if (isBilling) {
+      showBillingNotice();
+      if (sendOtpBtn) {
+        sendOtpBtn.disabled = true;
+        sendOtpBtn.title = "Phone verification is temporarily unavailable (SMS billing disabled).";
+      }
+    } else if (!isConfigured && !isLocal) {
+      showMaintenanceNotice();
+      if (sendOtpBtn) {
+        sendOtpBtn.disabled = true;
+        sendOtpBtn.title = "SMS authentication is currently undergoing maintenance.";
+      }
+    } else if (sendOtpBtn) {
+      sendOtpBtn.disabled = false;
+      sendOtpBtn.title = "";
     }
   }
 
@@ -559,33 +727,16 @@
    * Opens the authentication dialog.
    * @param {string} [initialPhone] Optional phone number to prefill
    */
-  function openDialog(initialPhone = "") {
+  function openDialog(initialPhone = "", options = {}) {
     ensureDialogMarkup();
     bindDialogEvents();
     clearError();
-    showStep("phone");
 
-    const isBilling = window.NailsAuth && typeof window.NailsAuth.isBillingDisabled === "function" && window.NailsAuth.isBillingDisabled();
-    const isConfigured = window.NailsAuth && typeof window.NailsAuth.isConfigured === "function" && window.NailsAuth.isConfigured();
-    const isLocal = window.NailsAuth && typeof window.NailsAuth.isLocalEnvironment === "function" ? window.NailsAuth.isLocalEnvironment() : false;
+    const startStep = (options && options.mode === "phone") || initialPhone ? "phone" : "email";
+    showStep(startStep);
 
-    if (isBilling) {
-      showBillingNotice();
-      if (sendOtpBtn) {
-        sendOtpBtn.disabled = true;
-        sendOtpBtn.title = "Phone verification is temporarily unavailable (SMS billing disabled).";
-      }
-    } else if (!isConfigured && !isLocal) {
-      showMaintenanceNotice();
-      if (sendOtpBtn) {
-        sendOtpBtn.disabled = true;
-        sendOtpBtn.title = "SMS authentication is currently undergoing maintenance.";
-      }
-    } else {
-      if (sendOtpBtn) {
-        sendOtpBtn.disabled = false;
-        sendOtpBtn.title = "";
-      }
+    if (startStep === "phone") {
+      refreshPhoneBillingState();
     }
 
     if (phoneInputEl && initialPhone) {
