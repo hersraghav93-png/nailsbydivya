@@ -123,6 +123,7 @@ server.listen(PORT, async () => {
     const viewports = [
       { name: 'desktop', width: 1200, height: 800, isMobile: false },
       { name: 'tablet-768', width: 768, height: 1024, isMobile: true },
+      { name: 'mobile-430', width: 430, height: 932, isMobile: true },
       { name: 'mobile-375', width: 375, height: 667, isMobile: true },
       { name: 'mobile-320', width: 320, height: 568, isMobile: true }
     ];
@@ -184,8 +185,8 @@ server.listen(PORT, async () => {
           console.log(`  ✓ [${pageClean}] ${vp.name} (${vp.width}px): perfect fit (${res.scrollWidth}px / ${res.clientWidth}px)`);
         }
 
-        // Save screenshot for mobile-375 and desktop
-        if (vp.name === 'mobile-375' || vp.name === 'desktop') {
+        // Save screenshot for all mobile viewports and desktop
+        if (vp.name.startsWith('mobile-') || vp.name === 'desktop') {
           const screenshot = await sendCommand('Page.captureScreenshot', { format: 'png' });
           const imgBuffer = Buffer.from(screenshot.data, 'base64');
           fs.writeFileSync(path.join(ROOT, `preview-${pageClean}-${vp.name}.png`), imgBuffer);
