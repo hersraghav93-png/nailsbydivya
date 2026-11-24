@@ -84,6 +84,11 @@ async function run() {
         firebaseCurrentUser = {
           uid: "uid_email_1",
           email: "meera@example.com",
+          emailVerified: true,
+          getIdTokenResult: async () => ({
+            token: "id_token_mem_only_999",
+            claims: { email: "meera@example.com", email_verified: true },
+          }),
           getIdToken: async () => "id_token_mem_only_999",
         };
         return { user: firebaseCurrentUser };

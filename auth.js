@@ -992,7 +992,21 @@
         throw err;
       }
 
-      currentToken = await fbUser.getIdToken();
+      if (typeof fbUser.reload === "function" && !fbUser.emailVerified) {
+        await fbUser.reload();
+      }
+      if (typeof fbUser.getIdTokenResult === "function") {
+        const tokenResult = await fbUser.getIdTokenResult(true);
+        const stdEmailVerified = Boolean(tokenResult && tokenResult.claims && tokenResult.claims.email_verified === true);
+        if (!stdEmailVerified || !fbUser.emailVerified) {
+          const err = new Error("Email verification claim could not be confirmed on the authentication session.");
+          err.code = "EMAIL_VERIFICATION_REQUIRED";
+          throw err;
+        }
+        currentToken = tokenResult.token || (await fbUser.getIdToken());
+      } else {
+        currentToken = await fbUser.getIdToken();
+      }
 
       // Fetch fresh user profile with order/booking linkage reflected
       try {
