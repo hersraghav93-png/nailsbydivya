@@ -102,7 +102,7 @@
 
   // Dedicated Staging Firebase Web App Config slot (populate with `nails-by-divya-staging` public Web App identifiers)
   const STAGING_FIREBASE_CONFIG = {
-    apiKey: "AIzaSyAASz88q9XYpqycDNR8amynJFOFJGAwFo",
+    apiKey: "AIzaSyAASz88q9XYpqycDRN8amnynJF0FJGAwFo",
     authDomain: "nails-by-divya-staging.firebaseapp.com",
     projectId: "nails-by-divya-staging",
     storageBucket: "nails-by-divya-staging.firebasestorage.app",
