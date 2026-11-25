@@ -164,13 +164,40 @@ async function run() {
     assert.strictEqual(storageData.NAILS_AUTH_SESSION_V1, undefined);
   });
 
-  await test("4. account.html, account.js, and auth-modal.js integrate email magic-link UI and URL token stripping", () => {
+  await test("4. account.html, account.js, and auth-modal.js enforce email-only customer login, tailored link errors, real order product names, and clean separators", () => {
     assert(accountHtmlSrc.includes('id="gate-email-form"'), "account.html has inline email login form");
+    assert(!accountHtmlSrc.includes('id="gate-login-btn"'), "account.html removes customer mobile OTP login button");
+    assert(!accountHtmlSrc.includes("Or sign in with mobile OTP"), "account.html has no customer mobile OTP option");
     assert(accountHtmlSrc.includes('id="client-email-display"'), "account.html renders verified customer email");
     assert(accountJsSrc.includes("window.history.replaceState"), "account.js strips single-use token from URL bar");
     assert(accountJsSrc.includes("handleIncomingEmailMagicLink"), "account.js auto-verifies incoming magic links");
+    assert(accountJsSrc.includes("This Sign-In Link Has Expired"), "account.js displays distinct expired-link heading");
+    assert(accountJsSrc.includes("Sign-In Link Already Used"), "account.js displays distinct used-link heading");
+    assert(accountJsSrc.includes("Invalid Sign-In Link"), "account.js displays distinct invalid-link heading");
+    assert(accountJsSrc.includes("formatOrderItemTitle"), "account.js derives order card title from actual order items");
+    assert(!accountJsSrc.includes("&bull; ${new Date(o.createdAt)"), "account.js uses actual bullet character rather than literal &bull; in order modal subtitle");
+    assert(!accountJsSrc.includes("&bull; ${escapeHtml(b.serviceName"), "account.js uses actual bullet character rather than literal &bull; in booking modal subtitle");
     assert(authModalSrc.includes('id="auth-step-email"'), "auth-modal.js includes primary email sign-in view");
     assert(authModalSrc.includes('id="auth-step-email-sent"'), "auth-modal.js includes check-inbox confirmation view");
+    assert(!authModalSrc.includes('id="auth-step-phone"'), "auth-modal.js removes customer phone step");
+    assert(!authModalSrc.includes('id="auth-step-otp"'), "auth-modal.js removes customer OTP step");
+    assert(!authModalSrc.includes('id="auth-switch-to-phone-btn"'), "auth-modal.js removes phone login toggle");
+  });
+
+  await test("5. firebase-config.js isolates staging/production resolution without mutating production config", () => {
+    const fbCfg = require("./firebase-config.js");
+    const prod = fbCfg.resolveFirebaseConfig("nailsbydivya.store", {
+      STAGING_FIREBASE_PROJECT_ID: "nails-by-divya-staging",
+      STAGING_FIREBASE_API_KEY: "stg_key",
+      STAGING_FIREBASE_APP_ID: "stg_app",
+    });
+    assert.strictEqual(prod.projectId, "nails-by-divya", "Production must always use nails-by-divya");
+    const stg = fbCfg.resolveFirebaseConfig("staging.nailsbydivya.store", {
+      STAGING_FIREBASE_PROJECT_ID: "nails-by-divya-staging",
+      STAGING_FIREBASE_API_KEY: "stg_key",
+      STAGING_FIREBASE_APP_ID: "stg_app",
+    });
+    assert.strictEqual(stg.projectId, "nails-by-divya-staging", "Staging overrides cleanly when dedicated project is configured");
   });
 
   console.log("\n==================================================================");

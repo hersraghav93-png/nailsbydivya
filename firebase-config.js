@@ -58,9 +58,109 @@
     return null;
   }
 
-  const resolvedApiUrl = resolveApiUrl(
-    typeof window !== "undefined" && window.location ? window.location.hostname : ""
-  );
+  /**
+   * Resolves whether the current hostname belongs to an isolated staging or local environment.
+   * Production domains always return false.
+   * @param {string} [hostname]
+   * @returns {boolean}
+   */
+  function isStagingOrLocalHost(hostname) {
+    const host = (
+      hostname ||
+      (typeof window !== "undefined" && window.location ? window.location.hostname : "") ||
+      ""
+    ).toLowerCase().trim();
+
+    if (host === "nailsbydivya.store" || host === "www.nailsbydivya.store") {
+      return false;
+    }
+
+    return (
+      host === "localhost" ||
+      host === "127.0.0.1" ||
+      host === "" ||
+      host === "staging.nailsbydivya.store" ||
+      host === "preview.nailsbydivya.store" ||
+      host === "staging-admin.nailsbydivya.store" ||
+      host.endsWith(".pages.dev") ||
+      host === "pages.dev" ||
+      host.includes("staging") ||
+      host.includes("preview")
+    );
+  }
+
+  // Public Production Firebase Web App Config (nailsbydivya.store — NEVER alter for staging)
+  const PRODUCTION_FIREBASE_CONFIG = {
+    apiKey: "AIzaSyDGxiI91qUyV4d9yegCPBg9lrWqKocaXX4",
+    authDomain: "nails-by-divya.firebaseapp.com",
+    projectId: "nails-by-divya",
+    storageBucket: "nails-by-divya.firebasestorage.app",
+    messagingSenderId: "868470074827",
+    appId: "1:868470074827:web:5dcfc99ffee2a4bc6c1a4e",
+    measurementId: "G-WD4KQWS8DX",
+  };
+
+  // Dedicated Staging Firebase Web App Config slot (populate with `nails-by-divya-staging` public Web App identifiers)
+  const STAGING_FIREBASE_CONFIG = {
+    apiKey: "",
+    authDomain: "",
+    projectId: "",
+    storageBucket: "",
+    messagingSenderId: "",
+    appId: "",
+    measurementId: "",
+  };
+
+  /**
+   * Resolves the environment-appropriate public Firebase Web App config.
+   * Production always resolves strictly to PRODUCTION_FIREBASE_CONFIG.
+   * Staging/Preview resolves to STAGING_FIREBASE_CONFIG / STAGING_FIREBASE_* env overrides when populated.
+   */
+  function resolveFirebaseConfig(hostname, env = {}, existingFirebase = {}) {
+    const isStaging = isStagingOrLocalHost(hostname);
+
+    if (!isStaging) {
+      return {
+        apiKey: env.FIREBASE_API_KEY || existingFirebase.apiKey || PRODUCTION_FIREBASE_CONFIG.apiKey,
+        authDomain: existingFirebase.authDomain || PRODUCTION_FIREBASE_CONFIG.authDomain,
+        projectId: existingFirebase.projectId || PRODUCTION_FIREBASE_CONFIG.projectId,
+        storageBucket: existingFirebase.storageBucket || PRODUCTION_FIREBASE_CONFIG.storageBucket,
+        messagingSenderId: existingFirebase.messagingSenderId || PRODUCTION_FIREBASE_CONFIG.messagingSenderId,
+        appId: env.FIREBASE_APP_ID || existingFirebase.appId || PRODUCTION_FIREBASE_CONFIG.appId,
+        measurementId: existingFirebase.measurementId || PRODUCTION_FIREBASE_CONFIG.measurementId,
+      };
+    }
+
+    const stagingApiKey = env.STAGING_FIREBASE_API_KEY || STAGING_FIREBASE_CONFIG.apiKey;
+    const stagingProjectId = env.STAGING_FIREBASE_PROJECT_ID || STAGING_FIREBASE_CONFIG.projectId;
+    const stagingAppId = env.STAGING_FIREBASE_APP_ID || STAGING_FIREBASE_CONFIG.appId;
+
+    if (stagingApiKey && stagingProjectId && stagingAppId) {
+      return {
+        apiKey: stagingApiKey,
+        authDomain: env.STAGING_FIREBASE_AUTH_DOMAIN || STAGING_FIREBASE_CONFIG.authDomain || `${stagingProjectId}.firebaseapp.com`,
+        projectId: stagingProjectId,
+        storageBucket: env.STAGING_FIREBASE_STORAGE_BUCKET || STAGING_FIREBASE_CONFIG.storageBucket || `${stagingProjectId}.firebasestorage.app`,
+        messagingSenderId: env.STAGING_FIREBASE_MESSAGING_SENDER_ID || STAGING_FIREBASE_CONFIG.messagingSenderId || "",
+        appId: stagingAppId,
+        measurementId: env.STAGING_FIREBASE_MEASUREMENT_ID || STAGING_FIREBASE_CONFIG.measurementId || "",
+      };
+    }
+
+    return {
+      apiKey: existingFirebase.apiKey || env.FIREBASE_API_KEY || PRODUCTION_FIREBASE_CONFIG.apiKey,
+      authDomain: existingFirebase.authDomain || PRODUCTION_FIREBASE_CONFIG.authDomain,
+      projectId: existingFirebase.projectId || PRODUCTION_FIREBASE_CONFIG.projectId,
+      storageBucket: existingFirebase.storageBucket || PRODUCTION_FIREBASE_CONFIG.storageBucket,
+      messagingSenderId: existingFirebase.messagingSenderId || PRODUCTION_FIREBASE_CONFIG.messagingSenderId,
+      appId: existingFirebase.appId || env.FIREBASE_APP_ID || PRODUCTION_FIREBASE_CONFIG.appId,
+      measurementId: existingFirebase.measurementId || PRODUCTION_FIREBASE_CONFIG.measurementId,
+    };
+  }
+
+  const currentHostname =
+    typeof window !== "undefined" && window.location ? window.location.hostname : "";
+  const resolvedApiUrl = resolveApiUrl(currentHostname);
 
   if (typeof window !== "undefined") {
     const env =
@@ -87,30 +187,11 @@
       },
 
       // Firebase Web App Configuration (Public Web Client Identifiers)
-      firebase: {
-        apiKey:
-          (typeof window !== "undefined" && window.__ENV__ && window.__ENV__.FIREBASE_API_KEY) ||
-          existingFirebase.apiKey ||
-          "AIzaSyDGxiI91qUyV4d9yegCPBg9lrWqKocaXX4",
-        authDomain:
-          existingFirebase.authDomain || "nails-by-divya.firebaseapp.com",
-        projectId:
-          existingFirebase.projectId || "nails-by-divya",
-        storageBucket:
-          existingFirebase.storageBucket || "nails-by-divya.firebasestorage.app",
-        messagingSenderId:
-          existingFirebase.messagingSenderId || "868470074827",
-        appId:
-          (typeof window !== "undefined" && window.__ENV__ && window.__ENV__.FIREBASE_APP_ID) ||
-          existingFirebase.appId ||
-          "1:868470074827:web:5dcfc99ffee2a4bc6c1a4e",
-        measurementId:
-          existingFirebase.measurementId || "G-WD4KQWS8DX",
-      },
+      firebase: resolveFirebaseConfig(currentHostname, env, existingFirebase),
     };
   }
 
   if (typeof module !== "undefined" && module.exports) {
-    module.exports = { resolveApiUrl };
+    module.exports = { resolveApiUrl, isStagingOrLocalHost, resolveFirebaseConfig, PRODUCTION_FIREBASE_CONFIG };
   }
 })();

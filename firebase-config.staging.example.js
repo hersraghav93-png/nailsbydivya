@@ -10,16 +10,15 @@
  * 2. Select your staging project (e.g., 'nails-by-divya-staging').
  * 3. Open Project Settings -> General -> Your apps -> Web app.
  * 4. Copy the public configuration object properties below.
- * 5. Under Authentication -> Sign-in method -> Phone:
- *    - Enable Phone Authentication.
- *    - In "Phone numbers for testing", add staging test numbers (e.g., +91 98110 00001 with OTP 123456)
- *      to test without consuming real SMS quotas.
+ * 5. Under Authentication -> Sign-in method:
+ *    - Customer login uses backend-issued Firebase Custom Tokens from Resend magic links.
+ *    - Enable Email/Password and Google providers for isolated staging Admin portal testing.
  * 6. Under Authentication -> Settings -> Authorized domains:
  *    - Add `staging.nailsbydivya.store`
  *    - Add `staging-admin.nailsbydivya.store`
  *    - Add `*.pages.dev` (Cloudflare Pages preview deployments)
  *    - Add `localhost`
- * 7. Copy this file to `firebase-config.js` in your staging environment.
+ * 7. Populate STAGING_FIREBASE_CONFIG in `firebase-config.js` on your staging branch (keeping PRODUCTION_FIREBASE_CONFIG untouched).
  */
 
 window.NAILS_CONFIG = window.NAILS_CONFIG || {

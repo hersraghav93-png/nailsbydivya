@@ -81,6 +81,98 @@
     await handleIncomingEmailMagicLink();
   }
 
+  const LAST_LOGIN_EMAIL_KEY = "nbd_last_login_email";
+
+  function getSavedLoginEmail() {
+    try {
+      return (sessionStorage.getItem(LAST_LOGIN_EMAIL_KEY) || "").trim();
+    } catch {
+      return "";
+    }
+  }
+
+  function saveLastLoginEmail(email) {
+    try {
+      if (email) {
+        sessionStorage.setItem(LAST_LOGIN_EMAIL_KEY, email.trim().toLowerCase());
+      } else {
+        sessionStorage.removeItem(LAST_LOGIN_EMAIL_KEY);
+      }
+    } catch {}
+  }
+
+  function getMagicLinkErrorCopy(err) {
+    const code = err && err.code ? String(err.code).toUpperCase() : "";
+    const apiMsg = err && err.message ? String(err.message) : "";
+
+    if (code === "TOKEN_EXPIRED") {
+      return {
+        title: "This Sign-In Link Has Expired",
+        message: apiMsg || "This sign-in link expired after 15 minutes. Request a new sign-in link below.",
+        buttonLabel: "Request a new sign-in link &rarr;",
+      };
+    }
+    if (code === "TOKEN_USED") {
+      return {
+        title: "Sign-In Link Already Used",
+        message: apiMsg || "This single-use sign-in link has already been used. Request a new sign-in link below.",
+        buttonLabel: "Request a new sign-in link &rarr;",
+      };
+    }
+    if (code === "TOKEN_INVALID") {
+      return {
+        title: "Invalid Sign-In Link",
+        message: apiMsg || "This sign-in link is invalid or malformed. Request a new sign-in link below.",
+        buttonLabel: "Request a new sign-in link &rarr;",
+      };
+    }
+    return {
+      title: "Unable to Complete Sign-In",
+      message: apiMsg || "This sign-in link could not be verified. Please request a new sign-in link below.",
+      buttonLabel: "Request a new sign-in link &rarr;",
+    };
+  }
+
+  async function submitEmailMagicLinkRequest(rawEmail) {
+    clearGateStatus();
+    const emailVal = (rawEmail || (gateEmailInputEl ? gateEmailInputEl.value : "") || "").trim().toLowerCase();
+    if (!emailVal || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(emailVal)) {
+      showGateStatus("Please enter a valid email address.", "error");
+      if (gateEmailInputEl) gateEmailInputEl.focus();
+      return false;
+    }
+
+    if (gateEmailInputEl && gateEmailInputEl.value.trim().toLowerCase() !== emailVal) {
+      gateEmailInputEl.value = emailVal;
+    }
+
+    if (gateEmailSubmitBtnEl) {
+      gateEmailSubmitBtnEl.disabled = true;
+      const t = gateEmailSubmitBtnEl.querySelector(".btn-text");
+      if (t) t.textContent = "Sending Sign-In Link...";
+    }
+
+    try {
+      const res = await window.NailsAuth.requestEmailLink(emailVal);
+      saveLastLoginEmail(emailVal);
+      showGateStatus(
+        `<strong>Check your inbox!</strong><br>${escapeHtml((res && res.message) || "We sent a secure 15-minute sign-in link to your email address.")}`,
+        "success",
+        true
+      );
+      return true;
+    } catch (err) {
+      showGateStatus(err.message || "Unable to send sign-in link. Please try again.", "error");
+      return false;
+    } finally {
+      if (gateEmailSubmitBtnEl) {
+        gateEmailSubmitBtnEl.disabled = false;
+        const t = gateEmailSubmitBtnEl.querySelector(".btn-text");
+        if (t) t.innerHTML = t.getAttribute("data-default") || "Send Sign-In Link &rarr;";
+      }
+    }
+  }
+
   function showGateStatus(htmlOrMsg, tone = "info", isHtml = false) {
     if (!gateEmailStatusEl) return;
     gateEmailStatusEl.className = `gate-email-status is-${tone}`;
@@ -131,6 +223,7 @@
     try {
       const result = await window.NailsAuth.verifyEmailLinkToken(urlToken);
       clearGateStatus();
+      saveLastLoginEmail("");
       if (accountLinkedNoticeEl) {
         const ordCount = result.linkedOrdersCount || 0;
         const bkgCount = result.linkedBookingsCount || 0;
@@ -145,21 +238,36 @@
         }
       }
     } catch (err) {
-      const friendly = escapeHtml(err && err.message ? err.message : "This sign-in link is invalid or has expired.");
+      const copy = getMagicLinkErrorCopy(err);
+      const knownEmail = (gateEmailInputEl && gateEmailInputEl.value.trim()) || getSavedLoginEmail();
+      if (gateEmailInputEl && !gateEmailInputEl.value.trim() && knownEmail) {
+        gateEmailInputEl.value = knownEmail;
+      }
+
       showGateStatus(
         `<div style="display:flex;flex-direction:column;gap:0.5rem;">
-           <strong>Unable to Complete Sign-In</strong>
-           <span>${friendly}</span>
-           <button type="button" id="gate-retry-link-btn" class="auth-switch-btn" style="align-self:flex-start;padding-left:0;">Request a new sign-in link &rarr;</button>
+           <strong>${escapeHtml(copy.title)}</strong>
+           <span>${escapeHtml(copy.message)}</span>
+           <button type="button" id="gate-retry-link-btn" class="auth-switch-btn" style="align-self:flex-start;padding-left:0;">${copy.buttonLabel}</button>
          </div>`,
         "error",
         true
       );
       const retryBtn = document.getElementById("gate-retry-link-btn");
       if (retryBtn) {
-        retryBtn.addEventListener("click", () => {
-          clearGateStatus();
-          if (gateEmailInputEl) gateEmailInputEl.focus();
+        retryBtn.addEventListener("click", async () => {
+          const targetEmail = (gateEmailInputEl && gateEmailInputEl.value.trim()) || getSavedLoginEmail();
+          if (targetEmail && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(targetEmail)) {
+            await submitEmailMagicLinkRequest(targetEmail);
+            return;
+          }
+          showGateStatus("Enter your email address below and click Send Sign-In Link to receive a fresh 15-minute link.", "info");
+          if (gateEmailInputEl) {
+            gateEmailInputEl.focus();
+            if (typeof gateEmailInputEl.scrollIntoView === "function") {
+              gateEmailInputEl.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+          }
         });
       }
     } finally {
@@ -533,6 +641,24 @@
     });
   }
 
+  function formatOrderItemTitle(ord) {
+    const items = Array.isArray(ord && ord.items) ? ord.items : [];
+    if (items.length > 0) {
+      const first = items[0];
+      const baseName = first.productName || first.product_name || "Handcrafted Press-On Set";
+      const qtyPrefix = first.quantity && first.quantity > 1 ? `${first.quantity}× ` : "";
+      if (items.length === 1) {
+        return `${qtyPrefix}${baseName}`;
+      }
+      const extraCount = items.length - 1;
+      return `${qtyPrefix}${baseName} (+${extraCount} more item${extraCount === 1 ? "" : "s"})`;
+    }
+    if (ord && ord.itemsSummary) {
+      return ord.itemsSummary;
+    }
+    return "Bespoke Handcrafted Set";
+  }
+
   /**
    * Renders customer press-on orders history.
    */
@@ -566,6 +692,7 @@
       const orderStatus = (ord.orderStatus || ord.order_status || "PENDING").toUpperCase();
       const paymentStatus = (ord.paymentStatus || ord.payment_status || "PENDING").toUpperCase();
       const totalAmount = parseFloat(ord.totalAmount || ord.total_amount) || 0;
+      const orderItemTitle = formatOrderItemTitle(ord);
 
       // Status pill styling
       let statusClass = "status-pending";
@@ -576,7 +703,7 @@
       else if (orderStatus === "CANCELLED") { statusClass = "status-cancelled"; statusLabel = "Cancelled"; }
 
       const businessPhone = (window.NAILS_CONFIG && window.NAILS_CONFIG.business && window.NAILS_CONFIG.business.phoneRaw) || "918447391310";
-      const waText = encodeURIComponent(`Hi Divya! Regarding my press-on order *${orderNum}* (₹${totalAmount}): please let me know the current status and payment/sizing verification.`);
+      const waText = encodeURIComponent(`Hi Divya! Regarding my press-on order *${orderNum}* (${orderItemTitle}, ₹${totalAmount}): please let me know the current status and payment/sizing verification.`);
       const waUrl = `https://wa.me/${businessPhone}?text=${waText}`;
 
       return `
@@ -593,7 +720,7 @@
           </div>
 
           <div class="order-items-snippet">
-            <strong>Bespoke Handcrafted Set</strong> &bull; Delivery: Confirmed by studio &bull; Amount: <strong>₹${totalAmount}</strong>
+            <strong>${escapeHtml(orderItemTitle)}</strong> &bull; Delivery: Confirmed by studio &bull; Amount: <strong>₹${totalAmount}</strong>
           </div>
 
           <div class="order-card-footer">
@@ -717,10 +844,34 @@
     try {
       const res = await window.NailsApi.getOrderDetails(orderId);
       const o = res.order;
-      if (subTitleEl) subTitleEl.textContent = `Order ${o.orderNumber || orderId.slice(0, 8)} &bull; ${new Date(o.createdAt).toLocaleDateString()}`;
+      const orderItems = Array.isArray(res.items) ? res.items : [];
+      if (subTitleEl) {
+        subTitleEl.textContent = `Order ${o.orderNumber || orderId.slice(0, 8)} • ${new Date(o.createdAt).toLocaleDateString()}`;
+      }
+
+      const itemsMarkup = orderItems.length
+        ? `<div style="font-size: 0.85rem;">
+             <span style="font-weight: 700; text-transform: uppercase; font-size: 0.76rem; color: var(--heading);">Ordered Sets</span>
+             <div style="display: flex; flex-direction: column; gap: 0.45rem; margin-top: 0.35rem;">
+               ${orderItems.map((item) => {
+                 const vd = item.variantDetails || {};
+                 const specs = [vd.shape, vd.length, vd.sizingPreset || vd.sizing_preset].filter(Boolean).join(" • ");
+                 return `<div style="display: flex; justify-content: space-between; gap: 0.75rem; background: var(--bg-soft); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 0.55rem 0.75rem;">
+                   <div>
+                     <strong>${escapeHtml(item.productName || "Handcrafted Press-On Set")}</strong>
+                     <div style="font-size: 0.78rem; color: var(--text-muted);">${escapeHtml(specs || item.sku || "")} • Qty ${item.quantity || 1}</div>
+                   </div>
+                   <strong>₹${parseFloat(item.totalPrice || item.unitPrice || 0)}</strong>
+                 </div>`;
+               }).join("")}
+             </div>
+           </div>`
+        : "";
 
       if (bodyEl) {
         bodyEl.innerHTML = `
+          ${itemsMarkup}
+
           <div style="background: var(--bg-soft); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 0.85rem; font-size: 0.85rem;">
             <div style="display: flex; justify-content: space-between; margin-bottom: 0.35rem;">
               <span>Order Status:</span>
@@ -780,7 +931,7 @@
     try {
       const res = await window.NailsApi.getBookingDetails(bookingId);
       const b = res.booking;
-      if (subTitleEl) subTitleEl.textContent = `Booking ${b.bookingNumber || bookingId.slice(0, 8)} &bull; ${escapeHtml(b.serviceName || "")}`;
+      if (subTitleEl) subTitleEl.textContent = `Booking ${b.bookingNumber || bookingId.slice(0, 8)}${b.serviceName ? ` • ${b.serviceName}` : ""}`;
 
       if (bodyEl) {
         bodyEl.innerHTML = `
@@ -964,41 +1115,7 @@
     if (gateEmailFormEl) {
       gateEmailFormEl.addEventListener("submit", async (e) => {
         e.preventDefault();
-        clearGateStatus();
-        const emailVal = gateEmailInputEl ? gateEmailInputEl.value.trim().toLowerCase() : "";
-        if (!emailVal || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(emailVal)) {
-          showGateStatus("Please enter a valid email address.", "error");
-          if (gateEmailInputEl) gateEmailInputEl.focus();
-          return;
-        }
-        if (gateEmailSubmitBtnEl) {
-          gateEmailSubmitBtnEl.disabled = true;
-          const t = gateEmailSubmitBtnEl.querySelector(".btn-text");
-          if (t) t.textContent = "Sending Sign-In Link...";
-        }
-        try {
-          const res = await window.NailsAuth.requestEmailLink(emailVal);
-          showGateStatus(
-            `<strong>Check your inbox!</strong><br>${escapeHtml((res && res.message) || "We sent a secure 15-minute sign-in link to your email address.")}`,
-            "success",
-            true
-          );
-        } catch (err) {
-          showGateStatus(err.message || "Unable to send sign-in link. Please try again.", "error");
-        } finally {
-          if (gateEmailSubmitBtnEl) {
-            gateEmailSubmitBtnEl.disabled = false;
-            const t = gateEmailSubmitBtnEl.querySelector(".btn-text");
-            if (t) t.innerHTML = t.getAttribute("data-default") || "Send Sign-In Link &rarr;";
-          }
-        }
-      });
-    }
-
-    const gateLoginBtn = document.getElementById("gate-login-btn");
-    if (gateLoginBtn) {
-      gateLoginBtn.addEventListener("click", () => {
-        if (window.NailsAuthModal) window.NailsAuthModal.open("", { mode: "phone" });
+        await submitEmailMagicLinkRequest();
       });
     }
 

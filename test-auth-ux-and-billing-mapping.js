@@ -351,52 +351,24 @@ async function runTests() {
   );
 
   // =========================================================================
-  // TEST SECTION 3: CUSTOMER AUTH MODAL UX VERIFICATION
+  // TEST SECTION 3: CUSTOMER AUTH MODAL UX VERIFICATION (EMAIL-ONLY)
   // =========================================================================
-  console.log("\n▶ TEST SECTION 3: Customer Modal UX & State Integrity");
-
-  // Verify modal static HTML does NOT make misleading claims
-  assertTest(
-    "auth-modal.js static note says '6-digit verification code' (not fake SMS claims)",
-    authModalSrc.includes("We'll send a 6-digit verification code. No password required.")
-  );
-
-  // Simulate customer entering phone when billing is disabled
-  NailsAuth.setBillingDisabled(true);
-
-  let customerModalStep = "phone";
-  let phoneInputValue = "9876543210";
-  let sendOtpBtnDisabled = false;
-  let noticeRendered = "";
-
-  // Execute modal flow logic matching auth-modal.js
-  try {
-    if (NailsAuth.isBillingDisabled()) {
-      sendOtpBtnDisabled = true;
-      noticeRendered = "Phone Verification Temporarily Unavailable: SMS billing is not enabled.";
-      throw new Error("Phone verification is temporarily unavailable: SMS billing disabled.");
-    }
-    await NailsAuth.sendOtp(phoneInputValue);
-    customerModalStep = "otp"; // MUST NOT BE REACHED
-  } catch (err) {
-    customerModalStep = "phone"; // Stays strictly on phone step
-  }
+  console.log("\n▶ TEST SECTION 3: Customer Modal Email-Only UX & State Integrity");
 
   assertTest(
-    "Customer modal strictly stays on 'phone' step (does NOT advance to 'otp')",
-    customerModalStep === "phone"
+    "auth-modal.js offers email magic-link login only",
+    authModalSrc.includes('id="auth-step-email"') && authModalSrc.includes('id="auth-step-email-sent"')
   );
   assertTest(
-    "Customer phone number remains intact, visible, and editable",
-    phoneInputValue === "9876543210"
+    "auth-modal.js contains no customer phone number or SMS OTP steps",
+    !authModalSrc.includes('id="auth-step-phone"') &&
+      !authModalSrc.includes('id="auth-step-otp"') &&
+      !authModalSrc.includes("auth-phone-input") &&
+      !authModalSrc.includes("Or sign in with mobile OTP")
   );
   assertTest(
-    "Submit button is disabled to prevent futile resends",
-    sendOtpBtnDisabled === true
-  );
-  assertTest(
-    "Clear maintenance/billing notice is shown with WhatsApp fallback",
-    noticeRendered.includes("Phone Verification Temporarily Unavailable")
+    "auth-modal.js clearly explains that a secure sign-in link will be sent to email",
+    authModalSrc.includes("send a secure, single-use sign-in link directly to your inbox")
   );
 
   // =========================================================================
