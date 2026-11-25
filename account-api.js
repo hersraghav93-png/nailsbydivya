@@ -37,6 +37,29 @@
   "use strict";
 
   const CART_SESSION_KEY = "nbd_cart_session";
+  let guestInitialization;
+
+  function buyerId() {
+    const user = window.NailsAuth?.getUser?.();
+    return user?.firebase_uid || user?.uid || user?.id || null;
+  }
+
+  // A cached profile and Firebase token can briefly belong to different accounts
+  // during a switch. This only binds the UI request; Express verifies the token.
+  function tokenMatchesBuyer(token, buyer) {
+    if (!token || !buyer) return !token && !buyer;
+    try {
+      const payload = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+      const bytes = Uint8Array.from(atob(payload), c => c.charCodeAt(0));
+      return JSON.parse(new TextDecoder().decode(bytes)).sub === buyer;
+    } catch {
+      return false;
+    }
+  }
+
+  function identityChanged() {
+    return Object.assign(new Error("Your sign-in changed. Please reopen your bag."), { code: "CHECKOUT_IDENTITY_CHANGED" });
+  }
 
   /**
    * Resolves the active backend API base URL based on explicit environment detection.
@@ -81,6 +104,7 @@
   }
 
   const NailsApi = {
+    getBuyerId: buyerId,
     /**
      * Resolves the active backend API base URL.
      * @param {string} [hostnameOverride]
@@ -144,27 +168,37 @@
       };
 
       // 1. Attach cart session header if available and not explicitly provided
-      const cartSession = this.getCartSessionToken();
+      const expectedBuyer = options.checkout ? options.checkout.buyer : buyerId();
+      const guardBuyer = Boolean(options.checkout) || endpoint.startsWith("/api/cart");
+      const cartSession = options.checkout ? options.checkout.sessionToken : this.getCartSessionToken();
       if (cartSession && !headers["X-Cart-Session"]) {
         headers["X-Cart-Session"] = cartSession;
       }
 
+      let idToken = null;
       // 2. Retrieve Firebase ID token from NailsAuth if available
       if (window.NailsAuth && typeof window.NailsAuth.getToken === "function") {
         try {
-          const token = await window.NailsAuth.getToken();
-          if (token) {
-            headers["Authorization"] = `Bearer ${token}`;
+          idToken = await window.NailsAuth.getToken();
+          if (idToken) {
+            headers["Authorization"] = `Bearer ${idToken}`;
           }
         } catch (authErr) {
           console.debug("Silent auth token retrieval error:", authErr.message);
         }
       }
 
+      if (guardBuyer && (buyerId() !== expectedBuyer || !tokenMatchesBuyer(idToken, expectedBuyer))) {
+        throw identityChanged();
+      }
       const fetchOptions = {
         method: options.method || "GET",
         headers,
       };
+
+      if (options.checkout && typeof AbortSignal !== "undefined" && AbortSignal.timeout) {
+        fetchOptions.signal = AbortSignal.timeout(30000);
+      }
 
       if (options.body) {
         fetchOptions.body = typeof options.body === "string" ? options.body : JSON.stringify(options.body);
@@ -184,9 +218,6 @@
 
       // 3. Capture returned X-Cart-Session header from backend response
       const returnedSession = res.headers.get("x-cart-session");
-      if (returnedSession) {
-        this.setCartSessionToken(returnedSession);
-      }
 
       let data = null;
       let rawText = "";
@@ -206,6 +237,11 @@
         } catch {
           rawText = "";
         }
+      }
+
+      if (guardBuyer && buyerId() !== expectedBuyer) throw identityChanged();
+      if (res.ok && returnedSession && !headers.Authorization && !buyerId()) {
+        this.setCartSessionToken(returnedSession);
       }
 
       if (!res.ok) {
@@ -249,8 +285,8 @@
      * Retrieves current authenticated user claims, profile, roles, and permissions.
      * @returns {Promise<{ user: object }>}
      */
-    async getCurrentUser() {
-      return this.request("/api/auth/me");
+    async getCurrentUser(checkout) {
+      return this.request("/api/auth/me", { checkout });
     },
 
     /**
@@ -326,8 +362,8 @@
      * Retrieves all saved addresses for the authenticated customer.
      * @returns {Promise<{ addresses: Array<object> }>}
      */
-    async getCustomerAddresses() {
-      return this.request("/api/customer/addresses");
+    async getCustomerAddresses(checkout) {
+      return this.request("/api/customer/addresses", { checkout });
     },
 
     /**
@@ -408,7 +444,11 @@
      * @returns {Promise<{ cart: object, items: Array<object>, totals: object }>}
      */
     async getCart() {
-      return this.request("/api/cart");
+      if (buyerId() || this.getCartSessionToken()) return this.request("/api/cart");
+      if (!guestInitialization) {
+        guestInitialization = this.request("/api/cart").finally(() => { guestInitialization = null; });
+      }
+      return guestInitialization;
     },
 
     /**
@@ -418,6 +458,9 @@
      * @returns {Promise<{ status: string, message: string, cart: object, items: Array<object>, totals: object }>}
      */
     async addToCart(itemData) {
+      const buyer = buyerId();
+      if (!buyer && !this.getCartSessionToken()) await this.getCart();
+      if (buyer !== buyerId()) throw identityChanged();
       const res = await this.request("/api/cart/items", {
         method: "POST",
         body: itemData,
@@ -513,10 +556,11 @@
      * @param {string} [orderData.idempotency_key]
      * @returns {Promise<{ status: string, message: string, order: object, claimSecret?: string }>}
      */
-    async createOrder(orderData) {
+    async createOrder(orderData, checkout) {
       const res = await this.request("/api/orders", {
         method: "POST",
         body: orderData,
+        checkout,
       });
       window.dispatchEvent(new CustomEvent("nbd_cart_updated", { detail: null }));
       return res;
@@ -651,15 +695,6 @@
       });
     },
   };
-
-  // Auto-claim guest cart when NailsAuth authenticates a user
-  if (typeof window !== "undefined") {
-    window.addEventListener("NBD_AUTH_CHANGED", (e) => {
-      if (e.detail && e.detail.user) {
-        NailsApi.claimGuestCart();
-      }
-    });
-  }
 
   if (typeof window !== "undefined") {
     window.NailsApi = NailsApi;

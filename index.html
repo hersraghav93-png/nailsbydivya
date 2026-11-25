@@ -2391,6 +2391,7 @@
         </div>
       </div>
 
+      <button type="button" class="button secondary-button" id="cart-check-receipt" style="display: none;">Check previous checkout</button>
       <div class="cart-drawer-footer" id="cart-drawer-footer" style="display: none;">
         <div class="cart-summary-line">
           <span>Subtotal</span>
@@ -2543,7 +2544,7 @@
           NBD-ORD-0000
         </div>
         <div style="font-size: 0.85rem; color: var(--text-muted);">
-          Order Status: <strong class="status-pill status-pending">PENDING</strong> &bull; Payment: <strong class="status-pill status-pending">PENDING</strong>
+          Order Status: <strong id="checkout-confirmation-status" class="status-pill status-pending">PENDING</strong> &bull; Payment: <strong id="checkout-confirmation-payment" class="status-pill status-pending">PENDING</strong>
         </div>
 
         <!-- Practical Next-Steps Guidance -->
@@ -2782,11 +2783,11 @@
 
   <!-- Client-side Config & Authentication Layer -->
   <script src="firebase-config.js?v=2"></script>
-  <script src="account-api.js?v=2"></script>
+  <script src="account-api.js?v=3"></script>
   <script src="auth.js?v=6"></script>
   <script src="auth-modal.js?v=6"></script>
 
   <!-- Core Scripts -->
-  <script src="script.js?v=24"></script>
+  <script src="script.js?v=25"></script>
 </body>
 </html>
