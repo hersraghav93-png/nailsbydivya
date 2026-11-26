@@ -183,7 +183,7 @@ const CHECKOUT_CONFIG = {
       const skuStr = sku ? ` [SKU: ${sku}]` : "";
       const priceStr = price ? ` • Price: *${price}*` : "";
       const noteStr = customNote ? `\n• ${customNote}` : "";
-      const text = `Hi Divya! I would like to order the handmade press-on nail set: *${productName}*${skuStr} (${category})${priceStr}.${noteStr}\n\nPlease let me know how to share my nail measurements and confirm delivery across India.`;
+      const text = `Hi Divya! I would like help choosing the handmade press-on nail set: *${productName}*${skuStr} (${category})${priceStr}.${noteStr}\n\nPlease let me know how to share my nail measurements and confirm delivery across India.`;
       const encodedText = encodeURIComponent(text);
       return `https://wa.me/${this.whatsappNumber}?text=${encodedText}`;
     }
@@ -195,7 +195,7 @@ const CHECKOUT_CONFIG = {
    * Generates a service appointment consultation URL.
    */
   getServiceBookingUrl(serviceTitle, locationNote = "Delhi NCR") {
-    const text = `Hi Divya! I would like to inquire about *${serviceTitle}* (${locationNote}).\n\nPlease let me know your availability and how we can proceed.`;
+    const text = `Hi Divya! I would like to inquire about *${serviceTitle}* (${locationNote}).\n\nCould you share a quote and let me know what you need to estimate it?`;
     const encodedText = encodeURIComponent(text);
     return `https://wa.me/${this.whatsappNumber}?text=${encodedText}`;
   }
@@ -953,7 +953,7 @@ function initModals() {
     }
   });
 
-  // Direct Order CTA Buttons inside Product Cards
+  // WhatsApp assistance for a specific product
   document.querySelectorAll("button[data-action='order']").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -1333,15 +1333,16 @@ const CANONICAL_SERVICES_MAP = {
   "power polish / shellac": { id: "power_polish", name: "Power Polish / Shellac", price: "From ₹999", isCustomQuote: false },
   "power polish": { id: "power_polish", name: "Power Polish / Shellac", price: "From ₹999", isCustomQuote: false },
   "signature manicure & power polish": { id: "power_polish", name: "Power Polish / Shellac", price: "From ₹999", isCustomQuote: false },
-  "3d & custom nail art": { id: "custom_3d_art", name: "3D & Custom Nail Art", price: "Custom Quotation", isCustomQuote: true },
-  "3d, chrome & custom artistry": { id: "custom_3d_art", name: "3D & Custom Nail Art", price: "Custom Quotation", isCustomQuote: true },
-  "french nails": { id: "gel_extensions", name: "French Nails (Design Add-On)", price: "Design Add-On", isCustomQuote: true },
-  "safe extension removal": { id: "extension_removal", name: "Safe Extension Removal", price: "Price on Enquiry", isCustomQuote: true },
-  "extension removal": { id: "extension_removal", name: "Safe Extension Removal", price: "Price on Enquiry", isCustomQuote: true },
-  "nail extension removal": { id: "extension_removal", name: "Safe Extension Removal", price: "Price on Enquiry", isCustomQuote: true },
+  "3d & custom nail art": { id: "custom_3d_art", name: "3D & Custom Nail Art", price: "Custom Quote", isCustomQuote: true },
+  "3d, chrome & custom artistry": { id: "custom_3d_art", name: "3D & Custom Nail Art", price: "Custom Quote", isCustomQuote: true },
+  "french nails": { id: "gel_extensions", name: "French Nails (Design Add-On)", price: "Add-on · custom quote", isCustomQuote: true },
+  "safe extension removal": { id: "extension_removal", name: "Safe Extension Removal", price: "Custom Quote", isCustomQuote: true },
+  "extension removal": { id: "extension_removal", name: "Safe Extension Removal", price: "Custom Quote", isCustomQuote: true },
+  "nail extension removal": { id: "extension_removal", name: "Safe Extension Removal", price: "Custom Quote", isCustomQuote: true },
 };
 
 let cachedServiceCatalog = null;
+let serviceBookingView = 0;
 
 async function getLiveServiceCatalog() {
   if (Array.isArray(cachedServiceCatalog) && cachedServiceCatalog.length > 0) {
@@ -1377,10 +1378,15 @@ async function openServiceModal(title, description) {
   const modal = document.getElementById("service-modal");
   if (!modal) return;
 
+  const view = ++serviceBookingView;
+  const isCurrent = () => view === serviceBookingView && modal.getAttribute("aria-hidden") === "false";
   const titleEl = document.getElementById("service-modal-title");
   const descEl = document.getElementById("service-modal-desc");
   const priceValEl = document.getElementById("service-price-value");
   const formEl = document.getElementById("service-booking-form");
+  const quoteIntro = document.getElementById("service-quote-intro");
+  const quoteLink = document.getElementById("service-quote-whatsapp");
+  const quoteContinue = document.getElementById("service-quote-continue");
   const confirmationView = document.getElementById("service-confirmation-view");
   const errorEl = document.getElementById("service-booking-error");
   const dateInput = document.getElementById("service-requested-date");
@@ -1389,7 +1395,12 @@ async function openServiceModal(title, description) {
 
   if (titleEl) titleEl.textContent = title;
   if (descEl) descEl.textContent = description;
-  if (formEl) { formEl.style.display = "flex"; formEl.reset(); }
+  formEl.reset();
+  const submitBtn = document.getElementById("service-submit-btn");
+  const submitLabel = submitBtn.querySelector("span");
+  const defaultLabel = submitBtn.dataset.defaultLabel ||= submitLabel.textContent;
+  submitBtn.disabled = false;
+  submitLabel.textContent = defaultLabel;
   if (confirmationView) confirmationView.style.display = "none";
   if (errorEl) { errorEl.textContent = ""; errorEl.style.display = "none"; }
 
@@ -1403,6 +1414,15 @@ async function openServiceModal(title, description) {
   };
 
   if (priceValEl) priceValEl.textContent = matchedService.price;
+
+  quoteIntro.hidden = !matchedService.isCustomQuote;
+  quoteLink.href = CHECKOUT_CONFIG.getServiceBookingUrl(title);
+  formEl.style.display = matchedService.isCustomQuote ? "none" : "flex";
+  quoteContinue.onclick = () => {
+    quoteIntro.hidden = true;
+    formEl.style.display = "flex";
+    document.getElementById("service-customer-name").focus();
+  };
 
   // Set min date to tomorrow and max date to +60 days (matching backend validation window)
   if (dateInput) {
@@ -1435,9 +1455,7 @@ async function openServiceModal(title, description) {
   if (formEl) {
     formEl.onsubmit = async (e) => {
       e.preventDefault();
-      if (!window.NailsApi) return;
-
-      const submitBtn = document.getElementById("service-submit-btn");
+      if (!window.NailsApi || !isCurrent() || formEl.style.display === "none" || submitBtn.disabled) return;
       const name = document.getElementById("service-customer-name")?.value.trim();
       const rawPhone = document.getElementById("service-customer-phone")?.value.trim();
       const email = document.getElementById("service-customer-email")?.value.trim();
@@ -1491,12 +1509,9 @@ async function openServiceModal(title, description) {
         return;
       }
 
-      const origBtnHtml = submitBtn ? submitBtn.innerHTML : "";
       try {
-        if (submitBtn) {
-          submitBtn.disabled = true;
-          submitBtn.innerHTML = "<span>Submitting Request...</span>";
-        }
+        submitBtn.disabled = true;
+        submitLabel.textContent = "Sending request…";
         if (errorEl) errorEl.style.display = "none";
 
         const bookingPayload = {
@@ -1532,6 +1547,7 @@ async function openServiceModal(title, description) {
         };
 
         const result = await window.NailsApi.createBooking(bookingPayload);
+        if (!isCurrent()) return;
         const bookingNum = result.booking?.bookingNumber || "NBD-BKG-REQUESTED";
 
         // Privacy-first booking submission analytics (strictly zero customer PII)
@@ -1562,15 +1578,16 @@ async function openServiceModal(title, description) {
           if (closeBtn) closeBtn.onclick = closeAllModals;
         }
       } catch (err) {
+        if (!isCurrent()) return;
         let msg = err.message || "We're having trouble connecting. Please try again or contact Divya on WhatsApp.";
         if (msg.includes("<") || msg.toLowerCase().startsWith("cannot ")) {
           msg = "We're having trouble connecting. Please try again or contact Divya on WhatsApp.";
         }
         showBookingError(msg);
       } finally {
-        if (submitBtn) {
+        if (view === serviceBookingView) {
           submitBtn.disabled = false;
-          submitBtn.innerHTML = origBtnHtml;
+          submitLabel.textContent = defaultLabel;
         }
       }
     };
@@ -1580,10 +1597,11 @@ async function openServiceModal(title, description) {
   modal.setAttribute("aria-hidden", "false");
   modal.classList.add("is-open");
   document.body.style.overflow = "hidden";
+  modal.querySelector(".modal-card").scrollTop = 0;
 
   // Populate live service add-ons from backend catalog so UUIDs always match production DB
   getLiveServiceCatalog().then((services) => {
-    if (!services || !addonsWrapper || !addonsContainer) return;
+    if (!isCurrent() || !services || !addonsWrapper || !addonsContainer) return;
     const liveSvc = services.find((s) => s.id === matchedService.id);
     if (liveSvc && priceValEl && liveSvc.pricingDisplay && !matchedService.isCustomQuote) {
       priceValEl.textContent = liveSvc.pricingDisplay;
@@ -1615,7 +1633,7 @@ async function openServiceModal(title, description) {
     (async () => {
       try {
         const userRes = await window.NailsApi.getCurrentUser().catch(() => null);
-        if (userRes && userRes.user) {
+        if (isCurrent() && userRes && userRes.user) {
           const u = userRes.user;
           const nameInput = document.getElementById("service-customer-name");
           const phoneInput = document.getElementById("service-customer-phone");
@@ -1629,7 +1647,7 @@ async function openServiceModal(title, description) {
           if (emailInput && !emailInput.value) emailInput.value = u.email || "";
 
           const addrRes = await window.NailsApi.getCustomerAddresses().catch(() => null);
-          if (addrRes && addrRes.addresses && addrRes.addresses.length) {
+          if (isCurrent() && addrRes && addrRes.addresses && addrRes.addresses.length) {
             const srvAddr = addrRes.addresses.find((a) => a.isDefaultService || a.is_default_service) || addrRes.addresses[0];
             if (srvAddr) {
               const l1 = document.getElementById("service-addr-line1");
@@ -2131,7 +2149,7 @@ async function openCheckoutModal() {
       } catch (err) {
         if (!isCurrent()) return;
         if (errorEl) {
-          let msg = err.message || "Failed to place order. Please try again.";
+          let msg = err.message || "Could not send the order request. Please try again.";
           if (msg.includes("<") || msg.toLowerCase().startsWith("cannot ")) {
             msg = "We're having trouble connecting. Please try again or contact Divya on WhatsApp.";
           }
@@ -2393,7 +2411,6 @@ function initMomentCarousel() {
 // ---------------------------------------------------------------------------
 function initDivvStylist() {
   const triggerBtn = document.getElementById("divv-floating-trigger");
-  const navBtn = document.getElementById("nav-divv-btn");
   const modal = document.getElementById("divv-widget-modal");
   const overlay = document.getElementById("divv-widget-overlay");
   const closeBtn = document.getElementById("divv-close-btn");
@@ -2537,12 +2554,14 @@ function initDivvStylist() {
   };
 
   triggerBtn.addEventListener("click", openDivv);
-  if (navBtn) {
-    navBtn.addEventListener("click", (e) => {
+  document.getElementById("shop-divv-help")?.addEventListener("click", openDivv);
+  document.querySelectorAll('a[href="#divv"]').forEach((link) => {
+    link.addEventListener("click", (e) => {
       e.preventDefault();
       openDivv();
     });
-  }
+  });
+  if (window.location.hash === "#divv") openDivv();
   if (closeBtn) closeBtn.addEventListener("click", closeDivv);
   if (overlay) overlay.addEventListener("click", closeDivv);
 
