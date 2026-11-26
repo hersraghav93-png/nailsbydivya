@@ -4730,3 +4730,113 @@ details.faq-item p {
   color: var(--text-muted);
   border: 1px solid var(--line);
 }
+
+
+/* --------------------------------------------------------------------------
+   CUSTOMER JOURNEY REFRESH — clearer primary paths and quieter offer details
+   -------------------------------------------------------------------------- */
+.offers-grid-reimagined {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+.offers-grid-reimagined .offer-card-featured {
+  grid-column: span 1;
+  min-height: 260px;
+  padding: clamp(1.5rem, 3vw, 2.4rem);
+}
+.offer-card-shopping {
+  background:
+    radial-gradient(circle at 92% 8%, rgba(231, 175, 184, .27), transparent 38%),
+    linear-gradient(145deg, #fff 0%, #fff5f2 100%);
+}
+.offer-card-at-home {
+  background:
+    radial-gradient(circle at 92% 8%, rgba(234, 220, 207, .48), transparent 38%),
+    linear-gradient(145deg, #fff 0%, #fbf5f2 100%);
+}
+.offers-grid-reimagined .offer-card-body h3 {
+  max-width: 18ch;
+  font-size: clamp(1.65rem, 2.6vw, 2.15rem);
+}
+.offers-grid-reimagined .offer-card-body p {
+  max-width: 46ch;
+}
+.offers-secondary {
+  display: grid;
+  grid-template-columns: minmax(190px, .8fr) 2fr;
+  gap: 1.5rem;
+  align-items: center;
+  padding: clamp(1.25rem, 2.5vw, 2rem);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: rgba(255,255,255,.72);
+}
+.offers-secondary-copy h3 {
+  margin: .35rem 0 .3rem;
+  font-size: 1.45rem;
+}
+.offers-secondary-copy p {
+  color: var(--text-muted);
+  font-size: .86rem;
+  line-height: 1.55;
+}
+.offers-secondary-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .65rem;
+}
+.offer-perk-link {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+  padding: .85rem .95rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  transition: border-color 180ms ease, transform 180ms ease, background 180ms ease;
+}
+.offer-perk-link:hover,
+.offer-perk-link:focus-visible {
+  border-color: var(--accent-strong);
+  background: #fff9f8;
+  transform: translateY(-2px);
+}
+.offer-perk-title {
+  color: var(--heading);
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.18rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.offer-perk-note {
+  color: var(--text-muted);
+  font-size: .75rem;
+  line-height: 1.4;
+}
+@media (max-width: 760px) {
+  .offers-grid-reimagined {
+    grid-template-columns: 1fr;
+  }
+  .offers-grid-reimagined .offer-card-featured {
+    min-height: 220px;
+  }
+  .offers-secondary {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 520px) {
+  .offers-secondary-actions {
+    grid-template-columns: 1fr;
+  }
+  .offer-perk-link {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+  }
+  .offer-perk-note {
+    text-align: right;
+  }
+}
