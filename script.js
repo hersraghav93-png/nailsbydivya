@@ -2540,8 +2540,24 @@ function initDivvStylist() {
     liveStatus.textContent = "New consultation started.";
   });
 
+  const nailMoods = [
+    { id: "minimal", label: "Minimal", terms: /\b(?:minimal(?:ist)?|understated)\b/i, matches: (product) => ["office", "work"].includes(product.category) },
+    { id: "bridal", label: "Bridal", terms: /\b(?:bridal|wedding)\b/i, matches: (product) => product.category === "wedding" },
+    { id: "soft-glam", label: "Soft glam", terms: /\bsoft glam\b/i, matches: (product) => /soft blush|champagne|pearl shimmer/i.test(product.description) },
+    { id: "bold", label: "Bold", terms: /\b(?:bold|statement)\b/i, matches: (product) => product.category === "party" || /\b(?:bold|statement)\b/i.test(product.description) }
+  ];
+  const moodSwatch = (id) => `<span class="divv-swatch" data-mood="${id}" aria-hidden="true"></span>`;
+  const preferenceFor = (turn) => {
+    if (!turn || turn.role !== "user") return null;
+    if (turn.mood) return nailMoods.find((mood) => mood.id === turn.mood);
+    if (/\b(?:no|not|avoid|without|instead)\b/i.test(turn.content)) return null;
+    const moods = nailMoods.filter((mood) => mood.terms.test(turn.content));
+    return moods.length === 1 ? moods[0] : null;
+  };
+
   const renderWelcomeScreen = () => {
     bodyEl.innerHTML = `
+      <div class="divv-welcome-screen">
       <div class="divv-welcome-plate">
         <div class="divv-welcome-copy">
           <h3 class="divv-welcome-title">What feels like you?</h3>
@@ -2551,14 +2567,23 @@ function initDivvStylist() {
       </div>
       <p class="divv-prompts-title">Start with a question</p>
       <div class="divv-prompt-list">
-        <button type="button" class="divv-chip" data-chip="Help me choose a nail shape for my style and routine."><span class="divv-swatch" aria-hidden="true"></span>Help me choose a shape</button>
-        <button type="button" class="divv-chip" data-chip="Help me find a design for my outfit. Ask me what I’m wearing and what the occasion is."><span class="divv-swatch" aria-hidden="true"></span>Find a design for my outfit</button>
-        <button type="button" class="divv-chip" data-chip="Walk me through measuring for press-on nails and choosing a size."><span class="divv-swatch" aria-hidden="true"></span>Help me find my press-on size</button>
-        <button type="button" class="divv-chip" data-chip="Show me a few minimal press-on designs from your collection."><span class="divv-swatch" aria-hidden="true"></span>Show me something minimal</button>
+        <button type="button" class="divv-chip" data-chip="Help me choose a nail shape. Ask me one question about my routine to get started.">Help me choose a shape</button>
+        <button type="button" class="divv-chip" data-chip="Help me find a design for my outfit. Ask what I’m wearing before suggesting a set.">Find a design for my outfit</button>
+        <button type="button" class="divv-chip" data-chip="Walk me through measuring for press-on nails and choosing a size.">Help me find my press-on size</button>
+      </div>
+      <div class="divv-mood-picker">
+        <h3>Pick a nail mood</h3>
+        <div class="divv-mood-options">
+          ${nailMoods.map(({ id, label }) => `
+            <button type="button" class="divv-mood-option" data-divv-mood="${id}">
+              ${moodSwatch(id)}${label}
+            </button>`).join("")}
+        </div>
       </div>
       <div class="divv-welcome-links">
         <a class="studio-text-link" href="#sizing-guide">Sizing guide</a>
         <a class="studio-text-link" href="#services">At-home menu</a>
+      </div>
       </div>
     `;
     bodyEl.scrollTop = 0;
@@ -2568,7 +2593,9 @@ function initDivvStylist() {
     card,
     sku: card.dataset.productSku,
     title: card.querySelector("h3, h4").textContent.trim(),
-    image: card.querySelector("img").getAttribute("src")
+    image: card.querySelector("img").getAttribute("src"),
+    category: card.dataset.category,
+    description: card.querySelector(".product-description")?.textContent.trim() || ""
   }));
 
   const serviceButtons = [...document.querySelectorAll(".service-card [data-action='service-book']")];
@@ -2591,19 +2618,61 @@ function initDivvStylist() {
       .slice(0, 4);
   };
 
-  const renderRecommendations = (content) => {
-    const matches = matchingProducts(content);
+  const catalogPriceText = (sku) => {
+    const product = catalogPrices.get(sku);
+    return product ? formatCatalogPrice(product.effectivePrice) : "Price unavailable";
+  };
+
+  const refreshRecommendationPrices = () => {
+    const prices = bodyEl.querySelectorAll("[data-divv-price]");
+    if (!prices.length) return;
+    getCatalogPrices().then(() => {
+      prices.forEach((price) => {
+        price.textContent = catalogPriceText(price.dataset.divvPrice);
+      });
+    });
+  };
+
+  const renderDesignCard = (product, mood) => {
+    const { sku, title, image } = product;
+    const catalog = catalogPrices.get(sku);
+    const description = catalog?.description?.trim() || product.description;
+    const shortDescription = description.split(/(?<=[.!?])\s+/)[0];
+    const matchesMood = mood?.matches({ category: catalog?.categoryId || product.category, description });
+    const price = catalog ? catalogPriceText(sku) : "Checking price…";
+
+    return `<a class="divv-design-link" href="#set-${escapeHtml(sku)}" data-divv-product="${escapeHtml(sku)}" aria-label="View set &amp; sizes for ${escapeHtml(title)}">
+      <img src="${escapeHtml(image)}" alt="" loading="lazy">
+      <div class="divv-design-copy">
+        ${matchesMood ? `<span class="divv-design-match">${moodSwatch(mood.id)}${mood.label} match</span>` : ""}
+        <h4 class="divv-design-name">${escapeHtml(catalog?.name || title)}</h4>
+        <span class="divv-design-price" data-divv-price="${escapeHtml(sku)}">${price}</span>
+        ${shortDescription ? `<p class="divv-design-description">${escapeHtml(shortDescription)}</p>` : ""}
+        <span class="divv-design-action">View set &amp; sizes ${linkArrow}</span>
+      </div>
+    </a>`;
+  };
+
+  const renderRecommendations = (content, matches, mood) => {
     const services = serviceNames.filter(([, pattern]) => pattern.test(content)).slice(0, 2);
     if (!matches.length && !services.length) return "";
     return `<div class="divv-recommendations">
-      ${matches.map(({ sku, title, image }) => `
-        <a class="divv-design-link" href="#set-${escapeHtml(sku)}" data-divv-product="${escapeHtml(sku)}">
-          <img src="${escapeHtml(image)}" alt="" loading="lazy">
-          <span><span class="divv-design-name">${escapeHtml(title)}</span><span class="divv-design-action">View set &amp; sizes</span></span>
-          ${linkArrow}
-        </a>`).join("")}
+      ${matches.length ? `<h3 class="divv-recommendation-title">Divv’s picks</h3>
+        <div class="divv-design-grid">${matches.map((product) => renderDesignCard(product, mood)).join("")}</div>` : ""}
       ${services.map(([title]) => `<a class="studio-text-link divv-service-link" href="#services" data-divv-service="${escapeHtml(title)}">View ${escapeHtml(title)} ${linkArrow}</a>`).join("")}
     </div>`;
+  };
+
+  const compactRecommendation = (content, matches) => {
+    if (!matches.length || content.length < 200) return null;
+    const prose = content.replace(/\*\*|__|\x60/g, "");
+    const firstMention = Math.min(...matches.map(({ title }) => prose.toLowerCase().indexOf(title.toLowerCase())).filter((index) => index >= 0));
+    const opening = prose.slice(0, firstMention).match(/^[^\n.!?]{12,150}[.!?](?=\s|$)/)?.[0].trim() || "";
+    const question = prose.match(/(?:^|[.!\n])\s*([^.!?\n]{12,150}\?)\s*$/)?.[1] || "";
+    return {
+      opening: /₹|\b(?:prices?|shipping|delivery)\b/i.test(opening) ? "" : opening,
+      question
+    };
   };
 
   const openLinkedProduct = (sku) => {
@@ -2612,10 +2681,12 @@ function initDivvStylist() {
   };
 
   bodyEl.addEventListener("click", (event) => {
-    const chip = event.target.closest(".divv-chip");
+    const chip = event.target.closest("[data-chip], [data-divv-mood]");
     const link = event.target.closest("a[href^='#']");
     if (chip) {
-      sendUserMessage(chip.dataset.chip);
+      const mood = nailMoods.find(({ id }) => id === chip.dataset.divvMood);
+      const message = mood ? `Help me find a few ${mood.label.toLowerCase()} press-on sets.` : chip.dataset.chip;
+      sendUserMessage(message, mood?.id);
       if (matchMedia("(max-width: 560px)").matches) closeBtn.focus({ preventScroll: true });
       else inputEl.focus({ preventScroll: true });
     }
@@ -2641,9 +2712,12 @@ function initDivvStylist() {
   });
 
   const renderMessages = (revealReply = false) => {
-    bodyEl.innerHTML = sessionHistory.map((turn) => {
+    bodyEl.innerHTML = sessionHistory.map((turn, index) => {
       const isUser = turn.role === "user";
-      const formattedContent = formatDivvMarkdown(turn.content);
+      const matches = isUser ? [] : matchingProducts(turn.content);
+      const mood = preferenceFor(isUser ? turn : sessionHistory[index - 1]);
+      const compact = compactRecommendation(turn.content, matches);
+      const formattedContent = formatDivvMarkdown(compact ? compact.opening : turn.content);
       const handoffKeywordRegex = /(chat directly with divya|please chat directly|chat with the artist|personal guidance|divya will personally assist)/i;
       const showHandoff = !isUser && (turn.hasHandoff || handoffKeywordRegex.test(turn.content));
 
@@ -2658,15 +2732,21 @@ function initDivvStylist() {
 
       return `
         <div class="divv-message ${isUser ? "is-user" : "is-ai"}">
-          <span class="divv-message-byline">${isUser ? "You" : "Divv"}</span>
-          <div class="divv-bubble">
+          <span class="divv-message-byline">${isUser ? (mood ? `${moodSwatch(mood.id)}You` : "You") : '<span class="divv-mark" aria-hidden="true">d</span>Divv'}</span>
+          ${formattedContent || handoffMarkup ? `<div class="divv-bubble">
             <div>${formattedContent}</div>
             ${handoffMarkup}
-          </div>
-          ${isUser ? "" : renderRecommendations(turn.content)}
+          </div>` : ""}
+          ${isUser ? "" : renderRecommendations(turn.content, matches, mood)}
+          ${compact?.question ? `<p class="divv-follow-up">${escapeHtml(compact.question)}</p>` : ""}
+          ${compact ? `<details class="divv-full-reply">
+            <summary>Read Divv’s full reply</summary>
+            <div>${formatDivvMarkdown(turn.content)}</div>
+          </details>` : ""}
         </div>
       `;
     }).join("");
+    refreshRecommendationPrices();
 
     if (revealReply) {
       const reply = bodyEl.lastElementChild.getBoundingClientRect();
@@ -2687,11 +2767,11 @@ function initDivvStylist() {
     bodyEl.scrollTop = bodyEl.scrollHeight;
   };
 
-  const sendUserMessage = async (text) => {
+  const sendUserMessage = async (text, mood) => {
     if (!text || activeRequest) return;
 
     const history = sessionHistory.slice();
-    sessionHistory.push({ role: "user", content: text, timestamp: getTimestamp() });
+    sessionHistory.push({ role: "user", content: text, timestamp: getTimestamp(), ...(mood ? { mood } : {}) });
     saveSession();
     renderMessages();
     inputEl.value = "";
@@ -2708,7 +2788,7 @@ function initDivvStylist() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: text,
+          message: mood ? `${text} Keep the suggestions brief and ask one question to narrow them down.` : text,
           productContext: window.DivvCurrentProductContext || null,
           history
         }),
