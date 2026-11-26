@@ -1785,6 +1785,7 @@ async function refreshCartView() {
           </div>
         `;
       }).join("");
+      if (emptyState) itemsContainer.appendChild(emptyState);
 
       // Wire controls with rapid-click lock per item ID to prevent duplicate 404 requests
       itemsContainer.querySelectorAll('button[data-action="qty-minus"]').forEach((btn) => {
