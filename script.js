@@ -914,7 +914,7 @@ function initModals() {
 }
 
 function openProductModalFromCard(card) {
-  const titleElem = card.querySelector("h4");
+  const titleElem = card.querySelector("h3, h4");
   const descElem = card.querySelector(".product-description");
   const imgElem = card.querySelector("img");
   const badgeElem = card.querySelector(".product-badge");
@@ -2567,7 +2567,7 @@ function initDivvStylist() {
   const products = [...document.querySelectorAll(".product-card[data-product-sku]")].map((card) => ({
     card,
     sku: card.dataset.productSku,
-    title: card.querySelector("h4").textContent.trim(),
+    title: card.querySelector("h3, h4").textContent.trim(),
     image: card.querySelector("img").getAttribute("src")
   }));
 
@@ -2640,7 +2640,7 @@ function initDivvStylist() {
     }
   });
 
-  const renderMessages = () => {
+  const renderMessages = (revealReply = false) => {
     bodyEl.innerHTML = sessionHistory.map((turn) => {
       const isUser = turn.role === "user";
       const formattedContent = formatDivvMarkdown(turn.content);
@@ -2668,7 +2668,13 @@ function initDivvStylist() {
       `;
     }).join("");
 
-    bodyEl.scrollTop = bodyEl.scrollHeight;
+    if (revealReply) {
+      const reply = bodyEl.lastElementChild.getBoundingClientRect();
+      const transcript = bodyEl.getBoundingClientRect();
+      bodyEl.scrollTop += reply.top - transcript.top - 12;
+    } else {
+      bodyEl.scrollTop = bodyEl.scrollHeight;
+    }
   };
 
   const showTyping = () => {
@@ -2733,7 +2739,7 @@ function initDivvStylist() {
     sendBtn.disabled = false;
     sessionHistory.push(assistantTurn);
     saveSession();
-    renderMessages();
+    renderMessages(isOpen);
     if (isOpen) {
       liveStatus.textContent = assistantTurn.content;
     } else {
