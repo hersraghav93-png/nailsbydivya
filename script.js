@@ -2558,32 +2558,32 @@ function initDivvStylist() {
   const renderWelcomeScreen = () => {
     bodyEl.innerHTML = `
       <div class="divv-welcome-screen">
-      <div class="divv-welcome-plate">
-        <div class="divv-welcome-copy">
-          <h3 class="divv-welcome-title">What feels like you?</h3>
-          <p class="divv-welcome-text">I’m Divv. Tell me what you’re getting dressed for, or let’s start with shape, colour or fit.</p>
+        <div class="divv-welcome-plate">
+          <div class="divv-welcome-copy">
+            <h3 class="divv-welcome-title">What feels like you?</h3>
+            <p class="divv-welcome-text">I’m Divv. Tell me what you’re getting dressed for, or let’s start with shape, colour or fit.</p>
+          </div>
+          <img src="assets/studio/consultation-480.webp" width="480" height="860" alt="Lavender and pearl nail art from Divya’s lookbook">
         </div>
-        <img src="assets/studio/consultation-480.webp" width="480" height="860" alt="Lavender and pearl nail art from Divya’s lookbook">
-      </div>
-      <p class="divv-prompts-title">Start with a question</p>
-      <div class="divv-prompt-list">
-        <button type="button" class="divv-chip" data-chip="Help me choose a nail shape. Ask me one question about my routine to get started.">Help me choose a shape</button>
-        <button type="button" class="divv-chip" data-chip="Help me find a design for my outfit. Ask what I’m wearing before suggesting a set.">Find a design for my outfit</button>
-        <button type="button" class="divv-chip" data-chip="Walk me through measuring for press-on nails and choosing a size.">Help me find my press-on size</button>
-      </div>
-      <div class="divv-mood-picker">
-        <h3>Pick a nail mood</h3>
-        <div class="divv-mood-options">
-          ${nailMoods.map(({ id, label }) => `
-            <button type="button" class="divv-mood-option" data-divv-mood="${id}">
-              ${moodSwatch(id)}${label}
-            </button>`).join("")}
+        <p class="divv-prompts-title">Start with a question</p>
+        <div class="divv-prompt-list">
+          <button type="button" class="divv-chip" data-chip="Help me choose a nail shape. Ask me one question about my routine to get started.">Help me choose a shape</button>
+          <button type="button" class="divv-chip" data-chip="Help me find a design for my outfit. Ask what I’m wearing before suggesting a set.">Find a design for my outfit</button>
+          <button type="button" class="divv-chip" data-chip="Walk me through measuring for press-on nails and choosing a size.">Help me find my press-on size</button>
         </div>
-      </div>
-      <div class="divv-welcome-links">
-        <a class="studio-text-link" href="#sizing-guide">Sizing guide</a>
-        <a class="studio-text-link" href="#services">At-home menu</a>
-      </div>
+        <div class="divv-mood-picker">
+          <h3>Pick a nail mood</h3>
+          <div class="divv-mood-options">
+            ${nailMoods.map(({ id, label }) => `
+              <button type="button" class="divv-mood-option" data-divv-mood="${id}">
+                ${moodSwatch(id)}${label}
+              </button>`).join("")}
+          </div>
+        </div>
+        <div class="divv-welcome-links">
+          <a class="studio-text-link" href="#sizing-guide">Sizing guide</a>
+          <a class="studio-text-link" href="#services">At-home menu</a>
+        </div>
       </div>
     `;
     bodyEl.scrollTop = 0;
@@ -2598,6 +2598,15 @@ function initDivvStylist() {
     description: card.querySelector(".product-description")?.textContent.trim() || ""
   }));
 
+  const getProductDetails = (product) => {
+    const catalog = catalogPrices.get(product.sku);
+    return {
+      title: catalog?.name || product.title,
+      description: catalog?.description?.trim() || product.description,
+      category: catalog?.categoryId || product.category
+    };
+  };
+
   const serviceButtons = [...document.querySelectorAll(".service-card [data-action='service-book']")];
   const serviceNames = [
     ["Nail Extensions", /\b(?:bespoke gel extensions|nail extensions|soft gel extensions)\b/i],
@@ -2608,12 +2617,15 @@ function initDivvStylist() {
   ];
   const linkArrow = '<svg class="studio-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 12h17m-6-6 6 6-6 6"/></svg>';
 
+  const plainDivvText = (content) => content.replace(/\*\*|__|\x60/g, "");
+
   const matchingProducts = (content) => {
-    const text = content.toLowerCase();
-    return products.map((product) => ({
-      ...product,
-      position: text.indexOf(product.title.toLowerCase())
-    })).filter((product) => product.position !== -1)
+    const text = plainDivvText(content).toLowerCase();
+    return products.map((product) => {
+      const name = getProductDetails(product).title.toLowerCase();
+      const position = text.indexOf(name);
+      return { ...product, position: position < 0 ? text.indexOf(product.title.toLowerCase()) : position };
+    }).filter((product) => product.position >= 0)
       .sort((first, second) => first.position - second.position)
       .slice(0, 4);
   };
@@ -2634,18 +2646,18 @@ function initDivvStylist() {
   };
 
   const renderDesignCard = (product, mood) => {
-    const { sku, title, image } = product;
-    const catalog = catalogPrices.get(sku);
-    const description = catalog?.description?.trim() || product.description;
-    const shortDescription = description.split(/(?<=[.!?])\s+/)[0];
-    const matchesMood = mood?.matches({ category: catalog?.categoryId || product.category, description });
-    const price = catalog ? catalogPriceText(sku) : "Checking price…";
+    const { sku, image } = product;
+    const details = getProductDetails(product);
+    const shortDescription = details.description.split(/(?<=[.!?])\s+/)[0];
+    const matchesMood = mood?.matches(details);
+    const price = catalogPrices.has(sku) ? catalogPriceText(sku) : "Checking price…";
+    const name = escapeHtml(details.title);
 
-    return `<a class="divv-design-link" href="#set-${escapeHtml(sku)}" data-divv-product="${escapeHtml(sku)}" aria-label="View set &amp; sizes for ${escapeHtml(title)}">
+    return `<a class="divv-design-link" href="#set-${escapeHtml(sku)}" data-divv-product="${escapeHtml(sku)}" aria-label="View set &amp; sizes for ${name}">
       <img src="${escapeHtml(image)}" alt="" loading="lazy">
       <div class="divv-design-copy">
         ${matchesMood ? `<span class="divv-design-match">${moodSwatch(mood.id)}${mood.label} match</span>` : ""}
-        <h4 class="divv-design-name">${escapeHtml(catalog?.name || title)}</h4>
+        <h4 class="divv-design-name">${name}</h4>
         <span class="divv-design-price" data-divv-price="${escapeHtml(sku)}">${price}</span>
         ${shortDescription ? `<p class="divv-design-description">${escapeHtml(shortDescription)}</p>` : ""}
         <span class="divv-design-action">View set &amp; sizes ${linkArrow}</span>
@@ -2664,10 +2676,9 @@ function initDivvStylist() {
   };
 
   const compactRecommendation = (content, matches) => {
-    if (!matches.length || content.length < 200) return null;
-    const prose = content.replace(/\*\*|__|\x60/g, "");
-    const firstMention = Math.min(...matches.map(({ title }) => prose.toLowerCase().indexOf(title.toLowerCase())).filter((index) => index >= 0));
-    const opening = prose.slice(0, firstMention).match(/^[^\n.!?]{12,150}[.!?](?=\s|$)/)?.[0].trim() || "";
+    if (!matches.length || (content.length < 200 && !/₹\s*\d/.test(content))) return null;
+    const prose = plainDivvText(content);
+    const opening = prose.slice(0, matches[0].position).match(/^[^\n.!?]{12,150}[.!?](?=\s|$)/)?.[0].trim() || "";
     const question = prose.match(/(?:^|[.!\n])\s*([^.!?\n]{12,150}\?)\s*$/)?.[1] || "";
     return {
       opening: /₹|\b(?:prices?|shipping|delivery)\b/i.test(opening) ? "" : opening,
@@ -2767,6 +2778,17 @@ function initDivvStylist() {
     bodyEl.scrollTop = bodyEl.scrollHeight;
   };
 
+  const moodRequest = (text, moodId) => {
+    const mood = nailMoods.find(({ id }) => id === moodId);
+    if (!mood) return text;
+    const candidates = products.filter((product) => !catalogPrices.size || catalogPrices.has(product.sku))
+      .map(getProductDetails)
+      .filter(mood.matches)
+      .map(({ title }) => title);
+    if (!candidates.length) return text;
+    return `${text} Suggest up to three of these exact catalogue sets and ask one short follow-up question: ${candidates.join(", ")}. Leave the prices and descriptions to the product cards.`;
+  };
+
   const sendUserMessage = async (text, mood) => {
     if (!text || activeRequest) return;
 
@@ -2788,7 +2810,7 @@ function initDivvStylist() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: mood ? `${text} Keep the suggestions brief and ask one question to narrow them down.` : text,
+          message: moodRequest(text, mood),
           productContext: window.DivvCurrentProductContext || null,
           history
         }),
