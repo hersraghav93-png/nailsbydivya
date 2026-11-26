@@ -284,7 +284,7 @@ async function run() {
       return window;
     }
 
-    const missing = load("staging.nailsbydivya.store", {});
+    const missing = load("staging.nailsbydivya.store", { STAGING_FIREBASE_API_KEY: " " });
     assert.equal(missing.NAILS_CONFIG.firebase, null);
     assert.equal(missing.NAILS_CONFIG.apiUrl, "https://nailsbydivya-staging-api.onrender.com");
     await assert.rejects(missing.NailsAuth.requestEmailLink("guest@example.invalid"), /dedicated staging Firebase/);

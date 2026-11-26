@@ -195,7 +195,7 @@ const stageEnv = {
 it("staging and previews require a complete dedicated Firebase configuration", () => {
   for (const host of ["staging.nailsbydivya.store", "preview.nailsbydivya.store", "pr-12.nailsbydivya.pages.dev", "localhost"]) {
     assert.equal(resolveFirebaseConfig(host, stageEnv).projectId, stageEnv.STAGING_FIREBASE_PROJECT_ID);
-    assert.throws(() => resolveFirebaseConfig(host, {}, PRODUCTION_FIREBASE_CONFIG), /dedicated staging Firebase/);
+    assert.throws(() => resolveFirebaseConfig(host, { STAGING_FIREBASE_API_KEY: " " }, PRODUCTION_FIREBASE_CONFIG), /dedicated staging Firebase/);
     assert.throws(() => resolveFirebaseConfig(host, { ...stageEnv, STAGING_FIREBASE_AUTH_DOMAIN: " " }), /dedicated staging Firebase/);
     for (const key of Object.keys(stageEnv)) {
       assert.throws(() => resolveFirebaseConfig(host, { ...stageEnv, [key]: "   " }), /dedicated staging Firebase/);
