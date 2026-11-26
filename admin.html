@@ -282,7 +282,7 @@
           <div id="overview-data-indicator" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1.25rem; padding: 0.75rem 1.15rem; background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-sm); font-size: 0.82rem; color: var(--text-muted);">
             <div style="display: flex; align-items: center; gap: 0.5rem;">
               <span style="color: var(--success); font-size: 0.9rem;">●</span>
-              <span>Ground Truth Ledger: <strong>PostgreSQL Production/Staging Store</strong></span>
+              <span>Ground Truth Ledger: <strong>PostgreSQL</strong></span>
             </div>
             <div style="display: flex; align-items: center; gap: 0.5rem;">
               <span id="overview-cohort-badge" style="font-size: 0.74rem; background: var(--gold-light); color: var(--gold-primary); padding: 0.2rem 0.65rem; border-radius: 999px; font-weight: 600;">Verified Active</span>
@@ -1017,7 +1017,7 @@
             <label class="form-label" for="prod-image-file">Upload Primary Photograph</label>
             <input type="file" id="prod-image-file" class="form-input" accept="image/png,image/jpeg,image/webp">
             <input type="text" id="prod-image-url" class="form-input" style="margin-top: 0.5rem;" placeholder="Or paste existing image URL (e.g. assets/press-on/1.png)...">
-            <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem;">⚠️ <em>Staging Notice: Files uploaded via browser are stored in temporary staging storage (max 2 MB). For permanent catalog items, use repository asset paths (e.g. assets/...).</em></p>
+            <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem;">⚠️ <em>Browser uploads use temporary storage (max 2 MB). For permanent catalog items, use repository asset paths (e.g. assets/...).</em></p>
           </div>
 
           <div style="display: flex; gap: 1.5rem; margin-top: 0.75rem;">
@@ -1073,7 +1073,7 @@
             <label class="form-label" for="port-image-file">Artwork Photograph *</label>
             <input type="file" id="port-image-file" class="form-input" accept="image/png,image/jpeg,image/webp">
             <input type="text" id="port-image-url" class="form-input" style="margin-top: 0.5rem;" placeholder="Or paste image URL (e.g. assets/portfolio/dv2.jpeg)...">
-            <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem;">⚠️ <em>Staging Notice: Files uploaded via browser are stored in temporary staging storage (max 2 MB). For permanent catalog items, use repository asset paths (e.g. assets/...).</em></p>
+            <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem;">⚠️ <em>Browser uploads use temporary storage (max 2 MB). For permanent catalog items, use repository asset paths (e.g. assets/...).</em></p>
           </div>
 
           <div class="form-group">
@@ -1117,9 +1117,9 @@
   <!-- Scripts -->
   <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
-  <script src="firebase-config.js?v=3"></script>
-  <script src="account-api.js?v=3"></script>
+  <script src="firebase-config.js?v=4"></script>
+  <script src="account-api.js?v=4"></script>
   <script src="auth.js?v=8"></script>
-  <script src="admin.js?v=16"></script>
+  <script src="admin.js?v=17"></script>
 </body>
 </html>

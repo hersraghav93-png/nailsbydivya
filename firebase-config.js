@@ -1,95 +1,21 @@
 /**
- * ==============================================================================
- * NAILS BY DIVYA — FIREBASE CLIENT RUNTIME CONFIGURATION (`firebase-config.js`)
- * Public Web App Configuration for Firebase Phone Authentication.
- * ==============================================================================
- * Found in: Firebase Console -> Project Settings -> General -> Your apps -> Web app
- *
- * NOTE:
- * - These are public client-side identifiers for the web browser.
- * - NEVER put Firebase Admin private keys or service account credentials here.
- * - When configured with valid credentials, real Firebase Phone Auth & SMS OTP are enabled.
- * - When empty (default), the website runs in an elegant demo/test mode allowing
- *   full UI and local backend interaction without crashing.
+ * Public browser configuration for Nails by Divya.
+ * Never put Firebase Admin credentials in this file.
  */
-
 (function () {
-  /**
-   * Resolves the active backend API base URL.
-   * Explicitly maps local, staging, and production environments.
-   * Unknown/unrecognized hostnames fail closed and never fall back to production.
-   * @param {string} [hostname]
-   * @returns {string|null}
-   */
+  function isProductionHost(hostname) {
+    const host = (hostname || "").toLowerCase().trim();
+    return host === "nailsbydivya.store" || host === "www.nailsbydivya.store";
+  }
+
   function resolveApiUrl(hostname) {
-    const host = (
-      hostname ||
-      (typeof window !== "undefined" && window.location ? window.location.hostname : "") ||
-      ""
-    ).toLowerCase().trim();
-
-    // 1. Local Development
-    if (host === "localhost" || host === "127.0.0.1" || host === "") {
-      return "http://localhost:3000";
-    }
-
-    // 2. Explicit Staging & Preview Environments
-    if (
-      host === "staging.nailsbydivya.store" ||
-      host === "preview.nailsbydivya.store" ||
-      host === "staging-admin.nailsbydivya.store" ||
-      host.endsWith(".pages.dev") ||
-      host === "pages.dev" ||
-      host.includes("staging") ||
-      host.includes("preview")
-    ) {
-      return "https://nailsbydivya-staging-api.onrender.com";
-    }
-
-    // 3. Explicit Production Website
-    if (host === "nailsbydivya.store" || host === "www.nailsbydivya.store") {
-      return "https://nails-ai-backend.onrender.com";
-    }
-
-    // 4. Fail closed on unknown/unrecognized hostnames (Never fall back to production)
-    console.error(
-      `[Nails Config] Unrecognized environment hostname: "${host}". Refusing to route to production backend.`
-    );
+    const host = (hostname || "").toLowerCase().trim();
+    if (isProductionHost(host)) return "https://nails-ai-backend.onrender.com";
+    if (host === "localhost" || host === "127.0.0.1" || host === "") return "http://localhost:3000";
     return null;
   }
 
-  /**
-   * Resolves whether the current hostname belongs to an isolated staging or local environment.
-   * Production domains always return false.
-   * @param {string} [hostname]
-   * @returns {boolean}
-   */
-  function isStagingOrLocalHost(hostname) {
-    const host = (
-      hostname ||
-      (typeof window !== "undefined" && window.location ? window.location.hostname : "") ||
-      ""
-    ).toLowerCase().trim();
-
-    if (host === "nailsbydivya.store" || host === "www.nailsbydivya.store") {
-      return false;
-    }
-
-    return (
-      host === "localhost" ||
-      host === "127.0.0.1" ||
-      host === "" ||
-      host === "staging.nailsbydivya.store" ||
-      host === "preview.nailsbydivya.store" ||
-      host === "staging-admin.nailsbydivya.store" ||
-      host.endsWith(".pages.dev") ||
-      host === "pages.dev" ||
-      host.includes("staging") ||
-      host.includes("preview")
-    );
-  }
-
-  // Public Production Firebase Web App Config (nailsbydivya.store — NEVER alter for staging)
+  // Public Firebase Web App identifiers for the production site.
   const PRODUCTION_FIREBASE_CONFIG = {
     apiKey: "AIzaSyDGxiI91qUyV4d9yegCPBg9lrWqKocaXX4",
     authDomain: "nails-by-divya.firebaseapp.com",
@@ -100,87 +26,18 @@
     measurementId: "G-WD4KQWS8DX",
   };
 
-  // Dedicated Staging Firebase Web App Config slot (populate with `nails-by-divya-staging` public Web App identifiers)
-  const STAGING_FIREBASE_CONFIG = {
-    apiKey: "",
-    authDomain: "",
-    projectId: "",
-    storageBucket: "",
-    messagingSenderId: "",
-    appId: "",
-    measurementId: "",
-  };
-
-  /**
-   * Resolves the environment-appropriate public Firebase Web App config.
-   * Production always resolves strictly to PRODUCTION_FIREBASE_CONFIG.
-   * Staging/Preview resolves to STAGING_FIREBASE_CONFIG / STAGING_FIREBASE_* env overrides when populated.
-   */
-  function resolveFirebaseConfig(hostname, env = {}, existingFirebase = {}) {
-    const host = (hostname || "").toLowerCase().trim();
-
-    if (host === "nailsbydivya.store" || host === "www.nailsbydivya.store") {
-      return {
-        apiKey: env.FIREBASE_API_KEY || existingFirebase.apiKey || PRODUCTION_FIREBASE_CONFIG.apiKey,
-        authDomain: existingFirebase.authDomain || PRODUCTION_FIREBASE_CONFIG.authDomain,
-        projectId: existingFirebase.projectId || PRODUCTION_FIREBASE_CONFIG.projectId,
-        storageBucket: existingFirebase.storageBucket || PRODUCTION_FIREBASE_CONFIG.storageBucket,
-        messagingSenderId: existingFirebase.messagingSenderId || PRODUCTION_FIREBASE_CONFIG.messagingSenderId,
-        appId: env.FIREBASE_APP_ID || existingFirebase.appId || PRODUCTION_FIREBASE_CONFIG.appId,
-        measurementId: existingFirebase.measurementId || PRODUCTION_FIREBASE_CONFIG.measurementId,
-      };
-    }
-
-    const production = PRODUCTION_FIREBASE_CONFIG;
-    const staged = {
-      apiKey: (env.STAGING_FIREBASE_API_KEY || STAGING_FIREBASE_CONFIG.apiKey).trim(),
-      projectId: (env.STAGING_FIREBASE_PROJECT_ID || STAGING_FIREBASE_CONFIG.projectId).trim(),
-      appId: (env.STAGING_FIREBASE_APP_ID || STAGING_FIREBASE_CONFIG.appId).trim(),
-    };
-    const authDomain = (env.STAGING_FIREBASE_AUTH_DOMAIN || STAGING_FIREBASE_CONFIG.authDomain ||
-      `${staged.projectId}.firebaseapp.com`).trim().toLowerCase();
-    if (
-      !isStagingOrLocalHost(host) || !authDomain ||
-      Object.values(staged).some(value => !value || value.startsWith("your_")) ||
-      staged.projectId === production.projectId ||
-      staged.apiKey === production.apiKey ||
-      staged.appId === production.appId ||
-      [production.authDomain, `${production.projectId}.web.app`, "nailsbydivya.store", "www.nailsbydivya.store"].includes(authDomain)
-    ) {
-      throw new Error("Sign-in is unavailable on this site. Configure a dedicated staging Firebase project, API key, and app ID.");
-    }
-    return {
-      ...staged,
-      authDomain,
-      storageBucket: env.STAGING_FIREBASE_STORAGE_BUCKET || STAGING_FIREBASE_CONFIG.storageBucket || `${staged.projectId}.firebasestorage.app`,
-      messagingSenderId: env.STAGING_FIREBASE_MESSAGING_SENDER_ID || STAGING_FIREBASE_CONFIG.messagingSenderId || "",
-      measurementId: env.STAGING_FIREBASE_MEASUREMENT_ID || STAGING_FIREBASE_CONFIG.measurementId || "",
-    };
+  function resolveFirebaseConfig(hostname) {
+    return isProductionHost(hostname) ? { ...PRODUCTION_FIREBASE_CONFIG } : null;
   }
 
-  const currentHostname =
-    typeof window !== "undefined" && window.location ? window.location.hostname : "";
-  const resolvedApiUrl = resolveApiUrl(currentHostname);
-
   if (typeof window !== "undefined") {
-    const env =
-      (typeof window !== "undefined" && (window.__ENV__ || (window.process && window.process.env))) ||
-      {};
-    const existingConfig = (typeof window !== "undefined" && window.NAILS_CONFIG) || {};
-    let firebase = null;
-    let firebaseError = null;
-    try {
-      firebase = resolveFirebaseConfig(currentHostname, env, existingConfig.firebase);
-    } catch (err) {
-      firebaseError = err.message;
-      console.error("[Nails Config] " + firebaseError);
-    }
+    const hostname = window.location?.hostname;
+    const existingConfig = window.NAILS_CONFIG || {};
+    const firebase = resolveFirebaseConfig(hostname);
 
     window.NAILS_CONFIG = {
       ...existingConfig,
-
-      // Backend Express API URL (Local, Staging, or Production)
-      apiUrl: existingConfig.apiUrl || resolvedApiUrl,
+      apiUrl: resolveApiUrl(hostname),
 
       // Dedicated Nails by Divya Business Configuration (Single Source of Truth)
       business: {
@@ -193,13 +50,12 @@
         ...(existingConfig.business || {}),
       },
 
-      // Firebase Web App Configuration (Public Web Client Identifiers)
       firebase,
-      firebaseError,
+      firebaseError: firebase ? null : "Sign-in is unavailable on this hostname.",
     };
   }
 
   if (typeof module !== "undefined" && module.exports) {
-    module.exports = { resolveApiUrl, isStagingOrLocalHost, resolveFirebaseConfig, PRODUCTION_FIREBASE_CONFIG };
+    module.exports = { resolveApiUrl, resolveFirebaseConfig, PRODUCTION_FIREBASE_CONFIG };
   }
 })();

@@ -35,29 +35,6 @@
   };
 
   /**
-   * Resolves the backend base URL using account-api logic.
-   */
-  function getApiBaseUrl() {
-    if (typeof NailsApi !== "undefined" && NailsApi.getBaseUrl) {
-      try {
-        return NailsApi.getBaseUrl();
-      } catch (e) {
-        // Fallback
-      }
-    }
-    const host = (window.location.hostname || "").toLowerCase().trim();
-    if (host === "localhost" || host === "127.0.0.1" || host === "") {
-      return "http://localhost:3000";
-    }
-    if (host === "nailsbydivya.store" || host === "www.nailsbydivya.store") {
-      return "https://nails-ai-backend.onrender.com";
-    }
-    return "https://nailsbydivya-staging-api.onrender.com";
-  }
-
-  const API_BASE = getApiBaseUrl();
-
-  /**
    * Makes an authenticated HTTP request to the admin backend.
    */
   async function adminFetch(endpoint, options = {}) {
@@ -69,7 +46,7 @@
       headers["Content-Type"] = "application/json";
     }
 
-    const res = await fetch(`${API_BASE}${endpoint}`, {
+    const res = await fetch(`${window.NailsApi.getBaseUrl()}${endpoint}`, {
       ...options,
       headers,
     });
@@ -891,7 +868,6 @@
     "Rhea Sen",
     "Verified Customer",
     "Aanya Verma",
-    "Staging Test Customer",
     "Ops Booking Customer",
     "Meera Kapoor",
     "Aarti Verma",
@@ -1026,7 +1002,7 @@
       const totalOrd = ov.orders?.total ?? 0;
       const totalBkg = ov.bookings?.total ?? 0;
       cohortBadge.textContent = `${totalOrd} Total Orders • ${totalBkg} Bookings`;
-      cohortBadge.title = `Staging database holds ${totalOrd} total orders (including historical test suites and smoke test records) and ${totalBkg} bookings.`;
+      cohortBadge.title = `The database holds ${totalOrd} total orders (including historical test suites and smoke test records) and ${totalBkg} bookings.`;
     }
   }
 
@@ -2350,7 +2326,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // 12. FILE UPLOADER (TEMPORARY STAGING STORAGE)
+  // 12. FILE UPLOADER (TEMPORARY UPLOAD STORAGE)
   // ---------------------------------------------------------------------------
   async function uploadFile(file) {
     if (!file) throw new Error("No file selected.");

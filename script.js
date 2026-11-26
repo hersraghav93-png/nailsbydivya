@@ -46,7 +46,7 @@ window.NBD_Analytics = (function () {
     if (eventHistory.length > 50) eventHistory.shift();
 
     const host = (typeof window !== "undefined" && window.location ? window.location.hostname : "") || "";
-    if (host === "localhost" || host === "127.0.0.1" || host.includes("staging") || host.includes("preview")) {
+    if (host === "localhost" || host === "127.0.0.1") {
       console.log(`[NBD Analytics] ${eventName}:`, properties);
     }
 
@@ -58,7 +58,7 @@ window.NBD_Analytics = (function () {
 
     // Asynchronous privacy-safe persistence to backend
     try {
-      const apiUrl = (window.NAILS_CONFIG && window.NAILS_CONFIG.apiUrl) || "";
+      const apiUrl = window.NailsApi.getBaseUrl();
       const endpoint = `${apiUrl}/api/analytics/events`;
       const body = JSON.stringify({
         event: eventName,
@@ -2685,34 +2685,7 @@ function initDivvStylist() {
     showTyping();
 
     try {
-      let chatBaseUrl;
-      if (window.NAILS_CONFIG && window.NAILS_CONFIG.apiUrl) {
-        chatBaseUrl = window.NAILS_CONFIG.apiUrl.replace(/\/+$/, "");
-      } else if (typeof window.NailsApi !== "undefined" && typeof window.NailsApi.getBaseUrl === "function") {
-        chatBaseUrl = window.NailsApi.getBaseUrl();
-      } else {
-        const host = (window.location && window.location.hostname ? window.location.hostname : "").toLowerCase().trim();
-        if (host === "localhost" || host === "127.0.0.1" || host === "") {
-          chatBaseUrl = "http://localhost:3000";
-        } else if (
-          host === "staging.nailsbydivya.store" ||
-          host === "preview.nailsbydivya.store" ||
-          host === "staging-admin.nailsbydivya.store" ||
-          host.endsWith(".pages.dev") ||
-          host === "pages.dev" ||
-          host.includes("staging") ||
-          host.includes("preview")
-        ) {
-          chatBaseUrl = "https://nailsbydivya-staging-api.onrender.com";
-        } else if (host === "nailsbydivya.store" || host === "www.nailsbydivya.store") {
-          chatBaseUrl = "https://nails-ai-backend.onrender.com";
-        } else {
-          throw new Error(
-            `[Divv Stylist Error] Unrecognized environment hostname: "${host}". Refusing to route to production backend.`
-          );
-        }
-      }
-      const apiUrl = window.DIVV_API_URL || `${chatBaseUrl}/chat`;
+      const apiUrl = `${window.NailsApi.getBaseUrl()}/chat`;
       const payload = {
         message: text,
         productContext: window.DivvCurrentProductContext || null,
@@ -2866,7 +2839,7 @@ function initReviewsEngine() {
       submitBtn.innerHTML = "<span>Submitting...</span>";
 
       try {
-        const baseUrl = typeof NailsApi !== "undefined" && NailsApi.getBaseUrl ? NailsApi.getBaseUrl() : "https://nailsbydivya-staging-api.onrender.com";
+        const baseUrl = window.NailsApi.getBaseUrl();
         const payload = {
           customer_name: name,
           customer_phone: phone || undefined,
@@ -2914,7 +2887,7 @@ function initReviewsEngine() {
   async function loadApprovedReviews() {
     if (!reviewsContainer) return;
     try {
-      const baseUrl = typeof NailsApi !== "undefined" && NailsApi.getBaseUrl ? NailsApi.getBaseUrl() : "https://nailsbydivya-staging-api.onrender.com";
+      const baseUrl = window.NailsApi.getBaseUrl();
       const res = await fetch(`${baseUrl}/api/reviews?limit=6`);
       if (!res.ok) return;
       const data = await res.json();
@@ -3036,7 +3009,7 @@ function initLookbookEngine() {
 
   async function loadPortfolioDesigns() {
     try {
-      const baseUrl = typeof NailsApi !== "undefined" && NailsApi.getBaseUrl ? NailsApi.getBaseUrl() : "https://nailsbydivya-staging-api.onrender.com";
+      const baseUrl = window.NailsApi.getBaseUrl();
       const res = await fetch(`${baseUrl}/api/portfolio?limit=60`);
       if (!res.ok) return;
       const data = await res.json();

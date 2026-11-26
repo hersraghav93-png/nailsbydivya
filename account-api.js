@@ -74,30 +74,14 @@
       ""
     ).toLowerCase().trim();
 
-    // 1. Local development
     if (host === "localhost" || host === "127.0.0.1" || host === "") {
       return "http://localhost:3000";
     }
 
-    // 2. Explicit Staging and Preview Environments
-    if (
-      host === "staging.nailsbydivya.store" ||
-      host === "preview.nailsbydivya.store" ||
-      host === "staging-admin.nailsbydivya.store" ||
-      host.endsWith(".pages.dev") ||
-      host === "pages.dev" ||
-      host.includes("staging") ||
-      host.includes("preview")
-    ) {
-      return "https://nailsbydivya-staging-api.onrender.com";
-    }
-
-    // 3. Explicit Production Website
     if (host === "nailsbydivya.store" || host === "www.nailsbydivya.store") {
       return "https://nails-ai-backend.onrender.com";
     }
 
-    // 4. Fail closed on unknown/unrecognized hosts (Never fall back to production)
     throw new Error(
       `[Nails API Error] Unrecognized environment hostname: "${host}". Refusing to route to production backend.`
     );

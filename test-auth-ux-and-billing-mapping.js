@@ -111,7 +111,7 @@ function createMockDOM() {
 
   const window = {
     document,
-    location: { hostname: "staging.nailsbydivya.store", pathname: "/account.html" },
+    location: { hostname: "nailsbydivya.store", pathname: "/account.html" },
     localStorage: {
       _data: {},
       getItem: (k) => window.localStorage._data[k] || null,
@@ -136,7 +136,7 @@ function createMockDOM() {
     setInterval: () => 1,
     clearInterval: () => {},
     NAILS_CONFIG: {
-      apiUrl: "https://nailsbydivya-staging-api.onrender.com",
+      apiUrl: "https://nails-ai-backend.onrender.com",
       firebase: {
         apiKey: "AIzaSyDGxiI91qUyV4d9yegCPBg9lrWqKocaXX4",
         projectId: "nails-by-divya",
