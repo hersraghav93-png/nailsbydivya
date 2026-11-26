@@ -242,6 +242,76 @@ async function run() {
     assert.equal(calls.filter(email => email === "failure@example.invalid").length, 2);
   });
 
+  await test("7. Broken staging auth blocks sends and token consumption while production admin sign-in works", async () => {
+    const configSrc = fs.readFileSync(path.join(__dirname, "firebase-config.js"), "utf8");
+    let initializes = 0;
+    let calls = 0;
+    const studioUser = { uid: "fixture-studio", email: "studio@example.invalid", getIdToken: async () => "fixture-token" };
+    const sdkAuth = {
+      onAuthStateChanged: listener => listener(null),
+      signInWithEmailAndPassword: async () => ({ user: studioUser }),
+      signInWithPopup: async () => ({ user: studioUser }),
+    };
+    const stageEnv = {
+      STAGING_FIREBASE_API_KEY: "fixture-staging-key",
+      STAGING_FIREBASE_PROJECT_ID: "nails-by-divya-staging",
+      STAGING_FIREBASE_APP_ID: "fixture-staging-app",
+    };
+    function load(hostname, env, apps = []) {
+      const document = { dispatchEvent: () => {} };
+      const firebase = {
+        apps,
+        initializeApp: (options) => {
+          initializes++;
+          return { name: "[DEFAULT]", options };
+        },
+        auth: () => sdkAuth,
+      };
+      firebase.auth.GoogleAuthProvider = class { setCustomParameters() {} };
+      const window = {
+        document, location: { hostname, pathname: "/admin.html" }, __ENV__: env, firebase,
+        NailsApi: {
+          requestEmailLoginLink: async () => { calls++; },
+          verifyEmailLoginToken: async () => { calls++; },
+          getCurrentUser: async () => ({ user: { id: "fixture-studio", roles: ["super_operator"] } }),
+        },
+      };
+      const vmContext = vm.createContext({
+        window, firebase, document, console: { log() {}, warn() {}, error() {} }, CustomEvent: class {},
+      });
+      vm.runInContext(configSrc, vmContext);
+      vm.runInContext(authSrc, vmContext);
+      return window;
+    }
+
+    const missing = load("staging.nailsbydivya.store", {});
+    assert.equal(missing.NAILS_CONFIG.firebase, null);
+    assert.equal(missing.NAILS_CONFIG.apiUrl, "https://nailsbydivya-staging-api.onrender.com");
+    await assert.rejects(missing.NailsAuth.requestEmailLink("guest@example.invalid"), /dedicated staging Firebase/);
+    await assert.rejects(missing.NailsAuth.verifyEmailLinkToken("fixture-raw"), /dedicated staging Firebase/);
+    await assert.rejects(missing.NailsAuth.signInWithEmail("studio@example.invalid", "fixture"), /dedicated staging Firebase/);
+
+    const wrongApp = [{ name: "[DEFAULT]", options: require("./firebase-config").PRODUCTION_FIREBASE_CONFIG }];
+    const mismatched = load("branch.preview.nailsbydivya.store", stageEnv, wrongApp);
+    await assert.rejects(mismatched.NailsAuth.requestEmailLink("guest@example.invalid"), /different project/);
+    assert.equal(calls, 0);
+    assert.equal(initializes, 0);
+    const apiSrc = fs.readFileSync(path.join(__dirname, "account-api.js"), "utf8");
+    vm.runInNewContext(apiSrc, {
+      window: missing,
+      fetch: async (url, options) => {
+        assert.equal(url, "https://nailsbydivya-staging-api.onrender.com/api/cart");
+        assert.equal(options.headers.Authorization, undefined);
+        return Response.json({ status: "success" });
+      },
+    });
+    assert.equal((await missing.NailsApi.getCart()).status, "success");
+    assert.equal((await load("staging.nailsbydivya.store", stageEnv).NailsAuth.signInWithEmail("studio@example.invalid", "fixture")).success, true);
+    const production = load("nailsbydivya.store", stageEnv, wrongApp);
+    assert.equal((await production.NailsAuth.signInWithEmail("studio@example.invalid", "fixture")).success, true);
+    assert.equal((await production.NailsAuth.signInWithGoogle()).success, true);
+  });
+
   console.log(`FRONTEND EMAIL AUTH RESULTS: ${passed} PASSED, ${failed} FAILED`);
   console.log("==================================================================");
   if (failed > 0) process.exit(1);

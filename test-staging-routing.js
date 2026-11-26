@@ -162,7 +162,7 @@ it("Staging routes NEVER return production backend URL", () => {
 // -----------------------------------------------------------------------------
 console.log("\n🧪 3. firebase-config.js Runtime API Resolver & Fail-Closed Safety");
 
-const { resolveApiUrl } = require("./firebase-config");
+const { resolveApiUrl, resolveFirebaseConfig, PRODUCTION_FIREBASE_CONFIG } = require("./firebase-config");
 
 it("firebase-config: Localhost resolves to local backend", () => {
   assert.strictEqual(resolveApiUrl("localhost"), LOCAL_BACKEND);
@@ -184,6 +184,34 @@ it("firebase-config: Production resolves strictly to production backend", () => 
 it("firebase-config: Unknown hostnames return null (fail closed, no production fallback)", () => {
   assert.strictEqual(resolveApiUrl("unknown-phishing.org"), null);
   assert.strictEqual(resolveApiUrl("another-domain.net"), null);
+});
+
+const stageEnv = {
+  STAGING_FIREBASE_API_KEY: "fixture-staging-key",
+  STAGING_FIREBASE_PROJECT_ID: "nails-by-divya-staging",
+  STAGING_FIREBASE_APP_ID: "fixture-staging-app",
+};
+
+it("staging and previews require a complete dedicated Firebase configuration", () => {
+  for (const host of ["staging.nailsbydivya.store", "preview.nailsbydivya.store", "pr-12.nailsbydivya.pages.dev", "localhost"]) {
+    assert.equal(resolveFirebaseConfig(host, stageEnv).projectId, stageEnv.STAGING_FIREBASE_PROJECT_ID);
+    assert.throws(() => resolveFirebaseConfig(host, {}, PRODUCTION_FIREBASE_CONFIG), /dedicated staging Firebase/);
+    assert.throws(() => resolveFirebaseConfig(host, { ...stageEnv, STAGING_FIREBASE_AUTH_DOMAIN: " " }), /dedicated staging Firebase/);
+    for (const key of Object.keys(stageEnv)) {
+      assert.throws(() => resolveFirebaseConfig(host, { ...stageEnv, [key]: "   " }), /dedicated staging Firebase/);
+    }
+  }
+  assert.throws(() => resolveFirebaseConfig("unknown.example", stageEnv), /Sign-in is unavailable/);
+});
+
+it("staging refuses production Firebase fields and production retains its own project", () => {
+  for (const [envKey, configKey] of [["PROJECT_ID", "projectId"], ["API_KEY", "apiKey"], ["APP_ID", "appId"], ["AUTH_DOMAIN", "authDomain"]]) {
+    const env = { ...stageEnv, ["STAGING_FIREBASE_" + envKey]: PRODUCTION_FIREBASE_CONFIG[configKey] };
+    assert.throws(() => resolveFirebaseConfig("staging.nailsbydivya.store", env), /dedicated staging Firebase/);
+  }
+  for (const host of ["nailsbydivya.store", "www.nailsbydivya.store"]) {
+    assert.deepEqual(resolveFirebaseConfig(host, stageEnv), PRODUCTION_FIREBASE_CONFIG);
+  }
 });
 
 // -----------------------------------------------------------------------------

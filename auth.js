@@ -19,6 +19,7 @@
 
   let firebaseApp = null;
   let firebaseAuth = null;
+  let firebaseStartupError = null;
   let recaptchaVerifier = null;
   let confirmationResult = null;
   let isConfigured = false;
@@ -430,6 +431,12 @@
     }
   }
 
+  function firebaseConfigurationError() {
+    return Object.assign(new Error(
+      window.NAILS_CONFIG?.firebaseError || firebaseStartupError || "Authentication service is not configured."
+    ), { code: "AUTH_SERVICE_UNCONFIGURED" });
+  }
+
   /**
    * Initializes the Firebase client SDK if credentials are provided.
    */
@@ -451,12 +458,14 @@
       window.firebase
     ) {
       try {
-        if (!window.firebase.apps.length) {
-          firebaseApp = window.firebase.initializeApp(config);
-        } else {
-          firebaseApp = window.firebase.apps[0];
+        const existing = window.firebase.apps.find(app => app.name === "[DEFAULT]");
+        if (existing && (existing.options?.projectId !== config.projectId || existing.options?.apiKey !== config.apiKey ||
+          existing.options?.authDomain !== config.authDomain)) {
+          throw new Error("Sign-in is unavailable because Firebase was initialized for a different project.");
         }
+        firebaseApp = existing || window.firebase.initializeApp(config);
         firebaseAuth = window.firebase.auth();
+        firebaseStartupError = null;
         isConfigured = true;
 
         // Restore cached session immediately from localStorage for instant UI responsiveness
@@ -512,13 +521,14 @@
         console.log("🔥 [NailsAuth] Initialized with real Firebase Phone Auth.");
         return;
       } catch (err) {
-        console.warn("⚠️ [NailsAuth] Firebase initialization failed:", err.message);
+        firebaseStartupError = err.message;
+        console.warn("⚠️ [NailsAuth] Firebase initialization failed:", firebaseStartupError);
       }
     }
 
     // Default: Simulator / Demo mode (strictly gated to local development)
     isConfigured = false;
-    restoreCachedSession();
+    if (isLocalEnvironment()) restoreCachedSession();
     markAuthReady();
 
     if (isLocalEnvironment()) {
@@ -809,7 +819,7 @@
         init();
       }
       if (!isConfigured || !firebaseAuth) {
-        throw new Error("Authentication service is not configured.");
+        throw firebaseConfigurationError();
       }
       const cleanEmail = (email || "").trim().toLowerCase();
       if (!cleanEmail || !cleanEmail.includes("@")) {
@@ -877,7 +887,7 @@
         init();
       }
       if (!isConfigured || !firebaseAuth) {
-        throw new Error("Authentication service is not configured.");
+        throw firebaseConfigurationError();
       }
       try {
         const provider = new firebase.auth.GoogleAuthProvider();
@@ -945,6 +955,11 @@
         err.code = "API_UNAVAILABLE";
         throw err;
       }
+      if (window.NAILS_CONFIG?.firebaseError) throw firebaseConfigurationError();
+      if (window.NAILS_CONFIG?.firebase && !isConfigured) {
+        init();
+        if (!isConfigured) throw firebaseConfigurationError();
+      }
       if (pendingEmailLinks.has(cleanEmail)) return pendingEmailLinks.get(cleanEmail);
 
       const requestLink = () => window.NailsApi.requestEmailLoginLink(cleanEmail);
@@ -991,16 +1006,15 @@
         init();
       }
 
+      // Validate the local environment before consuming the single-use link.
+      if (!isConfigured || !firebaseAuth || typeof firebaseAuth.signInWithCustomToken !== "function") {
+        throw firebaseConfigurationError();
+      }
+
       const verifyRes = await window.NailsApi.verifyEmailLoginToken(cleanToken);
       if (!verifyRes || !verifyRes.customToken) {
         const err = new Error("Unable to establish authenticated session from login link.");
         err.code = "CUSTOM_TOKEN_MISSING";
-        throw err;
-      }
-
-      if (!isConfigured || !firebaseAuth || typeof firebaseAuth.signInWithCustomToken !== "function") {
-        const err = new Error("Authentication service is not configured.");
-        err.code = "AUTH_SERVICE_UNCONFIGURED";
         throw err;
       }
 
