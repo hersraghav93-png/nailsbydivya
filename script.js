@@ -132,7 +132,7 @@ function formatCatalogPrice(price) {
   return "₹" + price.toLocaleString("en-IN", { maximumFractionDigits: 2 });
 }
 
-function renderCatalogPrice(element, price, emptyLabel = "Price unavailable") {
+function renderCatalogPrice(element, price, emptyLabel = "Enquire with Divya for pricing") {
   if (!element) return;
   const promo = price?.isPromoApplied && price.basePrice > price.effectivePrice;
   element.classList.toggle("festive-pricing", Boolean(promo));
@@ -153,14 +153,33 @@ function renderCatalogPrice(element, price, emptyLabel = "Price unavailable") {
 
 function getCatalogPrices() {
   if (!catalogPriceRequest) {
-    catalogPriceRequest = window.NailsApi.listProducts().then(({ products }) => {
+    catalogPriceRequest = (async () => {
+      let response;
+      try {
+        response = await window.NailsApi.listProducts({ limit: 100 });
+      } catch {
+        response = await window.NailsApi.listProducts({ limit: 100 });
+      }
+      const products = [...response.products];
+      while (Number.isFinite(response.total) && products.length < response.total) {
+        const page = await window.NailsApi.listProducts({ limit: 100, offset: products.length });
+        if (!page.products.length) break;
+        products.push(...page.products);
+      }
+      const listed = new Set(products.map((product) => product.sku));
+      const missing = [...new Set([...document.querySelectorAll("article[data-product-sku], aside[data-product-sku]")]
+        .map((card) => card.dataset.productSku))].filter((sku) => !listed.has(sku));
+      const details = await Promise.allSettled(missing.map((sku) => window.NailsApi.getProductBySku(sku)));
+      details.forEach((result) => {
+        if (result.status === "fulfilled" && result.value.product) products.push(result.value.product);
+      });
       for (const product of products) {
         if (product.isAvailable !== false && Number.isFinite(product.effectivePrice) &&
-            Number.isFinite(product.basePrice) && product.effectivePrice >= 0) {
+            product.effectivePrice >= 0) {
           catalogPrices.set(product.sku, product);
         }
       }
-    }).catch(() => {
+    })().catch(() => {
       catalogPriceRequest = null;
     });
   }
@@ -206,6 +225,7 @@ const CHECKOUT_CONFIG = {
 // ---------------------------------------------------------------------------
 document.addEventListener("DOMContentLoaded", () => {
   initProductPrices();
+  initStudioPhotography();
   initCheckoutPhoneValidation();
   initHeaderScroll();
   initMobileNav();
@@ -257,6 +277,85 @@ async function initProductPrices() {
   for (const card of cards) {
     renderCatalogPrice(card.querySelector(".product-price"), catalogPrices.get(card.dataset.productSku));
   }
+  const offer = document.getElementById("verified-presson-offer");
+  if (offer) {
+    const promoted = [...catalogPrices.values()].filter((product) =>
+      product.isPromoApplied && product.basePrice > product.effectivePrice);
+    offer.replaceChildren();
+    if (promoted.length) {
+      const heading = document.createElement("h3");
+      heading.textContent = promoted.every((product) => product.effectivePrice === promoted[0].effectivePrice)
+        ? `Hand-painted sets at ${formatCatalogPrice(promoted[0].effectivePrice)}`
+        : "Explore the current press-on offers";
+      const copy = document.createElement("p");
+      copy.textContent = "Current catalogue offers are shown on each eligible set, alongside its original price. Choose a design to see its price and sizing.";
+      const link = document.createElement("a");
+      link.className = "button primary-button";
+      link.href = "#shop";
+      link.textContent = "Shop eligible sets →";
+      offer.append(heading, copy, link);
+    } else {
+      offer.innerHTML = '<h3>Your next hand-painted set</h3><p>Explore the collection for current prices and available offers.</p><a class="button primary-button" href="#shop">Explore press-ons →</a>';
+    }
+  }
+}
+
+function initStudioPhotography() {
+  const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+  document.querySelectorAll("[data-studio-rotation]").forEach((frame) => {
+    const slides = [...frame.querySelectorAll("img")];
+    const control = frame.querySelector("button");
+    let current = 0;
+    let timer;
+    let paused = false;
+    let visible = false;
+    let advancing = false;
+
+    const schedule = () => {
+      clearTimeout(timer);
+      const stopped = paused || reducedMotion.matches;
+      control.textContent = stopped ? "Play photos" : "Pause photos";
+      control.setAttribute("aria-pressed", String(paused));
+      if (!stopped && visible && !document.hidden) timer = setTimeout(advance, 8000);
+    };
+    const advance = async () => {
+      if (advancing) return;
+      advancing = true;
+      const next = (current + 1) % slides.length;
+      try {
+        const image = slides[next];
+        if (image.dataset.src) {
+          image.src = image.dataset.src;
+          delete image.dataset.src;
+        }
+        await image.decode();
+        if (visible && !paused && !document.hidden && !reducedMotion.matches) {
+          slides[current].classList.remove("is-active");
+          slides[current].setAttribute("aria-hidden", "true");
+          image.classList.add("is-active");
+          image.removeAttribute("aria-hidden");
+          current = next;
+        }
+      } catch {
+        // The current photograph stays visible if another image cannot load.
+      } finally {
+        advancing = false;
+        schedule();
+      }
+    };
+    control.addEventListener("click", () => {
+      paused = !paused;
+      schedule();
+    });
+    reducedMotion.addEventListener("change", schedule);
+    document.addEventListener("visibilitychange", schedule);
+    const observer = new IntersectionObserver(([entry]) => {
+      visible = entry.isIntersecting;
+      schedule();
+    });
+    observer.observe(frame);
+    schedule();
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -2115,7 +2214,7 @@ function escapeHtml(str) {
 // 09. VIEWPORT REVEAL ANIMATIONS (`IntersectionObserver`)
 // ---------------------------------------------------------------------------
 function initScrollAnimations() {
-  const elements = document.querySelectorAll(".fade-up");
+  const elements = document.querySelectorAll(".fade-up, .studio-home .studio-section-intro, .studio-home .studio-care-layout, .studio-home .studio-custom-layout, .studio-home .studio-offer-layout");
   if (!elements.length) return;
 
   if ("IntersectionObserver" in window) {
@@ -2124,6 +2223,10 @@ function initScrollAnimations() {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             entry.target.classList.add("is-visible");
+            if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
+              entry.target.animate([{ opacity: .7, transform: "translateY(16px)" }, { opacity: 1, transform: "none" }],
+                { duration: 650, easing: "cubic-bezier(.16,1,.3,1)" });
+            }
             observer.unobserve(entry.target);
           }
         });

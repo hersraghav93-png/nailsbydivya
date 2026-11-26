@@ -83,7 +83,7 @@
   <!-- Master Stylesheets -->
   <link rel="stylesheet" href="style.css?v=26">
   <link rel="stylesheet" href="auth.css?v=17">
-  <link rel="stylesheet" href="studio.css?v=5">
+  <link rel="stylesheet" href="studio.css?v=6">
 </head>
 <body class="studio-home">
   <a href="#main-content" class="skip-link">Skip to main content</a>
@@ -192,7 +192,12 @@
           </div>
         </div>
         <figure class="studio-hero-plate">
-          <img src="assets/studio/hero-640.webp" srcset="assets/studio/hero-640.webp 640w, assets/studio/hero-1280.webp 1280w" sizes="(min-width: 1500px) 745px, (min-width: 801px) 54vw, 94vw" width="1280" height="2293" alt="Divya’s hand-painted rose nails with silver French tips and small white flowers" fetchpriority="high">
+          <div class="studio-photo-rotation" data-studio-rotation role="group" aria-label="Portfolio photographs">
+            <img src="assets/studio/rotation-rose.webp" width="900" height="1613" alt="Rose nails with silver French tips and white flowers by Divya" class="studio-photo-slide is-active" fetchpriority="high">
+            <img data-src="assets/studio/rotation-pearl.webp" aria-hidden="true" width="900" height="1613" alt="Pearlescent French nails with floral details by Divya" class="studio-photo-slide" loading="lazy">
+            <img data-src="assets/studio/rotation-french.webp" aria-hidden="true" width="900" height="1613" alt="Pink and silver French manicure by Divya" class="studio-photo-slide" loading="lazy">
+            <button type="button" class="studio-photo-control" aria-pressed="false">Pause photos</button>
+          </div>
           <figcaption><span>From Divya’s lookbook</span><a class="studio-text-link" href="#portfolio">See the work <svg class="studio-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 12h17m-6-6 6 6-6 6"/></svg></a></figcaption>
         </figure>
       </div>
@@ -733,12 +738,45 @@
 
     <section class="studio-artist section" id="about" aria-labelledby="meet-divya-title">
       <div class="studio-shell studio-artist-layout">
-        <img src="assets/studio/atelier-860.webp" width="860" height="1541" alt="Divya’s dark metallic manicure with a sculpted flower accent" loading="lazy">
+        <div class="studio-photo-rotation" data-studio-rotation role="group" aria-label="Artist photographs">
+            <img src="assets/studio/rotation-metallic.webp" width="900" height="1613" alt="Dark metallic nails with a sculpted flower accent by Divya" class="studio-photo-slide is-active" loading="lazy">
+            <img data-src="assets/studio/rotation-french.webp" aria-hidden="true" width="900" height="1613" alt="Pink and silver French manicure by Divya" class="studio-photo-slide" loading="lazy">
+            <img data-src="assets/studio/rotation-rose.webp" aria-hidden="true" width="900" height="1613" alt="Rose nails with silver French tips and white flowers by Divya" class="studio-photo-slide" loading="lazy">
+            <button type="button" class="studio-photo-control" aria-pressed="false">Pause photos</button>
+          </div>
         <div>
           <h2 id="meet-divya-title">A note from Divya</h2>
           <blockquote>“Nails are an intimate form of self-expression.”</blockquote>
           <p>I paint each press-on set by hand after you order. When I visit your home, we choose a shape and finish that suit your natural nails and the way you wear them.</p>
           <p class="studio-signature">Divya</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="studio-offer-strip section" id="offers" aria-labelledby="offers-title">
+      <div class="studio-shell studio-offer-layout">
+        <div class="studio-offer-intro">
+          <h2 id="offers-title">A little more to love</h2>
+          <p>Explore the studio’s current offers, then find the set or service that feels like you.</p>
+        </div>
+        <div class="studio-offer-feature" id="verified-presson-offer">
+          <h3>Explore press-on offers</h3>
+          <p>Checking the current catalogue. Each set shows its verified price and any applicable offer.</p>
+          <a class="button primary-button" href="#shop">Explore the collection →</a>
+        </div>
+        <a class="studio-offer-service" href="#services">
+          <h3>Your at-home nail appointment</h3>
+          <p>Services from ₹999 across Delhi NCR. Choose a service to see its price and request an appointment.</p>
+          <span class="studio-text-link">Explore the service menu →</span>
+        </a>
+        <div class="studio-offer-enquiries">
+          <h3>Have another offer in mind?</h3>
+          <p>Bundle and customer offers need personal confirmation. Message Divya for current availability, eligibility and terms.</p>
+          <div class="studio-offer-links">
+            <a href="https://wa.me/918447391310?text=Hi%20Divya!%20Could%20you%20please%20share%20the%20current%20Buy%202%20Get%201%20FREE%20press-on%20offer%20terms%3F" target="_blank" rel="noopener noreferrer">Ask about Buy 2, Get 1 Free →</a>
+            <a href="https://wa.me/918447391310?text=Hi%20Divya!%20Could%20you%20please%20confirm%20the%20current%20first-order%20offer%20and%20eligibility%3F" target="_blank" rel="noopener noreferrer">Ask about a first-order offer →</a>
+            <a href="https://wa.me/918447391310?text=Hi%20Divya!%20Could%20you%20please%20confirm%20the%20current%20returning-client%20offer%20and%20eligibility%3F" target="_blank" rel="noopener noreferrer">Ask about a returning-client offer →</a>
+          </div>
         </div>
       </div>
     </section>
@@ -1424,7 +1462,7 @@
 
     <section class="studio-custom section" id="custom" aria-labelledby="custom-title">
       <div class="studio-shell studio-custom-layout">
-        <img src="assets/custom%20sets/CUSTOM-SETS/spider-man-custom.png" alt="A Spider-Man-inspired custom press-on set by Divya" loading="lazy">
+        <img src="assets/custom%20sets/CUSTOM-SETS/spider-man-custom.png" alt="A Spider-Man-inspired custom press-on set by Divya" width="941" height="1672" loading="lazy">
         <div>
           <h2 id="custom-title">Bring an idea. We’ll make it yours.</h2>
           <p>Send Divya a photo of your outfit or a design you love. Together you can choose the shape, length and details for a press-on set or an at-home appointment.</p>
@@ -1444,23 +1482,7 @@
       </div>
     </section>
 
-    <section class="studio-offer-strip section" id="offers" aria-labelledby="offers-title">
-      <div class="studio-shell studio-offer-layout">
-        <div>
-          <h2 id="offers-title">Studio offers</h2>
-          <p>Press-on sets from ₹599. At-home services from ₹999.</p>
-        </div>
-        <details class="studio-disclosure">
-          <summary>See offers and eligibility</summary>
-          <ul>
-            <li><a href="https://wa.me/918447391310?text=Hi%20Divya!%20Could%20you%20please%20share%20the%20current%20Buy%202%20Get%201%20FREE%20press-on%20offer%20terms%3F" target="_blank" rel="noopener noreferrer">Buy 2 press-on sets, get 1 free <svg class="studio-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 12h17m-6-6 6 6-6 6"/></svg></a></li>
-            <li><a href="https://wa.me/918447391310?text=Hi%20Divya!%20Could%20you%20please%20confirm%20the%20current%20first-order%20offer%20and%20eligibility%3F" target="_blank" rel="noopener noreferrer">First-order offer <svg class="studio-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 12h17m-6-6 6 6-6 6"/></svg></a></li>
-            <li><a href="https://wa.me/918447391310?text=Hi%20Divya!%20Could%20you%20please%20confirm%20the%20current%20returning-client%20offer%20and%20eligibility%3F" target="_blank" rel="noopener noreferrer">Returning-client offer <svg class="studio-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 12h17m-6-6 6 6-6 6"/></svg></a></li>
-          </ul>
-          <p>Message Divya on WhatsApp to confirm eligibility and terms.</p>
-        </details>
-      </div>
-    </section>
+
 
     <section class="reviews-section section" id="reviews" aria-label="Client reviews">
       <div class="container">
@@ -2184,6 +2206,6 @@
   <script src="auth-modal.js?v=6"></script>
 
   <!-- Core Scripts -->
-  <script src="script.js?v=35"></script>
+  <script src="script.js?v=36"></script>
 </body>
 </html>
