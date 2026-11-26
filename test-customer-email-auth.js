@@ -201,6 +201,47 @@ async function run() {
   });
 
   console.log("\n==================================================================");
+  await test("6. Normalized link requests share one pending send per tab and across origin locks", async () => {
+    const calls = [];
+    const held = new Set();
+    const locks = {
+      async request(name, options, send) {
+        assert.equal(options.ifAvailable, true);
+        if (held.has(name)) return send(null);
+        held.add(name);
+        try { return await send({ name }); } finally { held.delete(name); }
+      },
+    };
+    let complete;
+    const firstSend = new Promise(resolve => { complete = resolve; });
+    const api = async (email) => {
+      calls.push(email);
+      if (calls.length === 1) return firstSend;
+      if (email === "failure@example.invalid") throw new Error("test rejection");
+      return { status: "success" };
+    };
+    function tab(navigator) {
+      const window = { navigator, NailsApi: { requestEmailLoginLink: api } };
+      vm.runInNewContext(authSrc, { window });
+      return window.NailsAuth;
+    }
+    const a = tab({ locks });
+    const b = tab({ locks });
+    const first = a.requestEmailLink(" CLIENT@Example.Invalid ");
+    const second = a.requestEmailLink("client@example.invalid");
+    assert.equal((await b.requestEmailLink("CLIENT@example.invalid")).status, "success");
+    assert.deepEqual(calls, ["client@example.invalid"]);
+    complete({ status: "success" });
+    await Promise.all([first, second]);
+    await b.requestEmailLink("client@example.invalid");
+    assert.deepEqual(calls, ["client@example.invalid", "client@example.invalid"]);
+
+    const noLocks = tab({});
+    await assert.rejects(noLocks.requestEmailLink("failure@example.invalid"), /test rejection/);
+    await assert.rejects(noLocks.requestEmailLink("failure@example.invalid"), /test rejection/);
+    assert.equal(calls.filter(email => email === "failure@example.invalid").length, 2);
+  });
+
   console.log(`FRONTEND EMAIL AUTH RESULTS: ${passed} PASSED, ${failed} FAILED`);
   console.log("==================================================================");
   if (failed > 0) process.exit(1);

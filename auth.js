@@ -15,6 +15,7 @@
 
   const STORAGE_KEY = "NAILS_AUTH_SESSION_V1";
   const TEST_OTP_CODE = "123456";
+  const pendingEmailLinks = new Map();
 
   let firebaseApp = null;
   let firebaseAuth = null;
@@ -944,7 +945,26 @@
         err.code = "API_UNAVAILABLE";
         throw err;
       }
-      return await window.NailsApi.requestEmailLoginLink(cleanEmail);
+      if (pendingEmailLinks.has(cleanEmail)) return pendingEmailLinks.get(cleanEmail);
+
+      const requestLink = () => window.NailsApi.requestEmailLoginLink(cleanEmail);
+      const locks = window.navigator?.locks;
+      const pending = Promise.resolve().then(() => {
+        if (!locks) return requestLink();
+        return locks.request("nbd-email-link:" + cleanEmail, { ifAvailable: true }, (lock) => {
+          if (lock) return requestLink();
+          return {
+            status: "success",
+            message: "Check your inbox for the sign-in link. The link expires in 15 minutes.",
+          };
+        });
+      });
+      pendingEmailLinks.set(cleanEmail, pending);
+      try {
+        return await pending;
+      } finally {
+        pendingEmailLinks.delete(cleanEmail);
+      }
     },
 
     /**
