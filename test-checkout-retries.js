@@ -38,6 +38,10 @@ async function browserChecks(mobile) {
     document.dispatchEvent(new CustomEvent("nails:auth-changed", { detail: { user: window.NailsAuth.getUser() } }));
   };
 
+  check(location.hash === "#divv" && $("divv-widget-modal").getAttribute("aria-hidden") === "false", "The Divv deep link opens on page load");
+  check($("divv-widget-body").textContent.includes("Find My Perfect Nails"), "The deep link renders the initialized Divv welcome screen");
+  $("divv-close-btn").click();
+
   if (!sessionStorage.getItem("reload-test")) {
     check(mobile ? innerWidth < 768 : innerWidth >= 1024, "Checkout must run in the requested desktop or mobile layout");
     const { products } = await NailsApi.listProducts();
@@ -289,7 +293,7 @@ async function main(mobile) {
     mobile ? "--window-size=390,844" : "--window-size=1440,900",
     "--disable-sync", "--disable-popup-blocking", "--no-first-run", "--no-default-browser-check",
     "--no-proxy-server", "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1, EXCLUDE localhost", "--user-data-dir=" + profile,
-    "http://127.0.0.1:" + server.address().port,
+    "http://127.0.0.1:" + server.address().port + "/#divv",
   ], { stdio: "ignore", windowsHide: true });
   child.once("error", fail);
   const stopped = once(child, "exit");

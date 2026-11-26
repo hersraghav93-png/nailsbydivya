@@ -2562,7 +2562,6 @@ function initDivvStylist() {
       openDivv();
     });
   });
-  if (window.location.hash === "#divv") openDivv();
   if (closeBtn) closeBtn.addEventListener("click", closeDivv);
   if (overlay) overlay.addEventListener("click", closeDivv);
 
@@ -2753,6 +2752,8 @@ function initDivvStylist() {
     const text = inputEl ? inputEl.value.trim() : "";
     if (text) sendUserMessage(text);
   });
+
+  if (window.location.hash === "#divv") openDivv();
 }
 
 // ---------------------------------------------------------------------------
