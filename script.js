@@ -124,72 +124,48 @@ if (typeof document !== "undefined") {
 // ---------------------------------------------------------------------------
 // 01. SINGLE SOURCE OF TRUTH — PRODUCT PRICING & SKU REGISTRY
 // ---------------------------------------------------------------------------
-const PRODUCT_PRICES = {
-  // Casual Collection
-  "CAS-004": "₹899",
-  "CAS-005": "₹799",
-  "CAS-007": "₹1199",
-  "CAS-008": "₹1199",
+const catalogPrices = new Map();
+let catalogPriceRequest;
+let productPricingView = 0;
 
-  // Party & Evening Collection
-  "PAR-003": "₹1299",
-  "PAR-004": "₹1299",
-  "PAR-008": "₹999",
-  "PAR-009": "₹1199",
-  "PAR-0010": "₹1299",
-  "PAR-0011": "₹799",
+function formatCatalogPrice(price) {
+  return "₹" + price.toLocaleString("en-IN", { maximumFractionDigits: 2 });
+}
 
-  // Wedding & Bridal Collection
-  "WED-001": "₹999",
-  "WED-002": "₹799",
-  "WED-005": "₹999",
-  "WED-006": "₹1399",
-  "WED-007": "₹1299",
-  "WED-008": "₹699",
-  "WED-009": "₹1399",
-
-  // Office & Daily Collection
-  "WORK-002": "₹1099",
-  "WORK-003": "₹799",
-  "WORK-004": "₹999",
-  "WORK-006": "₹1199",
-  "WORK-007": "₹1299"
-};
-
-// ---------------------------------------------------------------------------
-// 01B. FESTIVE PROMOTIONAL PRICING REGISTRY
-// ---------------------------------------------------------------------------
-const FESTIVE_OFFER_CONFIG = {
-  active: true,
-  promoPrice: "₹599",
-  promoPriceDisplay: "₹599",
-  badgeText: "✦ FESTIVE OFFER · ₹599",
-
-  /**
-   * Identifies whether a SKU qualifies for the festive press-on promotional price.
-   * Matches backend pricingEngine: active promotion applies to eligible press-on sets where basePrice > 599.
-   */
-  isEligible(sku, productObj = null) {
-    if (!this.active || !sku) return false;
-    if (productObj && (productObj.is_promotional === false || productObj.is_festive_eligible === false)) {
-      return false;
-    }
-    const priceStr = PRODUCT_PRICES[sku] || (productObj && productObj.base_price ? `₹${productObj.base_price}` : null);
-    if (!priceStr) return false;
-    const baseNum = parseInt(String(priceStr).replace(/[^0-9]/g, ""), 10);
-    return !isNaN(baseNum) && baseNum > 599;
-  },
-
-  /**
-   * Returns the current active offer price for quotation and checkout.
-   */
-  getEffectivePrice(sku, productObj = null) {
-    if (this.isEligible(sku, productObj)) {
-      return this.promoPrice;
-    }
-    return (sku && PRODUCT_PRICES[sku]) || (productObj && productObj.base_price ? `₹${productObj.base_price}` : null);
+function renderCatalogPrice(element, price, emptyLabel = "Price unavailable") {
+  if (!element) return;
+  const promo = price?.isPromoApplied && price.basePrice > price.effectivePrice;
+  element.classList.toggle("festive-pricing", Boolean(promo));
+  if (!price) {
+    element.textContent = emptyLabel;
+    return;
   }
-};
+
+  const effectivePrice = formatCatalogPrice(price.effectivePrice);
+  element.innerHTML = promo
+    ? `<div class="product-price-row">
+        <span class="product-price-promo">${effectivePrice}</span>
+        <del class="product-price-original">${formatCatalogPrice(price.basePrice)}</del>
+      </div>
+      <span class="festive-offer-label">${escapeHtml(price.promoName || "Offer")}</span>`
+    : `<div class="product-price-row"><strong class="product-price-regular">${effectivePrice}</strong></div>`;
+}
+
+function getCatalogPrices() {
+  if (!catalogPriceRequest) {
+    catalogPriceRequest = window.NailsApi.listProducts().then(({ products }) => {
+      for (const product of products) {
+        if (product.isAvailable !== false && Number.isFinite(product.effectivePrice) &&
+            Number.isFinite(product.basePrice) && product.effectivePrice >= 0) {
+          catalogPrices.set(product.sku, product);
+        }
+      }
+    }).catch(() => {
+      catalogPriceRequest = null;
+    });
+  }
+  return catalogPriceRequest;
+}
 
 // ---------------------------------------------------------------------------
 // 01B. CHECKOUT & COMMERCE CONFIGURATION (FUTURE-PROOF ABSTRACTION)
@@ -230,6 +206,7 @@ const CHECKOUT_CONFIG = {
 // ---------------------------------------------------------------------------
 document.addEventListener("DOMContentLoaded", () => {
   initProductPrices();
+  initCheckoutPhoneValidation();
   initHeaderScroll();
   initMobileNav();
   initHeroShowcase();
@@ -274,51 +251,13 @@ function initDiwaliCards() {
   });
 }
 
-/**
- * Ensures all product cards and prices stay synchronized to our Single Source of Truth (`PRODUCT_PRICES`),
- * dynamically rendering the festive promotional pricing treatment when active.
- */
-function initProductPrices() {
-  document.querySelectorAll(".carousel-card[data-product-sku], article[data-product-sku]").forEach((card) => {
-    const sku = card.getAttribute("data-product-sku");
-    if (!sku || !PRODUCT_PRICES[sku]) return;
-
-    const originalPrice = PRODUCT_PRICES[sku];
-    let priceEl = card.querySelector(".product-price");
-    if (!priceEl) {
-      priceEl = document.createElement("div");
-      priceEl.className = "product-price";
-      const h4 = card.querySelector("h4");
-      if (h4 && h4.nextSibling) {
-        h4.parentNode.insertBefore(priceEl, h4.nextSibling);
-      } else if (h4) {
-        h4.parentNode.appendChild(priceEl);
-      }
-    }
-
-    if (FESTIVE_OFFER_CONFIG.isEligible(sku)) {
-      priceEl.classList.add("festive-pricing");
-      priceEl.innerHTML = `
-        <div class="product-price-row">
-          <span class="product-price-promo">${FESTIVE_OFFER_CONFIG.promoPriceDisplay}</span>
-          <del class="product-price-original">${originalPrice}</del>
-        </div>
-        <span class="festive-offer-label">${FESTIVE_OFFER_CONFIG.badgeText}</span>
-      `;
-    } else {
-      priceEl.classList.remove("festive-pricing");
-      priceEl.innerHTML = `
-        <div class="product-price-row">
-          <span class="product-price-regular" style="font-size: 1.15rem; font-weight: 700; color: var(--accent-strong);">${originalPrice}</span>
-        </div>
-      `;
-    }
-
-    const orderBtn = card.querySelector("button[data-action='order']");
-    if (orderBtn && !orderBtn.getAttribute("data-product-sku")) {
-      orderBtn.setAttribute("data-product-sku", sku);
-    }
-  });
+async function initProductPrices() {
+  const cards = document.querySelectorAll("article[data-product-sku], aside[data-product-sku], .carousel-card[data-product-sku]");
+  if (!cards.length || !window.NailsApi) return;
+  await getCatalogPrices();
+  for (const card of cards) {
+    renderCatalogPrice(card.querySelector(".product-price"), catalogPrices.get(card.dataset.productSku));
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1022,7 +961,8 @@ function initModals() {
       const category = btn.getAttribute("data-product-category") || "Handmade Collection";
       const cardEl = btn.closest(".carousel-card, article");
       const sku = btn.getAttribute("data-product-sku") || (cardEl ? cardEl.getAttribute("data-product-sku") : null);
-      const effectivePrice = FESTIVE_OFFER_CONFIG.getEffectivePrice(sku);
+      const price = catalogPrices.get(sku);
+      const effectivePrice = price ? formatCatalogPrice(price.effectivePrice) : null;
       window.open(CHECKOUT_CONFIG.getCheckoutUrl(title, category, effectivePrice, sku), "_blank", "noopener,noreferrer");
     });
   });
@@ -1120,9 +1060,30 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
     imgEl.src = (imageSrc && String(imageSrc).trim()) ? imageSrc : placeholderSvg;
   }
 
-  const originalPrice = sku && PRODUCT_PRICES[sku] ? PRODUCT_PRICES[sku] : null;
-  const isEligible = sku ? FESTIVE_OFFER_CONFIG.isEligible(sku) : false;
-  const effectivePrice = sku ? (FESTIVE_OFFER_CONFIG.getEffectivePrice(sku) || (originalPrice || "₹999")) : null;
+  const priceView = ++productPricingView;
+  let effectivePrice = null;
+
+  function updatePrice(price, emptyLabel) {
+    effectivePrice = price ? formatCatalogPrice(price.effectivePrice) : null;
+    if (priceEl) priceEl.style.display = sku ? "" : "none";
+    renderCatalogPrice(priceEl, price, emptyLabel);
+    for (const button of [addBagBtn, checkoutBtn]) {
+      if (button) button.disabled = Boolean(sku && !price);
+    }
+    if (addBagLabel) {
+      addBagLabel.textContent = sku
+        ? (effectivePrice ? `Add to Bag • ${effectivePrice}` : "Add to Bag")
+        : "Order Bespoke Set on WhatsApp →";
+    }
+  }
+
+  const price = catalogPrices.get(sku);
+  updatePrice(price, sku && !price ? "Loading price…" : undefined);
+  if (sku && !price && window.NailsApi) {
+    initProductPrices().then(() => {
+      if (priceView === productPricingView) updatePrice(catalogPrices.get(sku));
+    });
+  }
 
   // Privacy-first product view analytics tracking
   if (window.NBD_Analytics) {
@@ -1130,37 +1091,10 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
       sku: sku || "LOOKBOOK",
       title: title || "Press-On Set",
       category: category || "Handmade Collection",
-      price: effectivePrice || "Custom Quotation",
+      price: effectivePrice || (sku ? "Unavailable" : "Custom Quotation"),
     });
   }
 
-  if (priceEl) {
-    if (originalPrice && isEligible) {
-      priceEl.classList.add("festive-pricing");
-      priceEl.innerHTML = `
-        <div class="product-price-row">
-          <span class="product-price-promo">${FESTIVE_OFFER_CONFIG.promoPriceDisplay}</span>
-          <del class="product-price-original">${originalPrice}</del>
-        </div>
-        <span class="festive-offer-label">${FESTIVE_OFFER_CONFIG.badgeText}</span>
-      `;
-      priceEl.style.display = "flex";
-    } else if (originalPrice) {
-      priceEl.classList.remove("festive-pricing");
-      priceEl.innerHTML = `
-        <div class="product-price-row">
-          <span class="product-price-regular" style="font-size: 1.25rem; font-weight: 700; color: var(--accent-strong);">${originalPrice}</span>
-        </div>
-      `;
-      priceEl.style.display = "block";
-    } else {
-      priceEl.style.display = "none";
-    }
-  }
-
-  if (addBagLabel) {
-    addBagLabel.textContent = sku ? `Add to Bag • ${effectivePrice}` : "Order Bespoke Set on WhatsApp →";
-  }
   if (checkoutBtn) {
     const checkoutSpan = checkoutBtn.querySelector("span");
     if (checkoutSpan) {
@@ -1819,7 +1753,7 @@ async function refreshCartView() {
               <span class="cart-item-spec">${escapeHtml(specParts.join(" • "))}</span>
               <div class="cart-item-price-row">
                 <span class="cart-item-price">₹${it.unitPrice}</span>
-                ${it.isPromoApplied ? `<span class="cart-item-original">₹${it.basePrice}</span><span class="cart-item-promo-tag">Festive ₹599</span>` : ""}
+                ${it.isPromoApplied ? `<span class="cart-item-original">₹${it.basePrice}</span><span class="cart-item-promo-tag">${escapeHtml(it.promoName || "Offer")}</span>` : ""}
               </div>
             </div>
             <div class="cart-item-controls">
@@ -1912,6 +1846,25 @@ async function refreshCartView() {
 // ---------------------------------------------------------------------------
 // 08D. CHECKOUT MODAL & ORDER CREATION
 // ---------------------------------------------------------------------------
+
+const CHECKOUT_PHONE_MESSAGE = "Enter a valid 10-digit Indian mobile number, with or without +91.";
+const CHECKOUT_MOBILE_PATTERN = /^(?:(?:\+91|0091|91|0)[ \u00a0\u202f-]?)?[6-9](?:[ \u00a0\u202f-]?\d){9}$/;
+
+function updateCheckoutPhoneValidity(input) {
+  const invalid = Boolean(input.value && !CHECKOUT_MOBILE_PATTERN.test(input.value.trim()));
+  input.setCustomValidity(invalid ? CHECKOUT_PHONE_MESSAGE : "");
+  input.setAttribute("aria-invalid", String(invalid));
+  const error = document.getElementById("checkout-phone-error");
+  if (error) error.hidden = !invalid;
+  return !invalid;
+}
+
+function initCheckoutPhoneValidation() {
+  const input = document.getElementById("checkout-phone");
+  if (!input) return;
+  input.addEventListener("input", () => updateCheckoutPhoneValidity(input));
+  input.addEventListener("change", () => updateCheckoutPhoneValidity(input));
+}
 
 const CHECKOUT_STORAGE_KEY = "nbd_pending_checkout";
 let pendingCheckout;
@@ -2024,8 +1977,8 @@ async function openCheckoutModal() {
   if (window.NBD_Analytics) {
     window.NBD_Analytics.track("checkout_start", {
       itemCount: items.length,
-      subtotalAmount: totals.subtotalAmount || 599,
-      totalAmount: totals.totalAmount || 599,
+      subtotalAmount: totals.subtotal || 0,
+      totalAmount: totals.totalAmount || 0,
     });
   }
 
@@ -2093,12 +2046,14 @@ async function openCheckoutModal() {
   // Handle order submission
   const checkoutForm = document.getElementById("checkout-order-form");
   if (checkoutForm) {
+    const phoneInput = document.getElementById("checkout-phone");
+    updateCheckoutPhoneValidity(phoneInput);
     checkoutForm.onsubmit = async (e) => {
       e.preventDefault();
       if (!isCurrent() || confirmed || checkoutSubmitting) return;
       const placeBtn = document.getElementById("checkout-place-order-btn");
       const name = document.getElementById("checkout-name")?.value.trim();
-      const phone = document.getElementById("checkout-phone")?.value.trim();
+      const phone = phoneInput.value.trim();
       const email = document.getElementById("checkout-email")?.value.trim();
       const line1 = document.getElementById("checkout-addr-line1")?.value.trim();
       const line2 = document.getElementById("checkout-addr-line2")?.value.trim();
@@ -2112,6 +2067,11 @@ async function openCheckoutModal() {
           errorEl.textContent = "Please fill in all required customer and delivery address fields.";
           errorEl.style.display = "block";
         }
+        return;
+      }
+
+      if (!updateCheckoutPhoneValidity(phoneInput)) {
+        phoneInput.reportValidity();
         return;
       }
 
