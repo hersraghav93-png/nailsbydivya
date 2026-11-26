@@ -286,7 +286,7 @@ body { background: var(--bg); }
 .studio-care :is(.sizing-guide-card p, .studio-care-notes p) { font-size: .9rem; color: var(--text-muted); }
 .studio-care .faq-grid { margin: clamp(1.5rem, 3vw, 2.5rem) 0 0; max-width: none; gap: 0; }
 .studio-care .faq-grid > h3 { margin-bottom: .7rem; }
-.studio-care .faq-item { margin: 0; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; box-shadow: none; background: transparent; }
+.studio-care .faq-item { margin: 0; padding: 0; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; box-shadow: none; background: transparent; }
 .studio-care .faq-item :is(summary, p) { padding-inline: 0; }
 .studio-care .faq-item summary { font-size: .9rem; padding-block: .75rem; min-height: 48px; }
 .studio-care .faq-item p { padding-bottom: 1rem; }
