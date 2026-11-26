@@ -54,6 +54,24 @@ async function browserChecks(mobile) {
       }
       closeAllModals();
     }
+    $("shop-divv-help").click();
+    check($("divv-widget-modal").getAttribute("aria-hidden") === "false", "The shopping help button opens Divv");
+    $("divv-close-btn").click();
+
+    await openServiceModal("Safe Extension Removal", "Removal details");
+    const serviceForm = $("service-booking-form");
+    check(!$("service-quote-intro").hidden && serviceForm.style.display === "none", "Quote first without personal details");
+    check($("service-price-value").textContent === "Custom Quote", "Show the quote-based price");
+    check(new URL($("service-quote-whatsapp").href).hostname === "wa.me", "Offer the studio WhatsApp quote");
+    serviceForm.dispatchEvent(new Event("submit", { cancelable: true }));
+    $("service-quote-continue").click();
+    check($("service-quote-intro").hidden && serviceForm.style.display === "flex", "Keep scheduling available after the quote step");
+    closeAllModals();
+    await openServiceModal("Nail Extensions", "Extension details");
+    check($("service-quote-intro").hidden && serviceForm.style.display === "flex", "Regular booking opens directly");
+    check($("service-price-value").textContent === "From ₹999", "Keep regular service starting price");
+    closeAllModals();
+
     await NailsApi.getCart();
     await openCartDrawer();
     check(amount($("cart-total-val")) === 599, "Cart renders the server total");
@@ -183,6 +201,14 @@ async function main(mobile) {
     const buyer = token ? JSON.parse(Buffer.from(token.split(".")[1], "base64url")).sub : "guest";
     if (url.pathname === "/state") return json(200, { creates, lookups, items, clears, orders: receipts.size, holding: !!release });
     if (url.pathname === "/api/products") return json(200, { products });
+    if (url.pathname === "/api/services") return json(200, { services: [
+      { id: "gel_extensions", pricingDisplay: "From ₹999", addons: [] },
+      { id: "extension_removal", pricingDisplay: "Custom Quote", addons: [] },
+    ] });
+    if (url.pathname === "/api/bookings") {
+      fail(new Error("Quote-first checks must not submit an appointment"));
+      return json(400, {});
+    }
     if (url.pathname.startsWith("/fixture/")) {
       mode = url.pathname.slice(9);
       if (mode === "release" && release) { release(); release = null; }
@@ -264,7 +290,7 @@ async function main(mobile) {
   const timeout = setTimeout(() => fail(new Error("Browser checkout test timed out. Last requests: " + recent.join(", "))), 30000);
   try {
     await finished;
-    console.log("PASS Chrome " + (mobile ? "mobile" : "desktop") + ": 22 catalog prices, guest phone validation, cart totals, double submit, lost response, second tab, reload, account switch and logout");
+    console.log("PASS Chrome " + (mobile ? "mobile" : "desktop") + ": 22 catalog prices, quote-first booking, guest phone validation, cart totals, double submit, lost response, second tab, reload, account switch and logout");
   } finally {
     clearTimeout(timeout);
     child.kill();
