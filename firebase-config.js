@@ -117,9 +117,9 @@
    * Staging/Preview resolves to STAGING_FIREBASE_CONFIG / STAGING_FIREBASE_* env overrides when populated.
    */
   function resolveFirebaseConfig(hostname, env = {}, existingFirebase = {}) {
-    const isStaging = isStagingOrLocalHost(hostname);
+    const host = (hostname || "").toLowerCase().trim();
 
-    if (!isStaging) {
+    if (host === "nailsbydivya.store" || host === "www.nailsbydivya.store") {
       return {
         apiKey: env.FIREBASE_API_KEY || existingFirebase.apiKey || PRODUCTION_FIREBASE_CONFIG.apiKey,
         authDomain: existingFirebase.authDomain || PRODUCTION_FIREBASE_CONFIG.authDomain,
@@ -131,30 +131,30 @@
       };
     }
 
-    const stagingApiKey = env.STAGING_FIREBASE_API_KEY || STAGING_FIREBASE_CONFIG.apiKey;
-    const stagingProjectId = env.STAGING_FIREBASE_PROJECT_ID || STAGING_FIREBASE_CONFIG.projectId;
-    const stagingAppId = env.STAGING_FIREBASE_APP_ID || STAGING_FIREBASE_CONFIG.appId;
-
-    if (stagingApiKey && stagingProjectId && stagingAppId) {
-      return {
-        apiKey: stagingApiKey,
-        authDomain: env.STAGING_FIREBASE_AUTH_DOMAIN || STAGING_FIREBASE_CONFIG.authDomain || `${stagingProjectId}.firebaseapp.com`,
-        projectId: stagingProjectId,
-        storageBucket: env.STAGING_FIREBASE_STORAGE_BUCKET || STAGING_FIREBASE_CONFIG.storageBucket || `${stagingProjectId}.firebasestorage.app`,
-        messagingSenderId: env.STAGING_FIREBASE_MESSAGING_SENDER_ID || STAGING_FIREBASE_CONFIG.messagingSenderId || "",
-        appId: stagingAppId,
-        measurementId: env.STAGING_FIREBASE_MEASUREMENT_ID || STAGING_FIREBASE_CONFIG.measurementId || "",
-      };
+    const production = PRODUCTION_FIREBASE_CONFIG;
+    const staged = {
+      apiKey: (env.STAGING_FIREBASE_API_KEY || STAGING_FIREBASE_CONFIG.apiKey).trim(),
+      projectId: (env.STAGING_FIREBASE_PROJECT_ID || STAGING_FIREBASE_CONFIG.projectId).trim(),
+      appId: (env.STAGING_FIREBASE_APP_ID || STAGING_FIREBASE_CONFIG.appId).trim(),
+    };
+    const authDomain = (env.STAGING_FIREBASE_AUTH_DOMAIN || STAGING_FIREBASE_CONFIG.authDomain ||
+      `${staged.projectId}.firebaseapp.com`).trim().toLowerCase();
+    if (
+      !isStagingOrLocalHost(host) || !authDomain ||
+      Object.values(staged).some(value => !value || value.startsWith("your_")) ||
+      staged.projectId === production.projectId ||
+      staged.apiKey === production.apiKey ||
+      staged.appId === production.appId ||
+      [production.authDomain, `${production.projectId}.web.app`, "nailsbydivya.store", "www.nailsbydivya.store"].includes(authDomain)
+    ) {
+      throw new Error("Sign-in is unavailable on this site. Configure a dedicated staging Firebase project, API key, and app ID.");
     }
-
     return {
-      apiKey: existingFirebase.apiKey || env.FIREBASE_API_KEY || PRODUCTION_FIREBASE_CONFIG.apiKey,
-      authDomain: existingFirebase.authDomain || PRODUCTION_FIREBASE_CONFIG.authDomain,
-      projectId: existingFirebase.projectId || PRODUCTION_FIREBASE_CONFIG.projectId,
-      storageBucket: existingFirebase.storageBucket || PRODUCTION_FIREBASE_CONFIG.storageBucket,
-      messagingSenderId: existingFirebase.messagingSenderId || PRODUCTION_FIREBASE_CONFIG.messagingSenderId,
-      appId: existingFirebase.appId || env.FIREBASE_APP_ID || PRODUCTION_FIREBASE_CONFIG.appId,
-      measurementId: existingFirebase.measurementId || PRODUCTION_FIREBASE_CONFIG.measurementId,
+      ...staged,
+      authDomain,
+      storageBucket: env.STAGING_FIREBASE_STORAGE_BUCKET || STAGING_FIREBASE_CONFIG.storageBucket || `${staged.projectId}.firebasestorage.app`,
+      messagingSenderId: env.STAGING_FIREBASE_MESSAGING_SENDER_ID || STAGING_FIREBASE_CONFIG.messagingSenderId || "",
+      measurementId: env.STAGING_FIREBASE_MEASUREMENT_ID || STAGING_FIREBASE_CONFIG.measurementId || "",
     };
   }
 
@@ -167,7 +167,14 @@
       (typeof window !== "undefined" && (window.__ENV__ || (window.process && window.process.env))) ||
       {};
     const existingConfig = (typeof window !== "undefined" && window.NAILS_CONFIG) || {};
-    const existingFirebase = existingConfig.firebase || {};
+    let firebase = null;
+    let firebaseError = null;
+    try {
+      firebase = resolveFirebaseConfig(currentHostname, env, existingConfig.firebase);
+    } catch (err) {
+      firebaseError = err.message;
+      console.error("[Nails Config] " + firebaseError);
+    }
 
     window.NAILS_CONFIG = {
       ...existingConfig,
@@ -187,7 +194,8 @@
       },
 
       // Firebase Web App Configuration (Public Web Client Identifiers)
-      firebase: resolveFirebaseConfig(currentHostname, env, existingFirebase),
+      firebase,
+      firebaseError,
     };
   }
 

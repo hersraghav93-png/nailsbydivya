@@ -958,6 +958,26 @@ function initModals() {
     });
   }
 
+  document.getElementById("cart-check-receipt")?.addEventListener("click", openCheckoutModal);
+  let lastBuyer = window.NailsApi?.getBuyerId?.() || null;
+  document.addEventListener("nails:auth-changed", () => {
+    const buyer = window.NailsApi?.getBuyerId?.() || null;
+    if (buyer !== lastBuyer) {
+      lastBuyer = buyer;
+      if (pendingCheckout && pendingCheckout.buyer !== buyer) saveCheckout(null);
+      closeAllModals();
+      checkoutSubmitting = null;
+      const place = document.getElementById("checkout-place-order-btn");
+      if (place) place.disabled = false;
+      document.getElementById("checkout-order-form")?.reset();
+      document.getElementById("checkout-confirmation-order-number")?.replaceChildren();
+      document.getElementById("checkout-confirmation-whatsapp-btn")?.removeAttribute("href");
+      document.getElementById("cart-drawer-items")?.replaceChildren();
+    }
+    // Resolving the cart atomically claims an eligible guest bag on sign-in.
+    refreshCartBadge();
+  });
+
   // Cart Empty Shop CTA
   const cartEmptyShopBtn = document.getElementById("cart-empty-shop-btn");
   if (cartEmptyShopBtn) {
@@ -1310,6 +1330,12 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
   // Direct Checkout Button
   if (checkoutBtn) {
     checkoutBtn.onclick = async () => {
+      if (checkoutBtn.disabled) return;
+      if (sku && currentCheckout()) {
+        closeAllModals();
+        await openCheckoutModal();
+        return;
+      }
       if (!sku) {
         // Lookbook design: transition directly to at-home salon appointment consultation
         closeAllModals();
@@ -1337,7 +1363,13 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
         if (msg.includes("<") || msg.toLowerCase().startsWith("cannot ")) {
           msg = "We're having trouble connecting. Please try again or contact Divya on WhatsApp.";
         }
-        alert(msg);
+        if (err.code === "NETWORK_ERROR" || err.status >= 500) {
+          alert("Your bag update could not be confirmed. Check the quantity in your bag before continuing.");
+          closeAllModals();
+          await openCartDrawer();
+        } else {
+          alert(msg);
+        }
       } finally {
         checkoutBtn.disabled = false;
       }
@@ -1686,7 +1718,6 @@ async function openServiceModal(title, description) {
 // 08C. COMMERCE CART DRAWER MANAGEMENT
 // ---------------------------------------------------------------------------
 
-let activeCartData = null;
 const inFlightCartItemIds = new Set();
 
 function lockCartCardControls(cardEl, locked) {
@@ -1705,6 +1736,8 @@ async function openCartDrawer() {
   overlay.classList.add("is-open");
   document.body.style.overflow = "hidden";
 
+  const receiptButton = document.getElementById("cart-check-receipt");
+  if (receiptButton) receiptButton.style.display = currentCheckout() ? "inline-flex" : "none";
   await refreshCartView();
 }
 
@@ -1721,7 +1754,6 @@ async function refreshCartBadge() {
   if (!window.NailsApi) return;
   try {
     const res = await window.NailsApi.getCart();
-    activeCartData = res;
     const count = (res.items || []).reduce((acc, it) => acc + (it.quantity || 1), 0);
     const badges = document.querySelectorAll("#nav-cart-count, #cart-drawer-count, #mobile-cart-count");
     badges.forEach((b) => {
@@ -1739,7 +1771,6 @@ async function refreshCartView() {
 
   try {
     const res = await window.NailsApi.getCart();
-    activeCartData = res;
     const items = res.items || [];
     const totals = res.totals || {};
 
@@ -1882,7 +1913,46 @@ async function refreshCartView() {
 // 08D. CHECKOUT MODAL & ORDER CREATION
 // ---------------------------------------------------------------------------
 
+const CHECKOUT_STORAGE_KEY = "nbd_pending_checkout";
+let pendingCheckout;
+try { pendingCheckout = JSON.parse(sessionStorage.getItem(CHECKOUT_STORAGE_KEY)); } catch {}
+let checkoutSubmitting = null;
+let checkoutView = 0;
+
+function currentCheckout() {
+  return pendingCheckout && pendingCheckout.buyer === window.NailsApi?.getBuyerId?.() ? pendingCheckout : null;
+}
+
+function saveCheckout(attempt) {
+  pendingCheckout = attempt;
+  try {
+    if (attempt) sessionStorage.setItem(CHECKOUT_STORAGE_KEY, JSON.stringify(attempt));
+    else sessionStorage.removeItem(CHECKOUT_STORAGE_KEY);
+  } catch {} // The in-memory attempt still covers retries while this tab is open.
+}
+
+function showCheckoutReceipt(result) {
+  if (!result?.order?.id || !result.order.orderNumber) {
+    throw new Error("Confirmation was interrupted. Check your previous checkout in your bag.");
+  }
+  const order = result.order;
+  const number = document.getElementById("checkout-confirmation-order-number");
+  if (number) number.textContent = order.orderNumber;
+  document.getElementById("checkout-confirmation-status").textContent = order.orderStatus;
+  document.getElementById("checkout-confirmation-payment").textContent = order.paymentStatus;
+  const wa = document.getElementById("checkout-confirmation-whatsapp-btn");
+  if (wa) {
+    const text = `Hi Divya! I have placed order *${order.orderNumber}* for ₹${order.totalAmount} with delivery to ${order.shippingAddress?.city || "my address"}. Please verify my nail measurements and share studio UPI payment details.`;
+    wa.href = `https://wa.me/${CHECKOUT_CONFIG.whatsappNumber}?text=${encodeURIComponent(text)}`;
+  }
+  document.getElementById("checkout-form-view").style.display = "none";
+  document.getElementById("checkout-confirmation-view").style.display = "flex";
+  saveCheckout(null);
+  refreshCartBadge();
+}
+
 async function openCheckoutModal() {
+  if (checkoutSubmitting) return;
   closeCartDrawer();
   const modal = document.getElementById("checkout-modal");
   if (!modal) return;
@@ -1900,21 +1970,55 @@ async function openCheckoutModal() {
   if (confirmationView) confirmationView.style.display = "none";
   if (errorEl) { errorEl.textContent = ""; errorEl.style.display = "none"; }
 
-  // Check cart items
-  if (!activeCartData || !activeCartData.items || activeCartData.items.length === 0) {
+  const api = window.NailsApi;
+  const buyer = api.getBuyerId();
+  const view = ++checkoutView;
+  const isCurrent = () => view === checkoutView && buyer === api.getBuyerId();
+  const showModal = () => {
+    modal.setAttribute("aria-hidden", "false");
+    modal.classList.add("is-open");
+    document.body.style.overflow = "hidden";
+  };
+  let attempt = currentCheckout();
+  if (attempt) {
     try {
-      activeCartData = await window.NailsApi.getCart();
-    } catch {}
+      const receipt = await api.createOrder({
+        cart_id: attempt.cartId, idempotency_key: attempt.key, retry_only: true,
+      }, attempt);
+      if (!isCurrent()) return;
+      showCheckoutReceipt(receipt);
+      showModal();
+      return;
+    } catch (err) {
+      if (!isCurrent()) return;
+      if (err.code !== "CHECKOUT_ATTEMPT_NOT_FOUND") {
+        if (err.code === "FORBIDDEN_ORDER_ACCESS") saveCheckout(null);
+        alert(err.message || "Could not confirm your checkout. Please check again from your bag.");
+        await openCartDrawer();
+        return;
+      }
+    }
   }
-
-  const items = (activeCartData && activeCartData.items) || [];
+  let cartData;
+  try {
+    cartData = await api.getCart();
+  } catch (err) {
+    if (isCurrent()) alert(err.message || "Could not load your bag. Please try again.");
+    return;
+  }
+  if (!isCurrent()) return;
+  if (attempt && attempt.cartId !== cartData.cart.id) {
+    saveCheckout(null);
+    attempt = null;
+  }
+  const items = cartData.items || [];
   if (items.length === 0) {
     alert("Your bag is empty. Please add a handcrafted press-on set before checking out.");
     openCartDrawer();
     return;
   }
 
-  const totals = (activeCartData && activeCartData.totals) || {};
+  const totals = cartData.totals || {};
 
   // Track checkout initiation analytics
   if (window.NBD_Analytics) {
@@ -1946,8 +2050,10 @@ async function openCheckoutModal() {
 
   // Pre-fill customer details from authentication / addresses
   try {
-    if (window.NailsApi) {
-      const userRes = await window.NailsApi.getCurrentUser().catch(() => null);
+    if (buyer) {
+      const context = { buyer, sessionToken: null };
+      const userRes = await api.getCurrentUser(context).catch(() => null);
+      if (!isCurrent()) return;
       if (userRes && userRes.user) {
         const u = userRes.user;
         const nameInput = document.getElementById("checkout-name");
@@ -1961,7 +2067,8 @@ async function openCheckoutModal() {
         if (phoneInput && !phoneInput.value) phoneInput.value = (u.phone || "").replace(/^\+91/, "");
         if (emailInput && !emailInput.value) emailInput.value = u.email || "";
 
-        const addrRes = await window.NailsApi.getCustomerAddresses().catch(() => null);
+        const addrRes = await api.getCustomerAddresses(context).catch(() => null);
+        if (!isCurrent()) return;
         if (addrRes && addrRes.addresses && addrRes.addresses.length) {
           const shipAddr = addrRes.addresses.find((a) => a.isDefaultShipping || a.is_default_shipping) || addrRes.addresses[0];
           if (shipAddr) {
@@ -1981,11 +2088,14 @@ async function openCheckoutModal() {
     }
   } catch {}
 
+  if (!isCurrent()) return;
+  let confirmed = false;
   // Handle order submission
   const checkoutForm = document.getElementById("checkout-order-form");
   if (checkoutForm) {
     checkoutForm.onsubmit = async (e) => {
       e.preventDefault();
+      if (!isCurrent() || confirmed || checkoutSubmitting) return;
       const placeBtn = document.getElementById("checkout-place-order-btn");
       const name = document.getElementById("checkout-name")?.value.trim();
       const phone = document.getElementById("checkout-phone")?.value.trim();
@@ -2013,11 +2123,22 @@ async function openCheckoutModal() {
         return;
       }
 
+      const submission = Symbol();
+      checkoutSubmitting = submission;
       try {
         if (placeBtn) placeBtn.disabled = true;
         if (errorEl) errorEl.style.display = "none";
 
+        if (!attempt) {
+          attempt = {
+            key: crypto.randomUUID(), cartId: cartData.cart.id, buyer,
+            sessionToken: buyer ? null : cartData.cart.sessionToken,
+          };
+          saveCheckout(attempt);
+        }
         const orderPayload = {
+          cart_id: attempt.cartId,
+          idempotency_key: attempt.key,
           customer: {
             name,
             phone,
@@ -2035,37 +2156,20 @@ async function openCheckoutModal() {
           customer_notes: notes || null,
         };
 
-        const result = await window.NailsApi.createOrder(orderPayload);
-        const orderNum = result.order?.orderNumber || "NBD-ORD-CONFIRMED";
-        const orderTotal = result.order?.totalAmount || totals.totalAmount || 599;
-
-        // Privacy-first order submission analytics (strictly zero customer PII)
-        if (window.NBD_Analytics) {
+        const result = await api.createOrder(orderPayload, attempt);
+        if (!isCurrent()) return;
+        showCheckoutReceipt(result);
+        confirmed = true;
+        if (window.NBD_Analytics && !result.isDuplicate) {
           window.NBD_Analytics.track("order_submission", {
-            orderNumber: orderNum,
-            totalAmount: orderTotal,
-            itemCount: (result.order?.items || []).length || (activeCartData?.items || []).length || 1,
+            orderNumber: result.order.orderNumber,
+            totalAmount: result.order.totalAmount,
+            itemCount: result.items?.length || items.length,
             hasDiscount: (totals.discountAmount || 0) > 0,
           });
         }
-
-        // Clear bag
-        await window.NailsApi.clearCart().catch(() => {});
-        refreshCartBadge();
-
-        if (formView) formView.style.display = "none";
-        if (confirmationView) {
-          confirmationView.style.display = "flex";
-          const ordNumEl = document.getElementById("checkout-confirmation-order-number");
-          if (ordNumEl) ordNumEl.textContent = orderNum;
-
-          const waBtn = document.getElementById("checkout-confirmation-whatsapp-btn");
-          if (waBtn) {
-            const waText = encodeURIComponent(`Hi Divya! I have placed order *${orderNum}* for ₹${orderTotal} with delivery to ${city}. Please verify my nail measurements and share studio UPI payment details.`);
-            waBtn.href = `https://wa.me/${CHECKOUT_CONFIG.whatsappNumber}?text=${waText}`;
-          }
-        }
       } catch (err) {
+        if (!isCurrent()) return;
         if (errorEl) {
           let msg = err.message || "Failed to place order. Please try again.";
           if (msg.includes("<") || msg.toLowerCase().startsWith("cannot ")) {
@@ -2075,17 +2179,19 @@ async function openCheckoutModal() {
           errorEl.style.display = "block";
         }
       } finally {
-        if (placeBtn) placeBtn.disabled = false;
+        if (checkoutSubmitting === submission) {
+          checkoutSubmitting = null;
+          if (placeBtn) placeBtn.disabled = false;
+        }
       }
     };
   }
 
-  modal.setAttribute("aria-hidden", "false");
-  modal.classList.add("is-open");
-  document.body.style.overflow = "hidden";
+  showModal();
 }
 
 function closeAllModals() {
+  checkoutView++;
   document.querySelectorAll(".modal-overlay").forEach((modal) => {
     modal.classList.remove("is-open");
     modal.setAttribute("aria-hidden", "true");
