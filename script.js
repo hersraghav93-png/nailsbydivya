@@ -314,8 +314,9 @@ function initStudioPhotography() {
     const schedule = () => {
       clearTimeout(timer);
       const stopped = paused || reducedMotion.matches;
-      control.textContent = stopped ? "Play photos" : "Pause photos";
-      control.setAttribute("aria-pressed", String(paused));
+      control.textContent = reducedMotion.matches ? "Motion paused" : stopped ? "Play photos" : "Pause photos";
+      control.disabled = reducedMotion.matches;
+      control.setAttribute("aria-pressed", String(stopped));
       if (!stopped && visible && !document.hidden) timer = setTimeout(advance, 8000);
     };
     const advance = async () => {

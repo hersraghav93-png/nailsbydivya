@@ -743,3 +743,6 @@ body { background: var(--bg); }
   .studio-photo-rotation .studio-photo-slide, .studio-offer-service, .studio-home .product-card { transition: none; }
   .studio-offer-service:hover, .studio-home .product-card:hover { transform: none; }
 }
+.studio-hero-plate { width: min(100%, 375px); justify-self: center; }
+.studio-photo-control:disabled { cursor: default; }
+@media (max-width: 800px) { .studio-hero-plate { width: min(100%, 300px); } }
