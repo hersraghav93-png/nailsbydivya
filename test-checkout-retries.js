@@ -39,7 +39,7 @@ async function browserChecks(mobile) {
   };
 
   check(location.hash === "#divv" && $("divv-widget-modal").getAttribute("aria-hidden") === "false", "The Divv deep link opens on page load");
-  check($("divv-widget-body").textContent.includes("Find My Perfect Nails"), "The deep link renders the initialized Divv welcome screen");
+  check($("divv-widget-body").textContent.includes("Help me choose a shape"), "The deep link renders the initialized Divv welcome screen");
   $("divv-close-btn").click();
 
   if (!sessionStorage.getItem("reload-test")) {
@@ -194,7 +194,9 @@ async function main(mobile) {
     isPromoApplied: Boolean(index), promoName: "Test offer", isAvailable: true,
   }));
   const dialogs = storefront.slice(storefront.indexOf('<div class="modal-overlay" id="product-modal"'), storefront.indexOf("</body>")).split("<script")[0];
-  const markup = '<meta name="viewport" content="width=device-width, initial-scale=1">' + shop + dialogs;
+  const divvStart = storefront.indexOf('<section class="studio-consult');
+  const divvHelp = storefront.slice(divvStart, storefront.indexOf("</section>", divvStart) + "</section>".length);
+  const markup = '<meta name="viewport" content="width=device-width, initial-scale=1">' + shop + divvHelp + dialogs;
   assert.ok(markup.includes('id="checkout-order-form"') && markup.includes('id="cart-drawer-overlay"'));
   const recent = [];
   const server = http.createServer(async (req, res) => {

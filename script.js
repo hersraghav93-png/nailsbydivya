@@ -209,7 +209,6 @@ document.addEventListener("DOMContentLoaded", () => {
   initCheckoutPhoneValidation();
   initHeaderScroll();
   initMobileNav();
-  initHeroShowcase();
   initLuxuryCarousels();
   initShopFilters();
   initModals();
@@ -385,42 +384,6 @@ function initMobileNav() {
       toggleMenu(false);
     }
   }, { passive: true });
-}
-
-// ---------------------------------------------------------------------------
-// 04. HERO ROTATING SHOWCASE (POLISHED 5-SECOND ROTATION)
-// ---------------------------------------------------------------------------
-function initHeroShowcase() {
-  const showcase = document.getElementById("hero-showcase");
-  if (!showcase) return;
-
-  const slides = Array.from(showcase.querySelectorAll(".hero-slide"));
-  if (slides.length <= 1) return;
-
-  const dots = Array.from(document.querySelectorAll("#hero-showcase-indicators .showcase-dot"));
-
-  let currentIndex = 0;
-
-  function goToSlide(index) {
-    slides.forEach((s, i) => s.classList.toggle("is-active", i === index));
-    dots.forEach((d, i) => d.classList.toggle("is-active", i === index));
-    currentIndex = index;
-  }
-
-  dots.forEach((dot, idx) => {
-    dot.addEventListener("click", () => {
-      goToSlide(idx);
-    });
-  });
-
-  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    return;
-  }
-
-  setInterval(() => {
-    const nextIndex = (currentIndex + 1) % slides.length;
-    goToSlide(nextIndex);
-  }, 5000);
 }
 
 // ---------------------------------------------------------------------------
@@ -684,7 +647,7 @@ function initLuxuryCarousels() {
  * - Tapping collapse returns visitor smoothly to the beginning of the Press-On collection and collapses back to 3
  * - Ensures expand and collapse controls never appear simultaneously
  */
-function initMobileShopExpand() {
+function initShopCollection() {
   const grid = document.getElementById("product-grid");
   const expandWrap = document.getElementById("shop-mobile-expand-wrap");
   const expandBtn = document.getElementById("shop-mobile-expand-btn");
@@ -692,78 +655,37 @@ function initMobileShopExpand() {
   const collapseBtn = document.getElementById("shop-mobile-collapse-btn");
   if (!grid || !expandBtn) return;
 
-  function isMobile() {
-    return window.innerWidth <= 640;
-  }
-
-  function expand(scrollIntoView = true) {
-    if (!grid.classList.contains("is-collapsed-mobile")) return;
-    grid.classList.remove("is-collapsed-mobile");
-    if (expandWrap) {
-      expandWrap.style.display = "none";
-    }
-    if (collapseWrap && isMobile()) {
-      collapseWrap.style.display = "flex";
-    }
-    expandBtn.setAttribute("aria-expanded", "true");
-    if (scrollIntoView) {
-      const fourthCard = grid.querySelector(".product-card:nth-child(4)");
-      if (fourthCard) {
-        fourthCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
-      }
-    }
-  }
-
-  function collapse() {
-    grid.classList.add("is-collapsed-mobile");
-    if (collapseWrap) {
-      collapseWrap.style.display = "none";
-    }
-    if (expandWrap && isMobile()) {
-      expandWrap.style.display = "flex";
-    }
-    expandBtn.setAttribute("aria-expanded", "false");
-
-    // Smoothly return visitor to the beginning of the Press-On collection
-    const shopSection = document.getElementById("shop") || grid;
-    shopSection.scrollIntoView({ behavior: "smooth", block: "start" });
+  function setExpanded(expanded) {
+    grid.classList.toggle("is-collapsed-mobile", !expanded);
+    expandWrap.style.display = expanded ? "none" : "flex";
+    collapseWrap.style.display = expanded ? "flex" : "none";
+    expandBtn.setAttribute("aria-expanded", String(expanded));
   }
 
   expandBtn.addEventListener("click", () => {
-    expand(true);
+    const firstNewCard = grid.querySelector(matchMedia("(max-width: 800px)").matches
+      ? ".product-card:nth-child(5)"
+      : ".product-card:nth-child(7)");
+    setExpanded(true);
+    firstNewCard?.querySelector("[data-action='details']")?.focus({ preventScroll: true });
+    firstNewCard?.scrollIntoView({ block: "center" });
   });
 
-  if (collapseBtn) {
-    collapseBtn.addEventListener("click", () => {
-      collapse();
-    });
-  }
-
-  const shopTabs = document.querySelectorAll(".shop-category-nav .category-tab, [data-shop-filter]");
-  shopTabs.forEach((tab) => {
-    tab.addEventListener("click", () => {
-      expand(false);
-    });
+  collapseBtn.addEventListener("click", () => {
+    const allSets = document.querySelector(".shop-category-nav [data-filter='all']");
+    allSets?.click();
+    setExpanded(false);
+    expandBtn.focus({ preventScroll: true });
+    expandBtn.scrollIntoView({ block: "center" });
   });
 
-  window.addEventListener("resize", () => {
-    if (!isMobile()) {
-      if (expandWrap) expandWrap.style.display = "none";
-      if (collapseWrap) collapseWrap.style.display = "none";
-    } else {
-      if (grid.classList.contains("is-collapsed-mobile")) {
-        if (expandWrap) expandWrap.style.display = "flex";
-        if (collapseWrap) collapseWrap.style.display = "none";
-      } else {
-        if (expandWrap) expandWrap.style.display = "none";
-        if (collapseWrap) collapseWrap.style.display = "flex";
-      }
-    }
+  document.querySelectorAll(".shop-category-nav .category-tab").forEach((tab) => {
+    tab.addEventListener("click", () => setExpanded(true));
   });
 }
 
 function initShopFilters() {
-  initMobileShopExpand();
+  initShopCollection();
   // Shop Category Tabs
   const shopTabs = document.querySelectorAll(".shop-category-nav .category-tab, [data-shop-filter]");
   const productCards = document.querySelectorAll(".product-card, .carousel-card");
@@ -2419,7 +2341,14 @@ function initDivvStylist() {
   const bodyEl = document.getElementById("divv-widget-body");
   const formEl = document.getElementById("divv-input-form");
   const inputEl = document.getElementById("divv-input-field");
-  const unreadBadge = document.getElementById("divv-unread-badge");
+  const triggers = [triggerBtn, document.getElementById("mobile-divv-trigger")].filter(Boolean);
+  const unreadBadges = [document.getElementById("divv-unread-badge"), document.getElementById("mobile-divv-unread-badge")].filter(Boolean);
+  const updateUnread = () => unreadBadges.forEach((badge) => {
+    badge.textContent = unreadCount;
+    badge.style.display = unreadCount ? "grid" : "none";
+  });
+  const sendBtn = document.getElementById("divv-send-btn");
+  const liveStatus = document.getElementById("divv-live-status");
   const bannerEl = document.getElementById("divv-product-banner");
   const bannerText = document.getElementById("divv-banner-text");
   const bannerClear = document.getElementById("divv-banner-clear");
@@ -2427,14 +2356,16 @@ function initDivvStylist() {
   if (!triggerBtn || !modal || !bodyEl || !formEl) return;
 
   let isOpen = false;
-  let isTyping = false;
+  let activeRequest = null;
+  let returnFocus = null;
   let unreadCount = 0;
   let sessionHistory = [];
 
   // Load session from storage if present
   try {
     const saved = sessionStorage.getItem("DIVV_SESSION_HISTORY");
-    if (saved) sessionHistory = JSON.parse(saved);
+    const history = saved ? JSON.parse(saved) : [];
+    if (Array.isArray(history)) sessionHistory = history.filter((turn) => turn && typeof turn.content === "string");
   } catch (e) {
     console.warn("Could not load Divv session history:", e);
   }
@@ -2498,7 +2429,7 @@ function initDivvStylist() {
 
   const updateProductBanner = () => {
     if (window.DivvCurrentProductContext && bannerEl && bannerText) {
-      bannerText.textContent = `Current Context: ${window.DivvCurrentProductContext}`;
+      bannerText.textContent = `Discussing ${window.DivvCurrentProductContext.replace(/ \[SKU:[^\]]+\]/, "")}`;
       bannerEl.style.display = "flex";
     } else if (bannerEl) {
       bannerEl.style.display = "none";
@@ -2513,94 +2444,201 @@ function initDivvStylist() {
     });
   }
 
-  const openDivv = () => {
+  const fitMobileViewport = () => {
+    const viewport = window.visualViewport;
+    if (!isOpen || !viewport || Math.abs(viewport.scale - 1) > .01 ||
+        viewport.height >= document.documentElement.clientHeight - 1 ||
+        !matchMedia("(max-width: 560px)").matches) {
+      modal.style.removeProperty("--divv-viewport-height");
+      modal.style.removeProperty("--divv-viewport-top");
+      return;
+    }
+    modal.style.setProperty("--divv-viewport-height", `${viewport.height}px`);
+    modal.style.setProperty("--divv-viewport-top", `${Math.max(0, viewport.offsetTop)}px`);
+  };
+
+  const openDivv = (event) => {
+    if (isOpen) return;
+    const source = event?.currentTarget;
+    const productModal = document.getElementById("product-modal");
+    const fromProduct = productModal?.contains(source);
+    returnFocus = source?.closest("#nav-links") ? document.querySelector(".nav-toggle") : source || triggers.find((button) => button.getClientRects().length) || triggerBtn;
+    if (!fromProduct) closeAllModals();
+
     isOpen = true;
     modal.classList.add("is-open");
     overlay.classList.add("is-open");
     modal.setAttribute("aria-hidden", "false");
-    overlay.setAttribute("aria-hidden", "false");
-
-    // Close other modals if active
-    if (typeof closeAllModals === "function") {
-      document.querySelectorAll(".modal-overlay").forEach((m) => {
-        m.classList.remove("is-open");
-        m.setAttribute("aria-hidden", "true");
-      });
-      document.body.style.overflow = "hidden";
-    }
+    triggers.forEach((button) => button.setAttribute("aria-expanded", "true"));
+    document.body.style.overflow = "hidden";
+    fitMobileViewport();
 
     unreadCount = 0;
-    if (unreadBadge) unreadBadge.style.display = "none";
-
+    updateUnread();
     updateProductBanner();
-
     if (sessionHistory.length === 0) {
       renderWelcomeScreen();
     } else {
       renderMessages();
+      if (activeRequest) showTyping();
     }
-
-    setTimeout(() => {
-      if (inputEl) inputEl.focus();
-    }, 320);
+    closeBtn.focus({ preventScroll: true });
   };
 
   const closeDivv = () => {
     isOpen = false;
+    if (returnFocus?.getClientRects().length) returnFocus.focus({ preventScroll: true });
     modal.classList.remove("is-open");
     overlay.classList.remove("is-open");
     modal.setAttribute("aria-hidden", "true");
-    overlay.setAttribute("aria-hidden", "true");
-    document.body.style.overflow = "";
+    triggers.forEach((button) => button.setAttribute("aria-expanded", "false"));
+    if (!document.querySelector(".modal-overlay.is-open")) document.body.style.overflow = "";
+    fitMobileViewport();
   };
 
-  triggerBtn.addEventListener("click", openDivv);
+  triggers.forEach((button) => button.addEventListener("click", openDivv));
   document.getElementById("shop-divv-help")?.addEventListener("click", openDivv);
   document.querySelectorAll('a[href="#divv"]').forEach((link) => {
-    link.addEventListener("click", (e) => {
-      e.preventDefault();
-      openDivv();
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      openDivv(event);
     });
   });
-  if (closeBtn) closeBtn.addEventListener("click", closeDivv);
-  if (overlay) overlay.addEventListener("click", closeDivv);
+  closeBtn.addEventListener("click", () => closeDivv());
+  overlay?.addEventListener("click", () => closeDivv());
+  window.visualViewport?.addEventListener("resize", fitMobileViewport);
+  window.visualViewport?.addEventListener("scroll", fitMobileViewport);
+  window.addEventListener("resize", fitMobileViewport);
 
-  window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && isOpen) closeDivv();
+  modal.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.stopPropagation();
+      closeDivv();
+    }
+    if (event.key !== "Tab") return;
+    const controls = [...modal.querySelectorAll("a[href], button:not(:disabled), input")].filter((element) => element.getClientRects().length);
+    const first = controls[0];
+    const last = controls.at(-1);
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   });
 
-  if (resetBtn) {
-    resetBtn.addEventListener("click", () => {
-      sessionHistory = [];
-      sessionStorage.removeItem("DIVV_SESSION_HISTORY");
-      window.DivvCurrentProductContext = null;
-      updateProductBanner();
-      renderWelcomeScreen();
-    });
-  }
+  resetBtn?.addEventListener("click", () => {
+    activeRequest?.abort();
+    activeRequest = null;
+    sendBtn.disabled = false;
+    sessionHistory = [];
+    saveSession();
+    window.DivvCurrentProductContext = null;
+    updateProductBanner();
+    renderWelcomeScreen();
+    liveStatus.textContent = "New consultation started.";
+  });
 
   const renderWelcomeScreen = () => {
     bodyEl.innerHTML = `
-      <div class="divv-welcome-screen">
-        <span class="divv-welcome-badge">✦ Studio AI Consultation</span>
-        <h4 class="divv-welcome-title">Welcome to Nails by Divya</h4>
-        <p class="divv-welcome-text">Hi! I'm Divv — Your Nail Stylist. I'm here to help you discover the perfect press-on set, explain customisations, or guide you through our at-home services.</p>
-        <div class="divv-chips-grid">
-          <button type="button" class="divv-chip" data-chip="How do I choose my perfect press-on nails?">Find My Perfect Nails</button>
-          <button type="button" class="divv-chip" data-chip="What press-on nail sets do you offer?">Browse Press-On Nails</button>
-          <button type="button" class="divv-chip" data-chip="Can I customize lengths, shapes, or chrome art?">Custom Designs</button>
-          <button type="button" class="divv-chip" data-chip="How does delivery and the 10-minute prep kit work?">Delivery &amp; Application</button>
-          <button type="button" class="divv-chip" data-chip="How do at-home nail appointments work across Delhi NCR?">Book At-Home Appointment</button>
+      <div class="divv-welcome-plate">
+        <div class="divv-welcome-copy">
+          <h3 class="divv-welcome-title">What feels like you?</h3>
+          <p class="divv-welcome-text">I’m Divv. Tell me what you’re getting dressed for, or let’s start with shape, colour or fit.</p>
         </div>
+        <img src="assets/studio/consultation-480.webp" width="480" height="860" alt="Lavender and pearl nail art from Divya’s lookbook">
+      </div>
+      <p class="divv-prompts-title">Start with a question</p>
+      <div class="divv-prompt-list">
+        <button type="button" class="divv-chip" data-chip="Help me choose a nail shape for my style and routine."><span class="divv-swatch" aria-hidden="true"></span>Help me choose a shape</button>
+        <button type="button" class="divv-chip" data-chip="Help me find a design for my outfit. Ask me what I’m wearing and what the occasion is."><span class="divv-swatch" aria-hidden="true"></span>Find a design for my outfit</button>
+        <button type="button" class="divv-chip" data-chip="Walk me through measuring for press-on nails and choosing a size."><span class="divv-swatch" aria-hidden="true"></span>Help me find my press-on size</button>
+        <button type="button" class="divv-chip" data-chip="Show me a few minimal press-on designs from your collection."><span class="divv-swatch" aria-hidden="true"></span>Show me something minimal</button>
+      </div>
+      <div class="divv-welcome-links">
+        <a class="studio-text-link" href="#sizing-guide">Sizing guide</a>
+        <a class="studio-text-link" href="#services">At-home menu</a>
       </div>
     `;
-    bodyEl.querySelectorAll(".divv-chip").forEach((chip) => {
-      chip.addEventListener("click", () => {
-        const text = chip.getAttribute("data-chip");
-        if (text) sendUserMessage(text);
-      });
-    });
+    bodyEl.scrollTop = 0;
   };
+
+  const products = [...document.querySelectorAll(".product-card[data-product-sku]")].map((card) => ({
+    card,
+    sku: card.dataset.productSku,
+    title: card.querySelector("h4").textContent.trim(),
+    image: card.querySelector("img").getAttribute("src")
+  }));
+
+  const serviceButtons = [...document.querySelectorAll(".service-card [data-action='service-book']")];
+  const serviceNames = [
+    ["Nail Extensions", /\b(?:bespoke gel extensions|nail extensions|soft gel extensions)\b/i],
+    ["Natural Nail Overlay", /\b(?:natural nail overlay|structured gel overlay)\b/i],
+    ["Power Polish / Shellac", /\b(?:power polish|shellac)\b/i],
+    ["3D & Custom Nail Art", /\b(?:3D (?:chrome and |custom )?nail art|custom nail art)\b/i],
+    ["Safe Extension Removal", /\b(?:extension removal|professional soak-off)\b/i]
+  ];
+  const linkArrow = '<svg class="studio-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 12h17m-6-6 6 6-6 6"/></svg>';
+
+  const matchingProducts = (content) => {
+    const text = content.toLowerCase();
+    return products.map((product) => ({
+      ...product,
+      position: text.indexOf(product.title.toLowerCase())
+    })).filter((product) => product.position !== -1)
+      .sort((first, second) => first.position - second.position)
+      .slice(0, 4);
+  };
+
+  const renderRecommendations = (content) => {
+    const matches = matchingProducts(content);
+    const services = serviceNames.filter(([, pattern]) => pattern.test(content)).slice(0, 2);
+    if (!matches.length && !services.length) return "";
+    return `<div class="divv-recommendations">
+      ${matches.map(({ sku, title, image }) => `
+        <a class="divv-design-link" href="#set-${escapeHtml(sku)}" data-divv-product="${escapeHtml(sku)}">
+          <img src="${escapeHtml(image)}" alt="" loading="lazy">
+          <span><span class="divv-design-name">${escapeHtml(title)}</span><span class="divv-design-action">View set &amp; sizes</span></span>
+          ${linkArrow}
+        </a>`).join("")}
+      ${services.map(([title]) => `<a class="studio-text-link divv-service-link" href="#services" data-divv-service="${escapeHtml(title)}">View ${escapeHtml(title)} ${linkArrow}</a>`).join("")}
+    </div>`;
+  };
+
+  const openLinkedProduct = (sku) => {
+    const match = products.find((product) => product.sku === sku);
+    if (match) openProductModalFromCard(match.card);
+  };
+
+  bodyEl.addEventListener("click", (event) => {
+    const chip = event.target.closest(".divv-chip");
+    const link = event.target.closest("a[href^='#']");
+    if (chip) {
+      sendUserMessage(chip.dataset.chip);
+      if (matchMedia("(max-width: 560px)").matches) closeBtn.focus({ preventScroll: true });
+      else inputEl.focus({ preventScroll: true });
+    }
+    if (!link || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    if (link.dataset.divvProduct) {
+      event.preventDefault();
+      closeDivv();
+      closeAllModals();
+      openLinkedProduct(link.dataset.divvProduct);
+    } else if (link.dataset.divvService) {
+      const button = serviceButtons.find((candidate) => candidate.dataset.serviceTitle === link.dataset.divvService);
+      if (!button) {
+        closeDivv();
+        return;
+      }
+      event.preventDefault();
+      closeDivv();
+      closeAllModals();
+      button.click();
+    } else {
+      closeDivv();
+    }
+  });
 
   const renderMessages = () => {
     bodyEl.innerHTML = sessionHistory.map((turn) => {
@@ -2612,7 +2650,7 @@ function initDivvStylist() {
       let handoffMarkup = "";
       if (showHandoff) {
         handoffMarkup = `
-          <a href="https://wa.me/${CHECKOUT_CONFIG.whatsappNumber}?text=Hi%20Divya!%20I%20was%20chatting%20with%20Divv%20and%20I'd%20love%20some%20help%20with%20my%20nails." target="_blank" rel="noopener noreferrer" class="divv-handoff-btn">
+          <a href="https://wa.me/${CHECKOUT_CONFIG.whatsappNumber}?text=Hi%20Divya!%20I%20was%20chatting%20with%20Divv%20and%20I'd%20love%20some%20help%20with%20my%20nails." target="_blank" rel="noopener noreferrer" class="studio-text-link divv-handoff-btn">
             <span>Consult Divya on WhatsApp &rarr;</span>
           </a>
         `;
@@ -2620,16 +2658,17 @@ function initDivvStylist() {
 
       return `
         <div class="divv-message ${isUser ? "is-user" : "is-ai"}">
+          <span class="divv-message-byline">${isUser ? "You" : "Divv"}</span>
           <div class="divv-bubble">
             <div>${formattedContent}</div>
             ${handoffMarkup}
           </div>
-          <span class="divv-timestamp">${turn.timestamp || ""}</span>
+          ${isUser ? "" : renderRecommendations(turn.content)}
         </div>
       `;
     }).join("");
 
-    bodyEl.scrollTo({ top: bodyEl.scrollHeight, behavior: "smooth" });
+    bodyEl.scrollTop = bodyEl.scrollHeight;
   };
 
   const showTyping = () => {
@@ -2637,86 +2676,69 @@ function initDivvStylist() {
     const typingDiv = document.createElement("div");
     typingDiv.id = "divv-typing-indicator";
     typingDiv.className = "divv-typing";
-    typingDiv.innerHTML = `<span></span><span></span><span></span>`;
+    typingDiv.textContent = "Divv is thinking…";
     bodyEl.appendChild(typingDiv);
-    bodyEl.scrollTo({ top: bodyEl.scrollHeight, behavior: "smooth" });
-  };
-
-  const hideTyping = () => {
-    const el = document.getElementById("divv-typing-indicator");
-    if (el) el.remove();
+    bodyEl.scrollTop = bodyEl.scrollHeight;
   };
 
   const sendUserMessage = async (text) => {
-    if (!text || isTyping) return;
+    if (!text || activeRequest) return;
 
-    if (sessionHistory.length === 0) {
-      bodyEl.innerHTML = "";
-    }
-
-    const userTurn = { role: "user", content: text, timestamp: getTimestamp() };
-    sessionHistory.push(userTurn);
+    const history = sessionHistory.slice();
+    sessionHistory.push({ role: "user", content: text, timestamp: getTimestamp() });
     saveSession();
     renderMessages();
-
-    if (inputEl) inputEl.value = "";
-    isTyping = true;
+    inputEl.value = "";
+    sendBtn.disabled = true;
     showTyping();
+    liveStatus.textContent = "Divv is thinking.";
 
+    const request = new AbortController();
+    activeRequest = request;
+    const timeoutId = setTimeout(() => request.abort(), 45000);
+    let assistantTurn;
     try {
-      const apiUrl = `${window.NailsApi.getBaseUrl()}/chat`;
-      const payload = {
-        message: text,
-        productContext: window.DivvCurrentProductContext || null,
-        history: sessionHistory.slice(0, -1)
-      };
-
-      // 45-second timeout — generous enough for cold-start Render + Gemini response latency
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 45000);
-
-      const res = await fetch(apiUrl, {
+      const response = await fetch(`${window.NailsApi.getBaseUrl()}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        signal: controller.signal
+        body: JSON.stringify({
+          message: text,
+          productContext: window.DivvCurrentProductContext || null,
+          history
+        }),
+        signal: request.signal
       });
-      clearTimeout(timeoutId);
-
-      if (!res.ok) {
-        throw new Error(`[Divv API HTTP ${res.status}] Service temporarily unavailable.`);
-      }
-
-      const data = await res.json();
-      hideTyping();
-      isTyping = false;
-
-      const replyText = data.reply || "I couldn't find that exact detail. I'd love to help with that—since this needs personal guidance, please chat directly with Divya.";
-      const aiTurn = { role: "assistant", content: replyText, timestamp: getTimestamp() };
-      sessionHistory.push(aiTurn);
-      saveSession();
-      renderMessages();
-
-      if (!isOpen) {
-        unreadCount++;
-        if (unreadBadge) {
-          unreadBadge.textContent = unreadCount;
-          unreadBadge.style.display = "inline-block";
-        }
-      }
-    } catch (err) {
-      console.error("Divv API error:", err);
-      hideTyping();
-      isTyping = false;
-      const errorTurn = {
+      if (!response.ok) throw new Error(`Divv returned HTTP ${response.status}`);
+      const data = await response.json();
+      assistantTurn = {
         role: "assistant",
-        content: "I'm having trouble connecting right now. Please click the button below to chat directly with Divya via WhatsApp!",
+        content: (typeof data.reply === "string" && data.reply.trim()) || "For that detail, please chat directly with Divya. She can help you work out what fits your plans.",
+        timestamp: getTimestamp()
+      };
+    } catch (error) {
+      if (activeRequest !== request) return;
+      console.error("Divv API error:", error);
+      assistantTurn = {
+        role: "assistant",
+        content: "I couldn’t connect just now. You can try again here, or message Divya on WhatsApp.",
         timestamp: getTimestamp(),
         hasHandoff: true
       };
-      sessionHistory.push(errorTurn);
-      saveSession();
-      renderMessages();
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
+    if (activeRequest !== request) return;
+    activeRequest = null;
+    sendBtn.disabled = false;
+    sessionHistory.push(assistantTurn);
+    saveSession();
+    renderMessages();
+    if (isOpen) {
+      liveStatus.textContent = assistantTurn.content;
+    } else {
+      unreadCount += 1;
+      updateUnread();
     }
   };
 
@@ -2726,7 +2748,13 @@ function initDivvStylist() {
     if (text) sendUserMessage(text);
   });
 
-  if (window.location.hash === "#divv") openDivv();
+  const openFromHash = () => {
+    const hash = window.location.hash;
+    if (hash === "#divv") openDivv();
+    if (hash.startsWith("#set-")) openLinkedProduct(hash.slice(5));
+  };
+  window.addEventListener("hashchange", openFromHash);
+  openFromHash();
 }
 
 // ---------------------------------------------------------------------------
@@ -2874,28 +2902,22 @@ function initReviewsEngine() {
       const data = await res.json();
       const reviews = data.reviews || [];
 
-      if (reviews.length === 0) {
-        reviewsContainer.innerHTML = `
-          <div class="review-empty-state" style="grid-column: 1 / -1; text-align: center; padding: 2.5rem 1.5rem; background: rgba(250, 247, 242, 0.6); border: 1px dashed rgba(212, 175, 55, 0.4); border-radius: 12px; max-width: 680px; margin: 0 auto;">
-            <p style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 1.35rem; color: #2C2623; margin: 0 0 0.5rem 0;">Curated Client Voices</p>
-            <p style="font-size: 0.95rem; color: var(--text-muted); line-height: 1.6; margin: 0;">Our verified client reviews are published exclusively from genuine appointments and press-on deliveries. We never fabricate ratings or publish unverified testimonials.</p>
-          </div>
-        `;
-        return;
-      }
-
+      if (!reviews.length) return;
+      const title = document.getElementById("reviews-title");
+      if (title) title.hidden = false;
       reviewsContainer.innerHTML = reviews.map((r) => {
-        const stars = "★".repeat(Math.min(Math.max(r.rating || 5, 1), 5));
-        const author = r.customer_name ? r.customer_name.replace(/(\w+)\s+(.)\w*/, "$1 $2.") : "Client";
-        const metaTag = r.service_or_product_tag || "Studio Service";
-        const cleanText = (r.review_text || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const rating = Number(r.rating);
+        const stars = Number.isInteger(rating) && rating >= 1 && rating <= 5 ? "★".repeat(rating) : "";
+        const author = escapeHtml(r.customer_name ? r.customer_name.replace(/(\w+)\s+(.)\w*/, "$1 $2.") : "Client");
+        const metaTag = escapeHtml(r.service_or_product_tag || "Studio Service");
+        const cleanText = escapeHtml(r.review_text);
         const verifiedTag = r.is_verified_purchase
           ? '<span style="display:inline-block; margin-left: 6px; font-size: 0.72rem; color: #D4AF37; font-weight: 600; letter-spacing: 0.04em;">✓ Verified Purchase</span>'
           : "";
 
         return `
           <div class="review-card">
-            <div class="review-stars">${stars}</div>
+            ${stars ? `<div class="review-stars" aria-label="${rating} out of 5 stars">${stars}</div>` : ""}
             <p class="review-quote">&ldquo;${cleanText}&rdquo;</p>
             <div class="review-author">
               <span class="author-client">${author}${verifiedTag}</span>
@@ -3027,8 +3049,12 @@ function initLookbookEngine() {
 
   // Bind initial static fallback cards first
   bindCardFilters();
+  document.querySelectorAll("[data-look]").forEach((button) => {
+    button.addEventListener("click", () => document.getElementById(button.dataset.look)?.click());
+  });
   // Initialize mobile lookbook carousel & auto-sliding engine
   initMobileLookbookCarousel();
+  grid.closest("details")?.addEventListener("toggle", () => window.__updateLookbookPagination?.());
   // Fetch live lookbook designs from backend
   loadPortfolioDesigns();
 }

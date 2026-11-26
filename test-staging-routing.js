@@ -221,16 +221,12 @@ console.log("\n🧪 4. script.js Chat & Divv Stylist URL Resolution Consistency"
 
 const scriptContent = fs.readFileSync(path.join(FRONTEND_DIR, "script.js"), "utf8");
 
-it("script.js routes staging and pages.dev to staging backend", () => {
-  assert(scriptContent.includes("https://nailsbydivya-staging-api.onrender.com"));
-  assert(scriptContent.includes('host.endsWith(".pages.dev")'));
-  assert(scriptContent.includes('host === "staging.nailsbydivya.store"'));
-  assert(!scriptContent.includes("staging-api.nailsbydivya.store"));
-});
-
-it("script.js throws fail-closed error on unrecognized host instead of production fallback", () => {
-  assert(scriptContent.includes("[Divv Stylist Error] Unrecognized environment hostname"));
-  assert(scriptContent.includes("Refusing to route to production backend"));
+it("Divv uses the shared API URL resolver in all environments", () => {
+  assert(scriptContent.includes('${window.NailsApi.getBaseUrl()}/chat'));
+  assert.strictEqual(NailsApi.getBaseUrl("staging.nailsbydivya.store"), STAGING_BACKEND);
+  assert.strictEqual(NailsApi.getBaseUrl("branch.nailsbydivya-staging.pages.dev"), STAGING_BACKEND);
+  assert.strictEqual(NailsApi.getBaseUrl("nailsbydivya.store"), PRODUCTION_BACKEND);
+  assert.throws(() => NailsApi.getBaseUrl("unrecognized.invalid"), /Refusing to route to production backend/);
 });
 
 // -----------------------------------------------------------------------------
