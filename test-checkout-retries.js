@@ -75,6 +75,10 @@ async function browserChecks(mobile) {
     await NailsApi.getCart();
     await openCartDrawer();
     check(amount($("cart-total-val")) === 599, "Cart renders the server total");
+    await mode("empty-cart");
+    await openCartDrawer();
+    check($("cart-empty-state")?.style.display === "flex", "Removing the last cart item restores the empty state");
+    await mode("restore-cart");
     await openCheckoutModal();
     check(amount($("checkout-total-val")) === 599, "Checkout renders the server total");
     fill();
@@ -211,6 +215,8 @@ async function main(mobile) {
     }
     if (url.pathname.startsWith("/fixture/")) {
       mode = url.pathname.slice(9);
+      if (mode === "empty-cart") items.guest = 0;
+      if (mode === "restore-cart") items.guest = 1;
       if (mode === "release" && release) { release(); release = null; }
       return json(200, {});
     }
