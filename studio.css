@@ -767,7 +767,9 @@ body { background: var(--bg); }
   .studio-offer-links { flex-direction: column; gap: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .studio-photo-rotation .studio-photo-slide, .studio-offer-service, .studio-home .product-card { transition: none; }
+  .studio-photo-rotation .studio-photo-slide,
+  .studio-artist .studio-photo-rotation .studio-photo-slide,
+  .studio-offer-service, .studio-home .product-card { transition: none; }
   .studio-offer-service:hover, .studio-home .product-card:hover { transform: none; }
 }
 .studio-hero-plate { width: min(100%, 375px); justify-self: center; }
