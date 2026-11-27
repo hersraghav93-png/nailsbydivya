@@ -335,7 +335,8 @@ async function initProductPrices() {
       retry.type = "button";
       retry.className = "studio-price-retry studio-text-link";
       retry.textContent = "Try again";
-      retry.addEventListener("click", () => {
+      retry.addEventListener("click", (event) => {
+        event.stopPropagation();
         retry.disabled = true;
         initProductPrices();
       });
