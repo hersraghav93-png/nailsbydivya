@@ -126,13 +126,14 @@ if (typeof document !== "undefined") {
 // ---------------------------------------------------------------------------
 const catalogPrices = new Map();
 let catalogPriceRequest;
+let catalogPriceReadFailed = false;
 let productPricingView = 0;
 
 function formatCatalogPrice(price) {
   return "₹" + price.toLocaleString("en-IN", { maximumFractionDigits: 2 });
 }
 
-function renderCatalogPrice(element, price, emptyLabel = "Enquire with Divya for pricing") {
+function renderCatalogPrice(element, price, emptyLabel = catalogPriceReadFailed ? "Couldn’t load the price" : "Enquire with Divya for pricing") {
   if (!element) return;
   const promo = price?.isPromoApplied && price.basePrice > price.effectivePrice;
   element.classList.toggle("festive-pricing", Boolean(promo));
@@ -143,29 +144,34 @@ function renderCatalogPrice(element, price, emptyLabel = "Enquire with Divya for
 
   const effectivePrice = formatCatalogPrice(price.effectivePrice);
   element.innerHTML = promo
-    ? `<div class="product-price-row">
-        <span class="product-price-promo">${effectivePrice}</span>
-        <del class="product-price-original">${formatCatalogPrice(price.basePrice)}</del>
-      </div>
-      <span class="festive-offer-label">${escapeHtml(price.promoName || "Offer")}</span>`
-    : `<div class="product-price-row"><strong class="product-price-regular">${effectivePrice}</strong></div>`;
+    ? `<span class="product-price-row">
+        <del class="product-price-original" aria-label="Original price ${formatCatalogPrice(price.basePrice)}">${formatCatalogPrice(price.basePrice)}</del>
+        <strong class="product-price-promo">${effectivePrice}</strong>
+        <span class="festive-offer-label">Offer price</span>
+      </span>`
+    : `<span class="product-price-row"><strong class="product-price-regular">${effectivePrice}</strong></span>`;
 }
 
 function getCatalogPrices() {
   if (!catalogPriceRequest) {
     catalogPriceRequest = (async () => {
-      let response;
-      try {
-        response = await window.NailsApi.listProducts({ limit: 100 });
-      } catch {
-        response = await window.NailsApi.listProducts({ limit: 100 });
-      }
+      const loadPage = async (offset) => {
+        const params = { limit: 100, offset };
+        try {
+          return await window.NailsApi.listProducts(params);
+        } catch {
+          await new Promise((resolve) => setTimeout(resolve, 400));
+          return window.NailsApi.listProducts(params);
+        }
+      };
+      const response = await loadPage(0);
       const products = [...response.products];
       while (Number.isFinite(response.total) && products.length < response.total) {
-        const page = await window.NailsApi.listProducts({ limit: 100, offset: products.length });
-        if (!page.products.length) break;
+        const page = await loadPage(products.length).catch(() => null);
+        if (!page?.products.length) break;
         products.push(...page.products);
       }
+      catalogPriceReadFailed = false;
       const listed = new Set(products.map((product) => product.sku));
       const missing = [...new Set([...document.querySelectorAll("article[data-product-sku], aside[data-product-sku]")]
         .map((card) => card.dataset.productSku))].filter((sku) => !listed.has(sku));
@@ -180,6 +186,7 @@ function getCatalogPrices() {
         }
       }
     })().catch(() => {
+      catalogPriceReadFailed = true;
       catalogPriceRequest = null;
     });
   }
@@ -275,7 +282,20 @@ async function initProductPrices() {
   if (!cards.length || !window.NailsApi) return;
   await getCatalogPrices();
   for (const card of cards) {
-    renderCatalogPrice(card.querySelector(".product-price"), catalogPrices.get(card.dataset.productSku));
+    const priceNode = card.querySelector(".product-price");
+    const price = catalogPrices.get(card.dataset.productSku);
+    renderCatalogPrice(priceNode, price);
+    if (!price && catalogPriceReadFailed && priceNode) {
+      const retry = document.createElement("button");
+      retry.type = "button";
+      retry.className = "studio-price-retry studio-text-link";
+      retry.textContent = "Try again";
+      retry.addEventListener("click", () => {
+        retry.disabled = true;
+        initProductPrices();
+      });
+      priceNode.append(" ", retry);
+    }
   }
   const offer = document.getElementById("verified-presson-offer");
   if (offer) {
@@ -302,29 +322,33 @@ async function initProductPrices() {
 
 function initStudioPhotography() {
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+  if (!("IntersectionObserver" in window)) return;
   document.querySelectorAll("[data-studio-rotation]").forEach((frame) => {
     const slides = [...frame.querySelectorAll("img")];
-    const control = frame.querySelector("button");
+    const control = frame.querySelector(".studio-photo-control");
     let current = 0;
     let timer;
     let paused = false;
     let visible = false;
     let advancing = false;
+    const failed = new Set();
 
     const schedule = () => {
       clearTimeout(timer);
       const stopped = paused || reducedMotion.matches;
-      control.textContent = reducedMotion.matches ? "Motion paused" : stopped ? "Play photos" : "Pause photos";
-      control.disabled = reducedMotion.matches;
-      control.setAttribute("aria-pressed", String(stopped));
+      control.hidden = reducedMotion.matches;
+      control.dataset.paused = String(paused);
+      control.setAttribute("aria-label", paused ? "Resume photo transitions" : "Pause photo transitions");
       if (!stopped && visible && !document.hidden) timer = setTimeout(advance, 8000);
     };
     const advance = async () => {
-      if (advancing) return;
+      const next = slides.findIndex((_, index) => index > current && !failed.has(index));
+      const first = slides.findIndex((_, index) => !failed.has(index));
+      const target = next < 0 ? first : next;
+      if (advancing || target < 0 || target === current) return;
       advancing = true;
-      const next = (current + 1) % slides.length;
       try {
-        const image = slides[next];
+        const image = slides[target];
         if (image.dataset.src) {
           image.src = image.dataset.src;
           delete image.dataset.src;
@@ -335,10 +359,10 @@ function initStudioPhotography() {
           slides[current].setAttribute("aria-hidden", "true");
           image.classList.add("is-active");
           image.removeAttribute("aria-hidden");
-          current = next;
+          current = target;
         }
       } catch {
-        // The current photograph stays visible if another image cannot load.
+        failed.add(target);
       } finally {
         advancing = false;
         schedule();
@@ -2744,7 +2768,7 @@ function initDivvStylist() {
     if (!prices.length) return;
     getCatalogPrices().then(() => {
       prices.forEach((price) => {
-        price.textContent = catalogPriceText(price.dataset.divvPrice);
+        renderCatalogPrice(price, catalogPrices.get(price.dataset.divvPrice));
       });
     });
   };
@@ -2796,6 +2820,13 @@ function initDivvStylist() {
   };
 
   bodyEl.addEventListener("click", (event) => {
+    const retry = event.target.closest("[data-divv-retry]");
+    if (retry && !activeRequest) {
+      const turn = sessionHistory[sessionHistory.length - 2];
+      closeBtn.focus({ preventScroll: true });
+      sendUserMessage(turn.content, turn.mood, true);
+      return;
+    }
     const chip = event.target.closest("[data-chip], [data-divv-mood]");
     const link = event.target.closest("a[href^='#']");
     if (chip) {
@@ -2829,7 +2860,7 @@ function initDivvStylist() {
   const renderMessages = (revealReply = false) => {
     bodyEl.innerHTML = sessionHistory.map((turn, index) => {
       const isUser = turn.role === "user";
-      const matches = isUser ? [] : matchingProducts(turn.content);
+      const matches = isUser || turn.failed ? [] : matchingProducts(turn.content);
       const mood = preferenceFor(isUser ? turn : sessionHistory[index - 1]);
       const compact = compactRecommendation(turn.content, matches);
       const formattedContent = formatDivvMarkdown(compact ? compact.opening : turn.content);
@@ -2850,6 +2881,8 @@ function initDivvStylist() {
           <span class="divv-message-byline">${isUser ? (mood ? `${moodSwatch(mood.id)}You` : "You") : '<span class="divv-mark" aria-hidden="true">d</span>Divv'}</span>
           ${formattedContent || handoffMarkup ? `<div class="divv-bubble">
             <div>${formattedContent}</div>
+            ${turn.failed && index === sessionHistory.length - 1 && sessionHistory[index - 1]?.role === "user" && location.protocol !== "file:"
+              ? '<button type="button" class="studio-text-link divv-retry" data-divv-retry>Try again</button>' : ""}
             ${handoffMarkup}
           </div>` : ""}
           ${isUser ? "" : renderRecommendations(turn.content, matches, mood)}
@@ -2893,14 +2926,24 @@ function initDivvStylist() {
     return `${text} Suggest up to three of these exact catalogue sets and ask one short follow-up question: ${candidates.join(", ")}. Leave the prices and descriptions to the product cards.`;
   };
 
-  const sendUserMessage = async (text, mood) => {
+  const sendUserMessage = async (text, mood, retry = false) => {
     if (!text || activeRequest) return;
 
-    const history = sessionHistory.slice();
-    sessionHistory.push({ role: "user", content: text, timestamp: getTimestamp(), ...(mood ? { mood } : {}) });
+    const history = (retry ? sessionHistory.slice(0, -2) : sessionHistory)
+      .filter((turn) => !turn.failed)
+      .slice(-8)
+      .map(({ role, content }) => ({ role, content }));
+    const productContext = retry
+      ? sessionHistory[sessionHistory.length - 2].productContext ?? null
+      : window.DivvCurrentProductContext || null;
+    if (retry) {
+      sessionHistory.pop();
+    } else {
+      sessionHistory.push({ role: "user", content: text, timestamp: getTimestamp(), mood, productContext });
+    }
     saveSession();
     renderMessages();
-    inputEl.value = "";
+    if (!retry) inputEl.value = "";
     sendBtn.disabled = true;
     showTyping();
     liveStatus.textContent = "Divv is thinking.";
@@ -2910,30 +2953,34 @@ function initDivvStylist() {
     const timeoutId = setTimeout(() => request.abort(), 45000);
     let assistantTurn;
     try {
+      if (location.protocol === "file:") throw new Error("Divv requires the hosted storefront");
       const response = await fetch(`${window.NailsApi.getBaseUrl()}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: moodRequest(text, mood),
-          productContext: window.DivvCurrentProductContext || null,
+          productContext,
           history
         }),
         signal: request.signal
       });
       if (!response.ok) throw new Error(`Divv returned HTTP ${response.status}`);
       const data = await response.json();
+      if (typeof data.reply !== "string" || !data.reply.trim()) throw new Error("Divv returned an empty reply");
       assistantTurn = {
         role: "assistant",
-        content: (typeof data.reply === "string" && data.reply.trim()) || "For that detail, please chat directly with Divya. She can help you work out what fits your plans.",
+        content: data.reply.trim(),
         timestamp: getTimestamp()
       };
-    } catch (error) {
+    } catch {
       if (activeRequest !== request) return;
-      console.error("Divv API error:", error);
       assistantTurn = {
         role: "assistant",
-        content: "I couldn’t connect just now. You can try again here, or message Divya on WhatsApp.",
+        content: location.protocol === "file:"
+          ? "Open the hosted storefront to chat with Divv. You can also reach Divya on WhatsApp."
+          : "I couldn’t get a reply just now. I’ve kept your message so you can try again.",
         timestamp: getTimestamp(),
+        failed: true,
         hasHandoff: true
       };
     } finally {

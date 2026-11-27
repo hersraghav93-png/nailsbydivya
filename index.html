@@ -83,7 +83,7 @@
   <!-- Master Stylesheets -->
   <link rel="stylesheet" href="style.css?v=26">
   <link rel="stylesheet" href="auth.css?v=17">
-  <link rel="stylesheet" href="studio.css?v=6">
+  <link rel="stylesheet" href="studio.css?v=7">
 </head>
 <body class="studio-home">
   <a href="#main-content" class="skip-link">Skip to main content</a>
@@ -191,14 +191,13 @@
             <a class="studio-text-link" href="#services">Book at home <svg class="studio-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 12h17m-6-6 6 6-6 6"/></svg></a>
           </div>
         </div>
-        <figure class="studio-hero-plate">
-          <div class="studio-photo-rotation" data-studio-rotation role="group" aria-label="Portfolio photographs">
+        <figure class="studio-hero-plate" data-studio-rotation role="group" aria-label="Portfolio photographs">
+          <div class="studio-photo-rotation">
             <img src="assets/studio/rotation-rose.webp" width="900" height="1613" alt="Rose nails with silver French tips and white flowers by Divya" class="studio-photo-slide is-active" fetchpriority="high">
             <img data-src="assets/studio/rotation-pearl.webp" aria-hidden="true" width="900" height="1613" alt="Pearlescent French nails with floral details by Divya" class="studio-photo-slide" loading="lazy">
             <img data-src="assets/studio/rotation-french.webp" aria-hidden="true" width="900" height="1613" alt="Pink and silver French manicure by Divya" class="studio-photo-slide" loading="lazy">
-            <button type="button" class="studio-photo-control" aria-pressed="false">Pause photos</button>
           </div>
-          <figcaption><span>From Divya’s lookbook</span><a class="studio-text-link" href="#portfolio">See the work <svg class="studio-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 12h17m-6-6 6 6-6 6"/></svg></a></figcaption>
+          <figcaption><span class="studio-photo-caption">From Divya’s lookbook<button type="button" class="studio-photo-control" aria-label="Pause photo transitions" hidden><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path class="studio-photo-pause" d="M5.25 3.5v9m5.5-9v9"/><path class="studio-photo-resume" d="m6 3.5 6 4.5-6 4.5z"/></svg></button></span><a class="studio-text-link" href="#portfolio">See the work <svg class="studio-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 12h17m-6-6 6 6-6 6"/></svg></a></figcaption>
         </figure>
       </div>
     </section>
@@ -738,12 +737,14 @@
 
     <section class="studio-artist section" id="about" aria-labelledby="meet-divya-title">
       <div class="studio-shell studio-artist-layout">
-        <div class="studio-photo-rotation" data-studio-rotation role="group" aria-label="Artist photographs">
+        <div class="studio-photo-feature" data-studio-rotation role="group" aria-label="Artist photographs">
+          <div class="studio-photo-rotation">
             <img src="assets/studio/rotation-metallic.webp" width="900" height="1613" alt="Dark metallic nails with a sculpted flower accent by Divya" class="studio-photo-slide is-active" loading="lazy">
             <img data-src="assets/studio/rotation-french.webp" aria-hidden="true" width="900" height="1613" alt="Pink and silver French manicure by Divya" class="studio-photo-slide" loading="lazy">
             <img data-src="assets/studio/rotation-rose.webp" aria-hidden="true" width="900" height="1613" alt="Rose nails with silver French tips and white flowers by Divya" class="studio-photo-slide" loading="lazy">
-            <button type="button" class="studio-photo-control" aria-pressed="false">Pause photos</button>
           </div>
+          <button type="button" class="studio-photo-control" aria-label="Pause photo transitions" hidden><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path class="studio-photo-pause" d="M5.25 3.5v9m5.5-9v9"/><path class="studio-photo-resume" d="m6 3.5 6 4.5-6 4.5z"/></svg></button>
+        </div>
         <div>
           <h2 id="meet-divya-title">A note from Divya</h2>
           <blockquote>“Nails are an intimate form of self-expression.”</blockquote>
@@ -1462,7 +1463,13 @@
 
     <section class="studio-custom section" id="custom" aria-labelledby="custom-title">
       <div class="studio-shell studio-custom-layout">
-        <img src="assets/custom%20sets/CUSTOM-SETS/spider-man-custom.png" alt="A Spider-Man-inspired custom press-on set by Divya" width="941" height="1672" loading="lazy">
+        <div class="studio-photo-feature" data-studio-rotation role="group" aria-label="Custom nail art photographs">
+          <div class="studio-photo-rotation">
+            <img src="assets/custom%20sets/CUSTOM-SETS/spider-man-custom.png" alt="A Spider-Man-inspired custom press-on set by Divya" width="941" height="1672" class="studio-photo-slide is-active" loading="lazy">
+            <img data-src="assets/studio/rotation-star.webp" aria-hidden="true" alt="Metallic Star Burst nail art from Divya’s lookbook" width="900" height="1613" class="studio-photo-slide" loading="lazy">
+          </div>
+          <button type="button" class="studio-photo-control" aria-label="Pause photo transitions" hidden><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path class="studio-photo-pause" d="M5.25 3.5v9m5.5-9v9"/><path class="studio-photo-resume" d="m6 3.5 6 4.5-6 4.5z"/></svg></button>
+        </div>
         <div>
           <h2 id="custom-title">Bring an idea. We’ll make it yours.</h2>
           <p>Send Divya a photo of your outfit or a design you love. Together you can choose the shape, length and details for a press-on set or an at-home appointment.</p>
@@ -2201,11 +2208,11 @@
 
   <!-- Client-side Config & Authentication Layer -->
   <script src="firebase-config.js?v=3"></script>
-  <script src="account-api.js?v=3"></script>
+  <script src="account-api.js?v=4"></script>
   <script src="auth.js?v=8"></script>
   <script src="auth-modal.js?v=6"></script>
 
   <!-- Core Scripts -->
-  <script src="script.js?v=36"></script>
+  <script src="script.js?v=37"></script>
 </body>
 </html>
