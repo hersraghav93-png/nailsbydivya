@@ -2865,7 +2865,8 @@ function initDivvStylist() {
       const compact = compactRecommendation(turn.content, matches);
       const formattedContent = formatDivvMarkdown(compact ? compact.opening : turn.content);
       const handoffKeywordRegex = /(chat directly with divya|please chat directly|chat with the artist|personal guidance|divya will personally assist)/i;
-      const showHandoff = !isUser && (turn.hasHandoff || handoffKeywordRegex.test(turn.content));
+      const mentionsArtistContact = /\bDivya\b/i.test(turn.content) && /\bWhatsApp\b/i.test(turn.content);
+      const showHandoff = !isUser && (turn.hasHandoff || mentionsArtistContact || handoffKeywordRegex.test(turn.content));
 
       let handoffMarkup = "";
       if (showHandoff) {
