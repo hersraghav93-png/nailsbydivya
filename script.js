@@ -2355,11 +2355,14 @@ async function openCheckoutModal() {
 }
 
 function focusModalClose(modal) {
-  requestAnimationFrame(() => {
+  const focus = () => {
     if (modal.classList.contains("is-open") && !modal.contains(document.activeElement)) {
       modal.querySelector(".modal-close, .cart-drawer-close")?.focus({ preventScroll: true });
     }
-  });
+  };
+  requestAnimationFrame(() => requestAnimationFrame(focus));
+  // Visibility can still be transitioning after the first paint.
+  setTimeout(focus, 300);
 }
 
 function closeAllModals() {
