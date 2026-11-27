@@ -83,7 +83,7 @@
   <!-- Master Stylesheets -->
   <link rel="stylesheet" href="style.css?v=26">
   <link rel="stylesheet" href="auth.css?v=17">
-  <link rel="stylesheet" href="studio.css?v=8">
+  <link rel="stylesheet" href="studio.css?v=9">
   <script>
     if (new URLSearchParams(location.search).has("set")) {
       document.documentElement.classList.add("studio-set-route");
@@ -887,7 +887,7 @@
             </div>
           </article>
 
-          <article class="product-card" data-category="party" data-product-sku="PAR-0011">
+          <article class="product-card" data-category="party" data-product-sku="PAR-0011" data-photo-portrait>
             <div class="product-image-wrap">
               <img src="assets/products/party/PAR-0011/PAR-0011.png" alt="Leopard French handmade press-on nails" loading="lazy">
               <span class="product-badge">Party</span>
@@ -1079,7 +1079,7 @@
             </div>
           </article>
 
-          <article class="product-card" data-category="wedding" data-product-sku="WED-009" data-design-reference="assets/products/wedding/WED-009/wedd9.png">
+          <article class="product-card" data-category="wedding" data-product-sku="WED-009" data-photo-portrait data-design-reference="assets/products/wedding/WED-009/wedd9.png">
             <div class="product-image-wrap">
               <img src="assets/products/wedding/WED-009/herowedd9.png" alt="Ivory Diamond Veil handmade press-on nails" loading="lazy">
               <span class="product-badge">Bridal</span>
@@ -1595,14 +1595,14 @@
                 <button type="button" class="size-chip" data-size="L" aria-pressed="false">L</button>
                 <button type="button" class="size-chip" data-size="Custom" aria-pressed="false">Custom</button>
               </div>
-              <p class="modal-sizing-guide-text" id="modal-sizing-guide-text" aria-live="polite"></p>
+              <div class="modal-sizing-guide-text" id="modal-sizing-guide-text" aria-live="polite"></div>
             </fieldset>
             <details class="product-measure-guide" id="product-measure-guide">
               <summary>How to measure your nails</summary>
               <ol>
                 <li>Place flexible tape across the widest part of your natural nail and mark the two edges.</li>
                 <li>Lay the tape flat against a ruler and record the width in millimetres. Measure all ten nails.</li>
-                <li>Enter the widths for one hand below if choosing Custom. If your hands differ, share the other hand’s widths with Divya on WhatsApp.</li>
+                <li>If your hands differ, enter one hand’s widths and share the other hand’s widths with Divya on WhatsApp.</li>
               </ol>
             </details>
             <div id="modal-custom-measurements" class="product-custom-measurements" hidden>
@@ -2229,6 +2229,6 @@
   <script src="auth-modal.js?v=6"></script>
 
   <!-- Core Scripts -->
-  <script src="script.js?v=39"></script>
+  <script src="script.js?v=40"></script>
 </body>
 </html>

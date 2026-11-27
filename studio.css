@@ -1034,3 +1034,24 @@ body { background: var(--bg); }
 @media (prefers-reduced-motion: reduce) {
   #product-modal, #product-modal .product-detail { transition: none; }
 }
+#product-modal .product-detail-frame[data-portrait="true"] {
+  aspect-ratio: 4 / 5;
+  max-height: min(70dvh, 660px);
+}
+#product-modal .product-fit .size-chip.is-active {
+  background: var(--studio-wine);
+  border-color: var(--studio-wine);
+  color: var(--studio-white);
+}
+#product-modal .product-preset-chart {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin: 0;
+  max-width: 29rem;
+  padding: .5rem 0;
+}
+#product-modal .product-preset-chart dt { font-size: .72rem; color: var(--text-muted); }
+#product-modal .product-preset-chart dd { margin: 0; font-weight: 750; font-variant-numeric: tabular-nums; }
+#product-modal .custom-measurements-row { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .32rem; }
+#product-modal .measurement-field input { appearance: textfield; }
+#product-modal .measurement-field input::-webkit-inner-spin-button { appearance: none; }

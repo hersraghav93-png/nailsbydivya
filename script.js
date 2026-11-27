@@ -912,7 +912,7 @@ function initModals() {
       .filter((element) => element.getClientRects().length);
     const first = controls[0];
     const last = controls.at(-1);
-    if (event.shiftKey && (document.activeElement === first || document.activeElement.id === "product-modal-title")) {
+    if (event.shiftKey && document.activeElement === first) {
       event.preventDefault();
       last?.focus();
     } else if (!event.shiftKey && document.activeElement === last) {
@@ -1110,14 +1110,16 @@ function openProductModalFromCard(card, { fromDivv = false } = {}) {
     imageAlt: imgElem.alt || titleElem.textContent.trim(),
     description: descElem?.textContent.trim() || "",
     designReference: card.dataset.designReference,
+    portrait: card.hasAttribute("data-photo-portrait"),
     sku,
     fromDivv,
   });
 }
 
-function initProductGallery(modal, { title, imageSrc, imageAlt, designReference }) {
+function initProductGallery(modal, { title, imageSrc, imageAlt, designReference, portrait }) {
   const image = modal.querySelector("#product-modal-image");
   const frame = image.parentElement;
+  frame.dataset.portrait = String(Boolean(portrait));
   const controls = modal.querySelector("#product-detail-gallery");
   const initial = { src: imageSrc, alt: imageAlt, label: "On-hand photo" };
   let images;
@@ -1180,8 +1182,10 @@ function initProductGallery(modal, { title, imageSrc, imageAlt, designReference 
     }
   };
   image.onerror = () => {
-    if (image.src !== new URL(initial.src || ".", location.href).href && initial.src) {
-      select(0);
+    const fallback = initial.src && new URL(initial.src, location.href).href;
+    if (fallback && image.src !== fallback) {
+      const index = images.findIndex(({ src }) => new URL(src, location.href).href === fallback);
+      select(index);
     } else {
       image.removeAttribute("src");
       image.alt = `Image unavailable for ${title}`;
@@ -1192,7 +1196,11 @@ function initProductGallery(modal, { title, imageSrc, imageAlt, designReference 
   return render;
 }
 
-function openProductModal({ title, category, imageSrc, imageAlt, description, sku, designReference, fromDivv = false }) {
+function shortProductDescription(description) {
+  return description.trim().split(/(?<=[.!?])\s+/)[0];
+}
+
+function openProductModal({ title, category, imageSrc, imageAlt, description, sku, designReference, portrait, fromDivv = false }) {
   const modal = document.getElementById("product-modal");
   if (!modal) return;
 
@@ -1225,7 +1233,7 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
 
   titleEl.textContent = title || "Bespoke nail art";
   modal.querySelector("#product-modal-category").textContent = category || "Bespoke portfolio";
-  descEl.textContent = description || "";
+  descEl.textContent = sku ? shortProductDescription(description || "") : description || "";
   modal.querySelector("#product-return-divv").hidden = !fromDivv;
   modal.querySelector(".product-collection-link").hidden = fromDivv;
   pageLink.hidden = isPage || !sku;
@@ -1245,7 +1253,7 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
   checkoutBtn.firstElementChild.textContent = sku ? "Go to checkout" : "Book an appointment";
   measurements.forEach((input, i) => { input.value = draft?.measurements[i] || ""; });
 
-  const renderGallery = initProductGallery(modal, { title, imageSrc, imageAlt, designReference });
+  const renderGallery = initProductGallery(modal, { title, imageSrc, imageAlt, designReference, portrait });
   const sizingInfo = {
     XS: [14, 11, 12, 10, 8],
     S: [15, 12, 13, 11, 8],
@@ -1282,9 +1290,23 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
       button.setAttribute("aria-pressed", String(button.dataset.size === activeSize));
     }
     customBox.hidden = activeSize !== "Custom";
-    sizingGuideText.textContent = activeSize === "Custom"
-      ? "Use Custom when your measurements fall between presets."
-      : `${activeSize} · ${sizingInfo[activeSize].map((width, i) => `${measurements[i].labels[0].firstElementChild.textContent} ${width} mm`).join(" / ")}`;
+    if (activeSize === "Custom") {
+      sizingGuideText.textContent = "Use Custom when your measurements fall between presets.";
+    } else {
+      const chart = document.createElement("dl");
+      chart.className = "product-preset-chart";
+      chart.setAttribute("aria-label", `Size ${activeSize} in millimetres`);
+      for (const [i, width] of sizingInfo[activeSize].entries()) {
+        const finger = document.createElement("div");
+        const label = document.createElement("dt");
+        const value = document.createElement("dd");
+        label.textContent = measurements[i].labels[0].firstElementChild.textContent;
+        value.textContent = `${width} mm`;
+        finger.append(label, value);
+        chart.append(finger);
+      }
+      sizingGuideText.replaceChildren(chart);
+    }
     saveFit();
   }
 
@@ -1317,7 +1339,7 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
     window.NailsApi.getProductBySku(sku).then(({ product }) => {
       if (priceView !== productPricingView || !product || product.sku !== sku) return;
       titleEl.textContent = product.name;
-      descEl.textContent = product.description || description;
+      descEl.textContent = shortProductDescription(product.description || description || "");
       if (isPage) document.title = `${product.name} | Nails by Divya`;
       if (product.images?.length) renderGallery(product.images);
       variants = (product.variants || []).filter(({ shape, length }) =>
@@ -2847,12 +2869,12 @@ function initDivvStylist() {
   const renderDesignCard = (product, mood) => {
     const { sku, image } = product;
     const details = getProductDetails(product);
-    const shortDescription = details.description.split(/(?<=[.!?])\s+/)[0];
+    const shortDescription = shortProductDescription(details.description);
     const matchesMood = mood?.matches(details);
     const price = catalogPrices.has(sku) ? catalogPriceText(sku) : "Checking price…";
     const name = escapeHtml(details.title);
 
-    return `<a class="divv-design-link" href="#set-${escapeHtml(sku)}" data-divv-product="${escapeHtml(sku)}" aria-label="View set &amp; sizes for ${name}">
+    return `<a class="divv-design-link" href="${productPageUrl(sku, true)}" data-divv-product="${escapeHtml(sku)}" aria-label="View set &amp; sizes for ${name}">
       <img src="${escapeHtml(image)}" alt="" loading="lazy">
       <div class="divv-design-copy">
         ${matchesMood ? `<span class="divv-design-match">${moodSwatch(mood.id)}${mood.label} match</span>` : ""}
@@ -2904,7 +2926,7 @@ function initDivvStylist() {
       return;
     }
     const chip = event.target.closest("[data-chip], [data-divv-mood]");
-    const link = event.target.closest("a[href^='#']");
+    const link = event.target.closest("a[data-divv-product], a[href^='#']");
     if (chip) {
       const mood = nailMoods.find(({ id }) => id === chip.dataset.divvMood);
       const message = mood ? `Help me find a few ${mood.label.toLowerCase()} press-on sets.` : chip.dataset.chip;
