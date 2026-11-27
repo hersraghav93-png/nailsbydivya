@@ -1590,14 +1590,14 @@
     }).join("");
   }
 
-  function selectDelhiDate(schedule, preferredDate) {
+  function selectDelhiDate(schedule, preferredDate, earliestDate = schedule.today) {
     const date = prompt(
       "Appointment date in the Delhi calendar (YYYY-MM-DD). Select between " +
-      schedule.today + " and " + schedule.latestDate + ".",
-      preferredDate >= schedule.today ? preferredDate : schedule.earliestDate
+      earliestDate + " and " + schedule.latestDate + ".",
+      preferredDate >= earliestDate ? preferredDate : earliestDate
     );
     if (!date) return null;
-    if (!/^d{4}-d{2}-d{2}$/.test(date) || date < schedule.today || date > schedule.latestDate) {
+    if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(date) || date < earliestDate || date > schedule.latestDate) {
       throw new Error("Choose a valid date in the displayed Delhi date range.");
     }
     return date;
@@ -1638,9 +1638,10 @@
     try {
       const { schedule } = await window.NailsApi.listServices();
       const booking = state.bookings.find((item) => item.id === bookingId);
-      const date = selectDelhiDate(schedule, booking?.requestedDate);
-      if (!date) return;
       const exception = confirm("Propose a staff-authorized exception? Choose Cancel to propose a regular window.");
+      const earliestDate = exception ? schedule.today : schedule.earliestDate;
+      const date = selectDelhiDate(schedule, booking?.requestedDate, earliestDate);
+      if (!date) return;
       const slot = prompt(exception
         ? "Exception window in IST (HH:MM - HH:MM):"
         : "Choose a standard window in IST: " + schedule.requestWindows.join(" or "),
