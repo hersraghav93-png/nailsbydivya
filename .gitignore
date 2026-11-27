@@ -16,3 +16,6 @@ yarn-debug.log*
 yarn-error.log*
 preview-*.png
 before-*.png
+
+# Local post-release verification outputs
+/.cleanup-verification/
