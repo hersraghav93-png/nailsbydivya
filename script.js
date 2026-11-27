@@ -126,7 +126,6 @@ if (typeof document !== "undefined") {
 // ---------------------------------------------------------------------------
 const PRODUCT_PRICES = {
   // Casual Collection
-  "CAS-004": "₹899",
   "CAS-005": "₹799",
   "CAS-007": "₹1199",
   "CAS-008": "₹1199",
@@ -135,7 +134,6 @@ const PRODUCT_PRICES = {
   "PAR-003": "₹1299",
   "PAR-004": "₹1299",
   "PAR-008": "₹999",
-  "PAR-009": "₹1199",
   "PAR-0010": "₹1299",
   "PAR-0011": "₹799",
 
@@ -1396,9 +1394,9 @@ const CANONICAL_SERVICES_MAP = {
   "bespoke gel extensions": { id: "gel_extensions", name: "Nail Extensions", price: "From ₹999", isCustomQuote: false },
   "natural nail overlay": { id: "natural_overlay", name: "Natural Nail Overlay", price: "From ₹999", isCustomQuote: false },
   "natural nail overlay & strengthening": { id: "natural_overlay", name: "Natural Nail Overlay", price: "From ₹999", isCustomQuote: false },
-  "power polish / shellac": { id: "power_polish", name: "Power Polish / Shellac", price: "From ₹999", isCustomQuote: false },
-  "power polish": { id: "power_polish", name: "Power Polish / Shellac", price: "From ₹999", isCustomQuote: false },
-  "signature manicure & power polish": { id: "power_polish", name: "Power Polish / Shellac", price: "From ₹999", isCustomQuote: false },
+  "power polish / shellac": { id: "power_polish", name: "Power Polish / Shellac", price: "From ₹499", isCustomQuote: false },
+  "power polish": { id: "power_polish", name: "Power Polish / Shellac", price: "From ₹499", isCustomQuote: false },
+  "signature manicure & power polish": { id: "power_polish", name: "Power Polish / Shellac", price: "From ₹499", isCustomQuote: false },
   "3d & custom nail art": { id: "custom_3d_art", name: "3D & Custom Nail Art", price: "Custom Quotation", isCustomQuote: true },
   "3d, chrome & custom artistry": { id: "custom_3d_art", name: "3D & Custom Nail Art", price: "Custom Quotation", isCustomQuote: true },
   "french nails": { id: "gel_extensions", name: "French Nails (Design Add-On)", price: "Design Add-On", isCustomQuote: true },
