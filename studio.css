@@ -1051,6 +1051,16 @@ body { background: var(--bg); }
   min-width: 44px;
   min-height: 44px;
 }
+#service-schedule-note {
+  margin: .4rem 0 0;
+  color: var(--text-muted);
+  font-size: .82rem;
+  line-height: 1.45;
+}
+@media (max-width: 359px) {
+  #service-modal .checkout-grid { grid-template-columns: minmax(0, 1fr); }
+  #service-modal .checkout-span-2 { grid-column: 1 / -1; }
+}
 @media (prefers-reduced-motion: reduce) {
   :is(#service-modal, #checkout-modal, #cart-drawer-overlay, #cart-drawer),
   :is(#service-modal, #checkout-modal) .modal-card { transition: none; }
