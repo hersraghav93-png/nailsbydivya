@@ -283,6 +283,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initLuxuryCarousels();
   initShopFilters();
   initModals();
+  if (document.querySelector("[data-studio-hours]")) getLiveServiceCatalog();
   initScrollAnimations();
   initTrustFaq();
   initMomentCarousel();
@@ -1517,24 +1518,52 @@ const CANONICAL_SERVICES_MAP = {
 };
 
 let cachedServiceCatalog = null;
+let pendingServiceCatalog = null;
 let serviceBookingView = 0;
 
+function renderStudioSchedule(schedule) {
+  const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const days = schedule.openWeekdays.map((day) => weekdays[day]);
+  const displayClock = (value) => {
+    const [hours, minutes] = value.split(":");
+    return (Number(hours) % 12 || 12) + ":" + minutes + (Number(hours) >= 12 ? " PM" : " AM");
+  };
+  const label = days[0] + "–" + days.at(-1) + ", " +
+    displayClock(schedule.opensAt) + "–" + displayClock(schedule.closesAt) + " IST";
+  document.querySelectorAll("[data-studio-hours]").forEach((node) => { node.textContent = label; });
+  document.querySelectorAll("[data-studio-notice]").forEach((node) => {
+    node.textContent = "at least " + schedule.minNoticeDays + " calendar days";
+  });
+  const schemaNode = document.getElementById("studio-structured-data");
+  if (schemaNode) {
+    const schema = JSON.parse(schemaNode.textContent);
+    const business = schema["@graph"].find((entity) => entity.openingHoursSpecification);
+    if (!business) return;
+    business.openingHoursSpecification = [{
+      "@type": "OpeningHoursSpecification", dayOfWeek: days, opens: schedule.opensAt, closes: schedule.closesAt,
+    }];
+    schemaNode.textContent = JSON.stringify(schema);
+  }
+}
+
 async function getLiveServiceCatalog() {
-  if (Array.isArray(cachedServiceCatalog) && cachedServiceCatalog.length > 0) {
-    return cachedServiceCatalog;
+  if (cachedServiceCatalog) {
+    const { schedule } = cachedServiceCatalog;
+    const today = new Intl.DateTimeFormat("sv-SE", { timeZone: schedule.timeZone }).format(new Date());
+    if (today === schedule.today) return cachedServiceCatalog;
   }
-  if (window.NailsApi && typeof window.NailsApi.listServices === "function") {
-    try {
-      const res = await window.NailsApi.listServices();
-      if (res && Array.isArray(res.services)) {
-        cachedServiceCatalog = res.services;
-        return cachedServiceCatalog;
-      }
-    } catch (err) {
-      console.warn("[Booking] Could not load live service catalog:", err.message);
-    }
+  if (!pendingServiceCatalog && window.NailsApi?.listServices) {
+    pendingServiceCatalog = window.NailsApi.listServices().then((res) => {
+      const schedule = res?.schedule;
+      if (!Array.isArray(res?.services) || !schedule?.timeZone ||
+          !schedule.earliestDate || !schedule.latestDate || !schedule.openWeekdays?.length ||
+          !schedule.requestWindows?.length) return null;
+      renderStudioSchedule(schedule);
+      cachedServiceCatalog = res;
+      return res;
+    }).catch(() => null).finally(() => { pendingServiceCatalog = null; });
   }
-  return null;
+  return pendingServiceCatalog;
 }
 
 function escapeBookingHtml(str) {
@@ -1575,7 +1604,7 @@ async function openServiceModal(title, description) {
   const submitBtn = document.getElementById("service-submit-btn");
   const submitLabel = submitBtn.querySelector("span");
   const defaultLabel = submitBtn.dataset.defaultLabel ||= submitLabel.textContent;
-  submitBtn.disabled = false;
+  submitBtn.disabled = true;
   submitLabel.textContent = defaultLabel;
   if (confirmationView) confirmationView.style.display = "none";
   if (errorEl) { errorEl.textContent = ""; errorEl.style.display = "none"; }
@@ -1600,14 +1629,14 @@ async function openServiceModal(title, description) {
     document.getElementById("service-customer-name").focus();
   };
 
-  // Set min date to tomorrow and max date to +60 days (matching backend validation window)
-  if (dateInput) {
-    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    const maxDate = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
-    dateInput.min = tomorrow.toISOString().split("T")[0];
-    dateInput.max = maxDate.toISOString().split("T")[0];
-    dateInput.value = tomorrow.toISOString().split("T")[0];
-  }
+  const scheduleNote = document.getElementById("service-schedule-note");
+  const slotsContainer = document.getElementById("service-slot-pills");
+  dateInput.value = "";
+  dateInput.disabled = true;
+  dateInput.oninput = null;
+  dateInput.setCustomValidity("");
+  slotsContainer.replaceChildren();
+  scheduleNote.textContent = "Loading Delhi appointment windows…";
 
   // Clear addons immediately while live database add-ons load
   if (addonsWrapper && addonsContainer) {
@@ -1615,23 +1644,13 @@ async function openServiceModal(title, description) {
     addonsContainer.innerHTML = "";
   }
 
-  // Active time slot handling
-  let activeSlot = "10:00 AM - 12:00 PM";
-  const slotPills = modal.querySelectorAll(".slot-pill");
-  slotPills.forEach((pill) => {
-    pill.classList.toggle("is-active", pill.getAttribute("data-slot") === "10:00 AM - 12:00 PM");
-    pill.onclick = () => {
-      slotPills.forEach((p) => p.classList.remove("is-active"));
-      pill.classList.add("is-active");
-      activeSlot = pill.getAttribute("data-slot") || "10:00 AM - 12:00 PM";
-    };
-  });
+  let activeSlot = "";
 
   // Handle appointment submission
   if (formEl) {
     formEl.onsubmit = async (e) => {
       e.preventDefault();
-      if (!window.NailsApi || !isCurrent() || formEl.style.display === "none" || submitBtn.disabled) return;
+      if (!window.NailsApi || !isCurrent() || formEl.style.display === "none" || submitBtn.disabled || !activeSlot || !dateInput.reportValidity()) return;
       const name = document.getElementById("service-customer-name")?.value.trim();
       const rawPhone = document.getElementById("service-customer-phone")?.value.trim();
       const email = document.getElementById("service-customer-email")?.value.trim();
@@ -1777,8 +1796,46 @@ async function openServiceModal(title, description) {
   focusModalClose(modal);
 
   // Populate live service add-ons from backend catalog so UUIDs always match production DB
-  getLiveServiceCatalog().then((services) => {
-    if (!isCurrent() || !services || !addonsWrapper || !addonsContainer) return;
+  getLiveServiceCatalog().then((catalog) => {
+    if (!isCurrent()) return;
+    if (!catalog) {
+      scheduleNote.textContent = "Appointment windows could not be loaded. Reopen to try again or contact Divya on WhatsApp.";
+      return;
+    }
+    const { schedule, services } = catalog;
+    const openOn = (value) => schedule.openWeekdays.includes(new Date(value + "T00:00:00Z").getUTCDay());
+    const firstOpen = new Date(schedule.earliestDate + "T00:00:00Z");
+    while (!schedule.openWeekdays.includes(firstOpen.getUTCDay())) firstOpen.setUTCDate(firstOpen.getUTCDate() + 1);
+    dateInput.min = schedule.earliestDate;
+    dateInput.max = schedule.latestDate;
+    dateInput.value = firstOpen.toISOString().slice(0, 10);
+    dateInput.disabled = false;
+    dateInput.oninput = () => {
+      dateInput.setCustomValidity(dateInput.value && !openOn(dateInput.value)
+        ? "The studio is closed on Mondays. Please choose Tuesday through Sunday." : "");
+      if (dateInput.validity.customError) dateInput.reportValidity();
+    };
+    scheduleNote.textContent = "Choose a preferred window. Divya will confirm the exact appointment time.";
+    const buttons = schedule.requestWindows.map((slot) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "slot-pill";
+      button.dataset.slot = slot;
+      button.textContent = slot.replace(" - ", "–");
+      button.onclick = () => {
+        activeSlot = slot;
+        buttons.forEach((item) => {
+          const selected = item === button;
+          item.classList.toggle("is-active", selected);
+          item.setAttribute("aria-pressed", String(selected));
+        });
+      };
+      return button;
+    });
+    slotsContainer.replaceChildren(...buttons);
+    buttons[0].click();
+    submitBtn.disabled = false;
+
     const liveSvc = services.find((s) => s.id === matchedService.id);
     if (liveSvc && priceValEl && liveSvc.pricingDisplay && !matchedService.isCustomQuote) {
       priceValEl.textContent = liveSvc.pricingDisplay;

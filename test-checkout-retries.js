@@ -211,7 +211,12 @@ async function main(mobile) {
     const buyer = token ? JSON.parse(Buffer.from(token.split(".")[1], "base64url")).sub : "guest";
     if (url.pathname === "/state") return json(200, { creates, lookups, items, clears, orders: receipts.size, holding: !!release });
     if (url.pathname === "/api/products") return json(200, { products });
-    if (url.pathname === "/api/services") return json(200, { services: [
+    if (url.pathname === "/api/services") return json(200, { schedule: {
+      timeZone: "Asia/Kolkata", today: new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Kolkata" }).format(new Date()),
+      openWeekdays: [2, 3, 4, 5, 6, 0], opensAt: "12:00", closesAt: "18:00", minNoticeDays: 2,
+      earliestDate: "2026-12-01", latestDate: "2027-01-26",
+      requestWindows: ["12:30 PM - 02:30 PM", "03:00 PM - 05:00 PM"],
+    }, services: [
       { id: "gel_extensions", pricingDisplay: "From ₹999", addons: [] },
       { id: "extension_removal", pricingDisplay: "Custom Quote", addons: [] },
     ] });

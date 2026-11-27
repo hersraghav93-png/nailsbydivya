@@ -639,7 +639,7 @@
      * @returns {Promise<{ status: string, count: number, services: Array<object> }>}
      */
     async listServices() {
-      return this.request("/api/services");
+      return this.request("/api/services", { publicCatalog: true });
     },
 
     /**

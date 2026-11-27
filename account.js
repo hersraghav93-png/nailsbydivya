@@ -797,7 +797,7 @@
           <div class="booking-history-header">
             <div>
               <span class="booking-code-text">${escapeHtml(bookingNum)}</span>
-              <div class="booking-date-text">Appointment Date: <strong>${escapeHtml(requestedDate)}</strong> &bull; ${escapeHtml(requestedSlot)}</div>
+              <div class="booking-date-text">Requested date: <strong>${escapeHtml(requestedDate)}</strong> &bull; ${escapeHtml(requestedSlot)}${bkg.requestedTimeZone ? " IST" : ""}</div>
             </div>
             <span class="status-pill ${statusClass}">${escapeHtml(statusLabel)}</span>
           </div>
@@ -934,6 +934,9 @@
       if (subTitleEl) subTitleEl.textContent = `Booking ${b.bookingNumber || bookingId.slice(0, 8)}${b.serviceName ? ` • ${b.serviceName}` : ""}`;
 
       if (bodyEl) {
+        const formatDelhi = (time) => new Date(time).toLocaleString("en-IN", {
+          timeZone: b.studioTimeZone || "Asia/Kolkata", dateStyle: "medium", timeStyle: "short",
+        });
         bodyEl.innerHTML = `
           <div style="background: var(--bg-soft); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 0.85rem; font-size: 0.85rem;">
             <div style="display: flex; justify-content: space-between; margin-bottom: 0.35rem;">
@@ -946,8 +949,10 @@
             </div>
             <div style="display: flex; justify-content: space-between; margin-bottom: 0.35rem;">
               <span>Time Window:</span>
-              <strong>${escapeHtml(b.requestedTimeSlot || "")}</strong>
+              <strong>${escapeHtml(b.requestedTimeSlot || "")}${b.requestedTimeZone ? " IST" : ""}</strong>
             </div>
+            ${b.bookingStatus === "ALTERNATIVE_PROPOSED" && b.alternativeProposedDate ? `<p><strong>${b.scheduleException ? "Staff schedule exception" : "Alternative proposed"}</strong><br>${escapeHtml(b.alternativeProposedDate)} · ${escapeHtml(b.alternativeProposedTimeSlot)} IST<br>${escapeHtml(b.rescheduleReason)}<br>Reply to Divya to accept this window.</p>` : ""}
+            ${b.confirmedStartTime && b.confirmedEndTime ? `<p><strong>Confirmed appointment</strong><br>${escapeHtml(formatDelhi(b.confirmedStartTime))} – ${escapeHtml(formatDelhi(b.confirmedEndTime))} IST</p>` : ""}
             <div style="display: flex; justify-content: space-between;">
               <span>Estimated Total:</span>
               <strong>${b.estimatedTotal !== null ? `₹${b.estimatedTotal}` : "Custom Quotation Required"}</strong>
