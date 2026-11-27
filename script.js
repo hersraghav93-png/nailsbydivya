@@ -133,6 +133,7 @@ let productPricingView = 0;
 let productPageSku;
 let productOpener;
 const productFitDrafts = new Map();
+const modalOpeners = new WeakMap();
 
 function formatCatalogPrice(price) {
   return "₹" + price.toLocaleString("en-IN", { maximumFractionDigits: 2 });
@@ -948,13 +949,21 @@ function initModals() {
     }
   });
 
-  productModal?.addEventListener("keydown", (event) => {
-    if (event.key !== "Tab" || !productModal.classList.contains("is-open")) return;
-    const controls = [...productModal.querySelectorAll("a[href], button:not(:disabled), summary, input")]
-      .filter((element) => element.getClientRects().length);
+  window.addEventListener("keydown", (event) => {
+    if (event.key !== "Tab" || event.defaultPrevented ||
+        document.querySelector(".divv-widget-modal.is-open, dialog[open]")) return;
+    const modal = [cartDrawerOverlay, checkoutModal, serviceModal, productModal]
+      .find((candidate) => candidate?.classList.contains("is-open"));
+    if (!modal) return;
+    const controls = [...modal.querySelectorAll("a[href], button, summary, input, select, textarea")]
+      .filter((element) => element.tabIndex >= 0 && !element.matches(":disabled") &&
+        element.getClientRects().length && getComputedStyle(element).visibility === "visible");
     const first = controls[0];
     const last = controls.at(-1);
-    if (event.shiftKey && document.activeElement === first) {
+    if (!modal.contains(document.activeElement)) {
+      event.preventDefault();
+      (event.shiftKey ? last : first)?.focus();
+    } else if (event.shiftKey && document.activeElement === first) {
       event.preventDefault();
       last?.focus();
     } else if (!event.shiftKey && document.activeElement === last) {
@@ -1140,14 +1149,14 @@ function openProductModalFromCard(card, { fromDivv = false } = {}) {
   const titleElem = card.querySelector("h3, h4");
   const descElem = card.querySelector(".product-description");
   const imgElem = card.querySelector("img");
-  const badgeElem = card.querySelector(".product-badge");
+  const category = card.querySelector("[data-product-category]")?.dataset.productCategory;
   const sku = card.dataset.productSku;
 
   if (!titleElem || !imgElem) return;
 
   openProductModal({
     title: titleElem.textContent.trim(),
-    category: badgeElem ? `${badgeElem.textContent.trim()} press-ons` : "Handmade press-ons",
+    category: category ? `${category} press-ons` : "Handmade press-ons",
     imageSrc: imgElem.currentSrc || imgElem.src || imgElem.dataset.src,
     imageAlt: imgElem.alt || titleElem.textContent.trim(),
     description: descElem?.textContent.trim() || "",
@@ -1543,6 +1552,7 @@ function escapeBookingHtml(str) {
 async function openServiceModal(title, description) {
   const modal = document.getElementById("service-modal");
   if (!modal) return;
+  if (!modal.classList.contains("is-open")) modalOpeners.set(modal, document.activeElement);
 
   const view = ++serviceBookingView;
   const isCurrent = () => view === serviceBookingView && modal.getAttribute("aria-hidden") === "false";
@@ -1764,6 +1774,7 @@ async function openServiceModal(title, description) {
   modal.classList.add("is-open");
   document.body.style.overflow = "hidden";
   modal.querySelector(".modal-card").scrollTop = 0;
+  focusModalClose(modal);
 
   // Populate live service add-ons from backend catalog so UUIDs always match production DB
   getLiveServiceCatalog().then((services) => {
@@ -1856,7 +1867,7 @@ async function openCartDrawer() {
   overlay.setAttribute("aria-hidden", "false");
   overlay.classList.add("is-open");
   document.body.style.overflow = "hidden";
-  overlay.querySelector("#cart-drawer-close")?.focus({ preventScroll: true });
+  focusModalClose(overlay);
 
   const receiptButton = document.getElementById("cart-check-receipt");
   if (receiptButton) receiptButton.style.display = currentCheckout() ? "inline-flex" : "none";
@@ -2100,6 +2111,7 @@ async function openCheckoutModal() {
   closeCartDrawer();
   const modal = document.getElementById("checkout-modal");
   if (!modal) return;
+  if (!modal.classList.contains("is-open")) modalOpeners.set(modal, document.activeElement);
 
   const formView = document.getElementById("checkout-form-view");
   const confirmationView = document.getElementById("checkout-confirmation-view");
@@ -2122,6 +2134,7 @@ async function openCheckoutModal() {
     modal.setAttribute("aria-hidden", "false");
     modal.classList.add("is-open");
     document.body.style.overflow = "hidden";
+    focusModalClose(modal);
   };
   let attempt = currentCheckout();
   if (attempt) {
@@ -2341,8 +2354,18 @@ async function openCheckoutModal() {
   showModal();
 }
 
+function focusModalClose(modal) {
+  requestAnimationFrame(() => {
+    if (modal.classList.contains("is-open") && !modal.contains(document.activeElement)) {
+      modal.querySelector(".modal-close, .cart-drawer-close")?.focus({ preventScroll: true });
+    }
+  });
+}
+
 function closeAllModals() {
   const productWasOpen = document.getElementById("product-modal")?.classList.contains("is-open");
+  const openDialog = document.querySelector("#checkout-modal.is-open, #service-modal.is-open");
+  const opener = productWasOpen ? productOpener : modalOpeners.get(openDialog);
   checkoutView++;
   document.querySelectorAll(".modal-overlay").forEach((modal) => {
     modal.classList.remove("is-open");
@@ -2350,7 +2373,7 @@ function closeAllModals() {
   });
   closeCartDrawer();
   document.body.style.overflow = "";
-  if (productWasOpen && productOpener?.getClientRects().length) productOpener.focus({ preventScroll: true });
+  if (opener?.getClientRects().length) opener.focus({ preventScroll: true });
 }
 
 function escapeHtml(str) {
