@@ -229,6 +229,18 @@ it("Divv uses the shared API URL resolver in all environments", () => {
   assert.throws(() => NailsApi.getBaseUrl("unrecognized.invalid"), /Refusing to route to production backend/);
 });
 
+it("public catalogue pricing starts before the Firebase SDK can block page readiness", () => {
+  for (const page of ["index.html", "press-on-nails-india.html"]) {
+    const markup = fs.readFileSync(path.join(FRONTEND_DIR, page), "utf8");
+    const api = markup.indexOf('<script src="account-api.js?');
+    const storefront = markup.indexOf('<script src="script.js?');
+    const firebase = markup.indexOf('<script defer src="https://www.gstatic.com/firebasejs/');
+    assert(api >= 0 && api < storefront && storefront < firebase, page);
+    assert(!markup.includes('<script src="https://www.gstatic.com/firebasejs/'), page);
+  }
+  assert.match(scriptContent, /^initProductPrices\(\);\s*document\.addEventListener\("DOMContentLoaded"/m);
+});
+
 // -----------------------------------------------------------------------------
 // Summary
 // -----------------------------------------------------------------------------

@@ -125,6 +125,8 @@ if (typeof document !== "undefined") {
 // 01. SINGLE SOURCE OF TRUTH — PRODUCT PRICING & SKU REGISTRY
 // ---------------------------------------------------------------------------
 const catalogPrices = new Map();
+const catalogDetailRequests = new Map();
+const catalogCards = "article[data-product-sku], aside[data-product-sku], .carousel-card[data-product-sku]";
 let catalogPriceRequest;
 let catalogPriceReadFailed = false;
 let productPricingView = 0;
@@ -155,44 +157,80 @@ function renderCatalogPrice(element, price, emptyLabel = catalogPriceReadFailed 
     : `<span class="product-price-row"><strong class="product-price-regular">${effectivePrice}</strong></span>`;
 }
 
-function getCatalogPrices() {
-  if (!catalogPriceRequest) {
-    catalogPriceRequest = (async () => {
-      const loadPage = async (offset) => {
-        const params = { limit: 100, offset };
-        try {
-          return await window.NailsApi.listProducts(params);
-        } catch {
-          await new Promise((resolve) => setTimeout(resolve, 400));
-          return window.NailsApi.listProducts(params);
-        }
-      };
-      const response = await loadPage(0);
-      const products = [...response.products];
-      while (Number.isFinite(response.total) && products.length < response.total) {
-        const page = await loadPage(products.length).catch(() => null);
-        if (!page?.products.length) break;
-        products.push(...page.products);
+function validCatalogProduct(product) {
+  return typeof product?.sku === "string" && product.sku.length > 0 &&
+    (product.isAvailable === false ||
+      (Number.isFinite(product.basePrice) && product.basePrice >= 0 &&
+       Number.isFinite(product.effectivePrice) && product.effectivePrice >= 0 &&
+       typeof product.isPromoApplied === "boolean"));
+}
+
+function getCatalogDetail(sku) {
+  if (!catalogDetailRequests.has(sku)) {
+    const request = window.NailsApi.getProductBySku(sku).then(({ product }) => {
+      if (!validCatalogProduct(product) || product.sku !== sku) {
+        throw new TypeError("Invalid catalogue detail response");
       }
-      catalogPriceReadFailed = false;
-      const listed = new Set(products.map((product) => product.sku));
-      const missing = [...new Set([...document.querySelectorAll("article[data-product-sku], aside[data-product-sku]")]
-        .map((card) => card.dataset.productSku))].filter((sku) => !listed.has(sku));
-      const details = await Promise.allSettled(missing.map((sku) => window.NailsApi.getProductBySku(sku)));
-      details.forEach((result) => {
-        if (result.status === "fulfilled" && result.value.product) products.push(result.value.product);
-      });
-      for (const product of products) {
-        if (product.isAvailable !== false && Number.isFinite(product.effectivePrice) &&
-            product.effectivePrice >= 0) {
-          catalogPrices.set(product.sku, product);
-        }
-      }
-    })().catch(() => {
-      catalogPriceReadFailed = true;
-      catalogPriceRequest = null;
-    });
+      return product;
+    }).finally(() => catalogDetailRequests.delete(sku));
+    catalogDetailRequests.set(sku, request);
   }
+  return catalogDetailRequests.get(sku);
+}
+
+function getCatalogPrices() {
+  if (catalogPriceRequest) return catalogPriceRequest;
+
+  async function loadPage(offset) {
+    const read = async () => {
+      const result = await window.NailsApi.listProducts({ limit: 100, offset });
+      if (!Array.isArray(result?.products) || !result.products.every(validCatalogProduct) ||
+          new Set(result.products.map(({ sku }) => sku)).size !== result.products.length ||
+          (result.total != null && (!Number.isSafeInteger(result.total) || result.total < offset + result.products.length))) {
+        throw new TypeError("Invalid catalogue list response");
+      }
+      return result;
+    };
+    try {
+      return await read();
+    } catch (error) {
+      if (error.status && ![408, 429].includes(error.status) && error.status < 500) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      return read();
+    }
+  }
+
+  catalogPriceRequest = (async () => {
+    const response = await loadPage(0);
+    const products = [...response.products];
+    const listed = new Set(products.map(({ sku }) => sku));
+    while (products.length < response.total) {
+      const next = await loadPage(products.length);
+      if (!next.products.length || next.products.some(({ sku }) => listed.has(sku))) {
+        throw new TypeError("Catalogue pagination did not advance");
+      }
+      for (const product of next.products) {
+        listed.add(product.sku);
+        products.push(product);
+      }
+    }
+
+    const skus = new Set([...document.querySelectorAll(catalogCards)].map((card) => card.dataset.productSku));
+    const missing = [...skus].filter((sku) => !listed.has(sku));
+    const details = await Promise.allSettled(missing.map(getCatalogDetail));
+    catalogPriceReadFailed = details.some((result) => result.status === "rejected" && result.reason?.status !== 404);
+    for (const result of details) {
+      if (result.status === "fulfilled") products.push(result.value);
+    }
+    for (const product of products) {
+      if (product.isAvailable === false) catalogPrices.delete(product.sku);
+      else catalogPrices.set(product.sku, product);
+    }
+    if (catalogPriceReadFailed) catalogPriceRequest = null;
+  })().catch(() => {
+    catalogPriceReadFailed = true;
+    catalogPriceRequest = null;
+  });
   return catalogPriceRequest;
 }
 
@@ -233,8 +271,10 @@ const CHECKOUT_CONFIG = {
 // ---------------------------------------------------------------------------
 // 02. DOM READY INITIALIZATION
 // ---------------------------------------------------------------------------
+// Start public pricing while the Firebase SDK is still downloading.
+initProductPrices();
+
 document.addEventListener("DOMContentLoaded", () => {
-  initProductPrices();
   initStudioPhotography();
   initCheckoutPhoneValidation();
   initHeaderScroll();
@@ -282,9 +322,10 @@ function initDiwaliCards() {
 }
 
 async function initProductPrices() {
-  const cards = document.querySelectorAll("article[data-product-sku], aside[data-product-sku], .carousel-card[data-product-sku]");
-  if (!cards.length || !window.NailsApi) return;
-  await getCatalogPrices();
+  const cards = document.querySelectorAll(catalogCards);
+  if (!cards.length) return;
+  if (window.NailsApi) await getCatalogPrices();
+  else catalogPriceReadFailed = true;
   for (const card of cards) {
     const priceNode = card.querySelector(".product-price");
     const price = catalogPrices.get(card.dataset.productSku);
@@ -1321,7 +1362,7 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
   }
 
   function applyPrice(product, fallback) {
-    const verified = product?.isAvailable !== false && Number.isFinite(product?.effectivePrice) && product.effectivePrice >= 0;
+    const verified = validCatalogProduct(product) && product.isAvailable !== false;
     effectivePrice = verified ? formatCatalogPrice(product.effectivePrice) : null;
     priceEl.hidden = !sku;
     renderCatalogPrice(priceEl, verified ? product : null, fallback);
@@ -1334,10 +1375,11 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
   }
 
   const price = catalogPrices.get(sku);
-  applyPrice(price, sku && !price ? "Loading price…" : undefined);
+  applyPrice(price, sku && !price && window.NailsApi ? "Loading price…" : undefined);
   if (sku && window.NailsApi) {
-    window.NailsApi.getProductBySku(sku).then(({ product }) => {
-      if (priceView !== productPricingView || !product || product.sku !== sku) return;
+    getCatalogDetail(sku).then((product) => {
+      if (priceView !== productPricingView) return;
+      applyPrice(product);
       titleEl.textContent = product.name;
       descEl.textContent = shortProductDescription(product.description || description || "");
       if (isPage) document.title = `${product.name} | Nails by Divya`;
@@ -1346,12 +1388,11 @@ function openProductModal({ title, category, imageSrc, imageAlt, description, sk
         shapePills.some((button) => button.dataset.shape === shape) &&
         lengthPills.some((button) => button.dataset.length === length));
       syncFit();
-      applyPrice(product);
     }).catch((error) => {
       if (priceView !== productPricingView) return;
       if (error.status === 404) applyPrice(null, "This set is currently unavailable");
       else if (!effectivePrice) {
-        getCatalogPrices().then(() => {
+        initProductPrices().then(() => {
           if (priceView === productPricingView) applyPrice(catalogPrices.get(sku));
         });
       }

@@ -61,6 +61,26 @@
     return Object.assign(new Error("Your sign-in changed. Please reopen your bag."), { code: "CHECKOUT_IDENTITY_CHANGED" });
   }
 
+  async function requestPublicCatalogue(url) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
+    try {
+      const response = await fetch(url, { signal: controller.signal, cache: "no-cache" });
+      if (!response.ok) {
+        throw Object.assign(new Error("Catalogue request failed"), { status: response.status });
+      }
+      return await response.json();
+    } catch (error) {
+      if (error.status) throw error;
+      throw Object.assign(new Error("Unable to read the catalogue"), {
+        code: controller.signal.aborted ? "CATALOGUE_TIMEOUT" : "CATALOGUE_READ_ERROR",
+        status: 0,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
   /**
    * Resolves the active backend API base URL based on explicit environment detection.
    * Unknown/unrecognized hostnames fail closed and never fall back to production.
@@ -162,23 +182,23 @@
       const baseUrl = this.getBaseUrl();
       const url = `${baseUrl}${endpoint}`;
 
-      const publicCatalog = options.publicCatalog === true;
+      if (options.publicCatalog) return requestPublicCatalogue(url);
       const headers = {
-        ...(!publicCatalog && { "Content-Type": "application/json" }),
+        "Content-Type": "application/json",
         ...(options.headers || {}),
       };
 
       // 1. Attach cart session header if available and not explicitly provided
       const expectedBuyer = options.checkout ? options.checkout.buyer : buyerId();
       const guardBuyer = Boolean(options.checkout) || endpoint.startsWith("/api/cart");
-      const cartSession = options.checkout ? options.checkout.sessionToken : publicCatalog ? null : this.getCartSessionToken();
+      const cartSession = options.checkout ? options.checkout.sessionToken : this.getCartSessionToken();
       if (cartSession && !headers["X-Cart-Session"]) {
         headers["X-Cart-Session"] = cartSession;
       }
 
       let idToken = null;
       // 2. Retrieve Firebase ID token from NailsAuth if available
-      if (!publicCatalog && window.NailsAuth && typeof window.NailsAuth.getToken === "function") {
+      if (window.NailsAuth && typeof window.NailsAuth.getToken === "function") {
         try {
           idToken = await window.NailsAuth.getToken();
           if (idToken) {
@@ -197,8 +217,8 @@
         headers,
       };
 
-      if ((publicCatalog || options.checkout) && typeof AbortSignal !== "undefined" && AbortSignal.timeout) {
-        fetchOptions.signal = AbortSignal.timeout(publicCatalog ? 12000 : 30000);
+      if (options.checkout && typeof AbortSignal !== "undefined" && AbortSignal.timeout) {
+        fetchOptions.signal = AbortSignal.timeout(30000);
       }
 
       if (options.body) {
