@@ -1512,7 +1512,7 @@
     tbody.innerHTML = bookingsToDisplay.map((b) => {
       const bookingNumber = b.bookingNumber || b.booking_number || "-";
       const requestedDateRaw = b.requestedDate || b.requested_date;
-      const dateStr = requestedDateRaw ? new Date(requestedDateRaw).toLocaleDateString("en-IN") : "-";
+      const dateStr = requestedDateRaw || "-";
       const timeSlot = b.requestedTimeSlot || b.requested_time_slot || "-";
       const customerName = b.customerName || b.customer_name || "Guest Client";
       const customerPhone = b.customerPhone || b.customer_phone || "";
@@ -1525,7 +1525,7 @@
         [addr.city, addr.postalCode || addr.postal_code].filter(Boolean).join(" ") ||
         "Delhi NCR";
       const status = b.bookingStatus || b.booking_status || "REQUESTED";
-      const isReq = status === "REQUESTED";
+      const isReq = ["REQUESTED", "DIVYA_REVIEWING", "ALTERNATIVE_PROPOSED"].includes(status);
       const isConf = status === "CONFIRMED";
 
       let cohortBadge = `<span class="badge badge-live" title="Live Customer Booking">Live</span>`;
@@ -1566,20 +1566,43 @@
     }).join("");
   }
 
-  window.adminConfirmBooking = async function (bookingId) {
-    const startTime = prompt("Enter confirmed start time (e.g. 14:00):", "14:00");
-    if (!startTime) return;
-    const endTime = prompt("Enter confirmed end time (e.g. 16:00):", "16:00");
+  function selectDelhiDate(schedule, preferredDate, earliestDate = schedule.today) {
+    const date = prompt(
+      "Appointment date in the Delhi calendar (YYYY-MM-DD). Select between " +
+      earliestDate + " and " + schedule.latestDate + ".",
+      preferredDate >= earliestDate ? preferredDate : earliestDate
+    );
+    if (!date) return null;
+    if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(date) || date < earliestDate || date > schedule.latestDate) {
+      throw new Error("Choose a valid date in the displayed Delhi date range.");
+    }
+    return date;
+  }
 
+  window.adminConfirmBooking = async function (bookingId) {
     try {
-      await adminFetch(`/api/admin/bookings/${bookingId}/confirm`, {
+      const { schedule } = await window.NailsApi.listServices();
+      const booking = state.bookings.find((item) => item.id === bookingId);
+      const date = selectDelhiDate(schedule, booking?.alternativeProposedDate || booking?.requestedDate);
+      if (!date) return;
+      const preferredWindow = booking?.alternativeProposedTimeSlot || booking?.requestedTimeSlot || "";
+      const startTime = prompt("Confirmed start time in IST (HH:MM). Requested window: " + preferredWindow, "");
+      if (!startTime) return;
+      const endTime = prompt("Confirmed end time in IST (HH:MM):", "");
+      if (!endTime) return;
+      const isException = booking?.bookingStatus === "ALTERNATIVE_PROPOSED" && booking?.scheduleException;
+      const customerAccepted = isException && confirm("Has the customer explicitly accepted the proposed schedule exception?");
+      if (isException && !customerAccepted) return;
+
+      await adminFetch("/api/admin/bookings/" + bookingId + "/confirm", {
         method: "PATCH",
         body: JSON.stringify({
-          confirmed_start_time: startTime,
-          confirmed_end_time: endTime || undefined,
+          confirmed_start_time: date + "T" + startTime + ":00+05:30",
+          confirmed_end_time: date + "T" + endTime + ":00+05:30",
+          customer_accepted_schedule_exception: Boolean(customerAccepted),
         }),
       });
-      alert("Appointment confirmed! Schedule locked.");
+      alert("Appointment confirmed in Delhi time.");
       loadBookings();
       loadOverview();
     } catch (err) {
@@ -1588,22 +1611,32 @@
   };
 
   window.adminProposeBookingSlot = async function (bookingId) {
-    const date = prompt("Enter alternative date (YYYY-MM-DD):");
-    if (!date) return;
-    const slot = prompt("Enter proposed time window (e.g. 15:00 - 17:00):");
-    if (!slot) return;
-    const reason = prompt("Reason for reschedule:", "Artist schedule conflict for original slot");
-
     try {
-      await adminFetch(`/api/admin/bookings/${bookingId}/propose-slot`, {
+      const { schedule } = await window.NailsApi.listServices();
+      const booking = state.bookings.find((item) => item.id === bookingId);
+      const exception = confirm("Propose a staff-authorized exception? Choose Cancel to propose a regular window.");
+      const earliestDate = exception ? schedule.today : schedule.earliestDate;
+      const date = selectDelhiDate(schedule, booking?.requestedDate, earliestDate);
+      if (!date) return;
+      const slot = prompt(exception
+        ? "Exception window in IST (HH:MM - HH:MM):"
+        : "Choose a standard window in IST: " + schedule.requestWindows.join(" or "),
+        exception ? "" : schedule.requestWindows[0]);
+      if (!slot) return;
+      const reason = prompt(exception ? "Reason for the exception, shown to the customer:" : "Reason for proposing a different window:", "");
+      if (reason === null) return;
+      if (exception && !reason.trim()) throw new Error("Enter a reason the customer can see.");
+
+      await adminFetch("/api/admin/bookings/" + bookingId + "/propose-slot", {
         method: "PATCH",
         body: JSON.stringify({
           alternative_date: date,
           alternative_time_slot: slot,
           reschedule_reason: reason,
+          allow_schedule_exception: exception,
         }),
       });
-      alert("Alternative slot proposed! Action token generated for client.");
+      alert("Alternative proposed. Wait for customer acceptance before confirming a schedule exception.");
       loadBookings();
     } catch (err) {
       alert("Failed to propose alternative slot: " + err.message);

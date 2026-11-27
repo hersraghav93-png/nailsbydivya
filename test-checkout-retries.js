@@ -10,7 +10,7 @@ const { once } = require("node:events");
 const { randomUUID } = require("node:crypto");
 const assert = require("node:assert/strict");
 
-async function browserChecks() {
+async function browserChecks(mobile) {
   const $ = id => document.getElementById(id);
   const check = (condition, message) => { if (!condition) throw new Error(message); };
   const wait = async fn => {
@@ -38,10 +38,70 @@ async function browserChecks() {
     document.dispatchEvent(new CustomEvent("nails:auth-changed", { detail: { user: window.NailsAuth.getUser() } }));
   };
 
+  check(location.hash === "#divv" && $("divv-widget-modal").getAttribute("aria-hidden") === "false", "The Divv deep link opens on page load");
+  check($("divv-widget-body").textContent.includes("Help me choose a shape"), "The deep link renders the initialized Divv welcome screen");
+  $("divv-close-btn").click();
+
   if (!sessionStorage.getItem("reload-test")) {
+    check(mobile ? innerWidth < 768 : innerWidth >= 1024, "Checkout must run in the requested desktop or mobile layout");
+    const { products } = await NailsApi.listProducts();
+    check(products.length === 20, "Expected 20 fixture catalog products");
+    const amount = element => Number(element?.textContent.replace(/[^0-9.]/g, ""));
+    for (const product of products) {
+      const card = document.querySelector('[data-product-sku="' + product.sku + '"]');
+      const selector = product.isPromoApplied ? ".product-price-promo" : ".product-price-regular";
+      await wait(() => amount(card.querySelector(selector)) === product.effectivePrice);
+      openProductModalFromCard(card);
+      await wait(() => amount($("product-modal-price").querySelector(selector)) === product.effectivePrice);
+      if (product.isPromoApplied) {
+        check(amount($("product-modal-price").querySelector("del")) === product.basePrice, "Show the original price for a promotion");
+      }
+      closeAllModals();
+    }
+    $("shop-divv-help").click();
+    check($("divv-widget-modal").getAttribute("aria-hidden") === "false", "The shopping help button opens Divv");
+    $("divv-close-btn").click();
+
+    await openServiceModal("Safe Extension Removal", "Removal details");
+    const serviceForm = $("service-booking-form");
+    check(!$("service-quote-intro").hidden && serviceForm.style.display === "none", "Quote first without personal details");
+    check($("service-price-value").textContent === "Custom Quote", "Show the quote-based price");
+    check(new URL($("service-quote-whatsapp").href).hostname === "wa.me", "Offer the studio WhatsApp quote");
+    serviceForm.dispatchEvent(new Event("submit", { cancelable: true }));
+    $("service-quote-continue").click();
+    check($("service-quote-intro").hidden && serviceForm.style.display === "flex", "Keep scheduling available after the quote step");
+    closeAllModals();
+    await openServiceModal("Nail Extensions", "Extension details");
+    check($("service-quote-intro").hidden && serviceForm.style.display === "flex", "Regular booking opens directly");
+    check($("service-price-value").textContent === "From ₹999", "Keep regular service starting price");
+    closeAllModals();
+
     await NailsApi.getCart();
+    await openCartDrawer();
+    check(amount($("cart-total-val")) === 599, "Cart renders the server total");
+    await mode("empty-cart");
+    await openCartDrawer();
+    check($("cart-empty-state")?.style.display === "flex", "Removing the last cart item restores the empty state");
+    await mode("restore-cart");
     await openCheckoutModal();
+    check(amount($("checkout-total-val")) === 599, "Checkout renders the server total");
     fill();
+    const phone = $("checkout-phone");
+    const setPhone = value => {
+      phone.value = value;
+      phone.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    for (const value of ["abc", "abc9000000001", "+1 9000000001", "90000--00001", "5000000001", "900000001"]) {
+      setPhone(value);
+      check(!phone.validity.valid && phone.getAttribute("aria-invalid") === "true", "Reject malformed phone input");
+      check(!$("checkout-phone-error").hidden, "Show an inline error for the malformed phone");
+      submit();
+    }
+    check((await state()).creates.length === 0 && !pending(), "Malformed phone must not create a checkout attempt");
+    for (const value of ["9000000001", "90000 00001", "91-90000-00001", "0091 9000000001", "09000000001", "+91 90000-00001"]) {
+      setPhone(value);
+      check(phone.validity.valid && $("checkout-phone-error").hidden, "Accept valid Indian formats and clear the error");
+    }
     await mode("lose");
     submit();
     submit();
@@ -112,7 +172,7 @@ async function browserChecks() {
   await fetch("/pass", { method: "POST" });
 }
 
-async function main() {
+async function main(mobile) {
   const chrome = process.argv[2] || [
     "C:/Program Files/Google/Chrome/Application/chrome.exe", "/usr/bin/chromium", "/usr/bin/google-chrome",
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -125,7 +185,18 @@ async function main() {
   let pass, fail;
   const finished = new Promise((resolve, reject) => { pass = resolve; fail = reject; });
   const storefront = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
-  const markup = storefront.slice(storefront.indexOf('<div class="cart-drawer-overlay"'), storefront.indexOf("</body>")).split("<script")[0];
+  const shopStart = storefront.indexOf('<section class="shop-section');
+  const shop = storefront.slice(shopStart, storefront.indexOf("</section>", shopStart) + "</section>".length);
+  const skus = [...shop.matchAll(/<article class="product-card"[^>]*data-product-sku="([^"]+)"/g)].map(match => match[1]);
+  assert.equal(skus.length, 20);
+  const products = skus.map((sku, index) => ({
+    sku, basePrice: 800 + index, effectivePrice: index ? 599 : 800,
+    isPromoApplied: Boolean(index), promoName: "Test offer", isAvailable: true,
+  }));
+  const dialogs = storefront.slice(storefront.indexOf('<div class="modal-overlay" id="product-modal"'), storefront.indexOf("</body>")).split("<script")[0];
+  const divvStart = storefront.indexOf('<section class="studio-consult');
+  const divvHelp = storefront.slice(divvStart, storefront.indexOf("</section>", divvStart) + "</section>".length);
+  const markup = '<meta name="viewport" content="width=device-width, initial-scale=1">' + shop + divvHelp + dialogs;
   assert.ok(markup.includes('id="checkout-order-form"') && markup.includes('id="cart-drawer-overlay"'));
   const recent = [];
   const server = http.createServer(async (req, res) => {
@@ -139,8 +210,24 @@ async function main() {
     const token = req.headers.authorization?.slice(7);
     const buyer = token ? JSON.parse(Buffer.from(token.split(".")[1], "base64url")).sub : "guest";
     if (url.pathname === "/state") return json(200, { creates, lookups, items, clears, orders: receipts.size, holding: !!release });
+    if (url.pathname === "/api/products") return json(200, { products });
+    if (url.pathname === "/api/services") return json(200, { schedule: {
+      timeZone: "Asia/Kolkata", today: new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Kolkata" }).format(new Date()),
+      openWeekdays: [2, 3, 4, 5, 6, 0], opensAt: "12:00", closesAt: "18:00", minNoticeDays: 2,
+      earliestDate: "2026-12-01", latestDate: "2027-01-26",
+      requestWindows: ["12:30 PM - 02:30 PM", "03:00 PM - 05:00 PM"],
+    }, services: [
+      { id: "gel_extensions", pricingDisplay: "From ₹999", addons: [] },
+      { id: "extension_removal", pricingDisplay: "Custom Quote", addons: [] },
+    ] });
+    if (url.pathname === "/api/bookings") {
+      fail(new Error("Quote-first checks must not submit an appointment"));
+      return json(400, {});
+    }
     if (url.pathname.startsWith("/fixture/")) {
       mode = url.pathname.slice(9);
+      if (mode === "empty-cart") items.guest = 0;
+      if (mode === "restore-cart") items.guest = 1;
       if (mode === "release" && release) { release(); release = null; }
       return json(200, {});
     }
@@ -195,7 +282,7 @@ async function main() {
       };
       window.alert = message => { throw new Error(message); };
     `);
-    if (url.pathname === "/checks.js") return js("addEventListener('load', () => (" + browserChecks.toString() + ")().catch(e => fetch('/fail', { method: 'POST', body: e.stack })))");
+    if (url.pathname === "/checks.js") return js("addEventListener('load', () => (" + browserChecks.toString() + ")(" + mobile + ").catch(e => fetch('/fail', { method: 'POST', body: e.stack })))");
     if (url.pathname === "/add.js") return js("NailsApi.addToCart({sku:'fixture'});");
     if (url.pathname !== "/" && url.pathname !== "/other-tab") return json(404, {});
     res.setHeader("Content-Security-Policy", "default-src 'none'; script-src 'self'; connect-src 'self'; style-src 'unsafe-inline'");
@@ -210,16 +297,17 @@ async function main() {
   const profile = fs.mkdtempSync(path.join(tmp, "nbd-checkout-browser-"));
   const child = spawn(chrome, [
     "--headless=new", "--disable-gpu", "--disable-background-networking", "--disable-component-update",
+    mobile ? "--window-size=390,844" : "--window-size=1440,900",
     "--disable-sync", "--disable-popup-blocking", "--no-first-run", "--no-default-browser-check",
     "--no-proxy-server", "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1, EXCLUDE localhost", "--user-data-dir=" + profile,
-    "http://127.0.0.1:" + server.address().port,
+    "http://127.0.0.1:" + server.address().port + "/#divv",
   ], { stdio: "ignore", windowsHide: true });
   child.once("error", fail);
   const stopped = once(child, "exit");
   const timeout = setTimeout(() => fail(new Error("Browser checkout test timed out. Last requests: " + recent.join(", "))), 30000);
   try {
     await finished;
-    console.log("PASS Chrome checkout: double submit, lost response, second tab, reload, account switch and logout");
+    console.log("PASS Chrome " + (mobile ? "mobile" : "desktop") + ": 20 catalog prices, quote-first booking, guest phone validation, cart totals, double submit, lost response, second tab, reload, account switch and logout");
   } finally {
     clearTimeout(timeout);
     child.kill();
@@ -232,4 +320,4 @@ async function main() {
   }
 }
 
-main().catch(err => { console.error(err); process.exitCode = 1; });
+main(false).then(() => main(true)).catch(err => { console.error(err); process.exitCode = 1; });

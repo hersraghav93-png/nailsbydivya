@@ -61,6 +61,26 @@
     return Object.assign(new Error("Your sign-in changed. Please reopen your bag."), { code: "CHECKOUT_IDENTITY_CHANGED" });
   }
 
+  async function requestPublicCatalogue(url) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
+    try {
+      const response = await fetch(url, { signal: controller.signal, cache: "no-cache" });
+      if (!response.ok) {
+        throw Object.assign(new Error("Catalogue request failed"), { status: response.status });
+      }
+      return await response.json();
+    } catch (error) {
+      if (error.status) throw error;
+      throw Object.assign(new Error("Unable to read the catalogue"), {
+        code: controller.signal.aborted ? "CATALOGUE_TIMEOUT" : "CATALOGUE_READ_ERROR",
+        status: 0,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
   /**
    * Resolves the active backend API base URL based on explicit environment detection.
    * Unknown/unrecognized hostnames fail closed and never fall back to production.
@@ -146,6 +166,7 @@
       const baseUrl = this.getBaseUrl();
       const url = `${baseUrl}${endpoint}`;
 
+      if (options.publicCatalog) return requestPublicCatalogue(url);
       const headers = {
         "Content-Type": "application/json",
         ...(options.headers || {}),
@@ -406,7 +427,7 @@
       if (params.limit) queryParts.push(`limit=${encodeURIComponent(params.limit)}`);
       if (params.offset) queryParts.push(`offset=${encodeURIComponent(params.offset)}`);
       const qs = queryParts.length ? `?${queryParts.join("&")}` : "";
-      return this.request(`/api/products${qs}`);
+      return this.request(`/api/products${qs}`, { publicCatalog: true });
     },
 
     /**
@@ -416,7 +437,7 @@
      * @returns {Promise<{ status: string, product: object }>}
      */
     async getProductBySku(sku) {
-      return this.request(`/api/products/${encodeURIComponent(sku)}`);
+      return this.request(`/api/products/${encodeURIComponent(sku)}`, { publicCatalog: true });
     },
 
     // --------------------------------------------------------------------------
@@ -602,7 +623,7 @@
      * @returns {Promise<{ status: string, count: number, services: Array<object> }>}
      */
     async listServices() {
-      return this.request("/api/services");
+      return this.request("/api/services", { publicCatalog: true });
     },
 
     /**

@@ -124,70 +124,116 @@ if (typeof document !== "undefined") {
 // ---------------------------------------------------------------------------
 // 01. SINGLE SOURCE OF TRUTH — PRODUCT PRICING & SKU REGISTRY
 // ---------------------------------------------------------------------------
-const PRODUCT_PRICES = {
-  // Casual Collection
-  "CAS-005": "₹799",
-  "CAS-007": "₹1199",
-  "CAS-008": "₹1199",
+const catalogPrices = new Map();
+const catalogDetailRequests = new Map();
+const catalogCards = "article[data-product-sku], aside[data-product-sku], .carousel-card[data-product-sku]";
+let catalogPriceRequest;
+let catalogPriceReadFailed = false;
+let productPricingView = 0;
+let productPageSku;
+let productOpener;
+const productFitDrafts = new Map();
+const modalOpeners = new WeakMap();
 
-  // Party & Evening Collection
-  "PAR-003": "₹1299",
-  "PAR-004": "₹1299",
-  "PAR-008": "₹999",
-  "PAR-0010": "₹1299",
-  "PAR-0011": "₹799",
+function formatCatalogPrice(price) {
+  return "₹" + price.toLocaleString("en-IN", { maximumFractionDigits: 2 });
+}
 
-  // Wedding & Bridal Collection
-  "WED-001": "₹999",
-  "WED-002": "₹799",
-  "WED-005": "₹999",
-  "WED-006": "₹1399",
-  "WED-007": "₹1299",
-  "WED-008": "₹699",
-  "WED-009": "₹1399",
-
-  // Office & Daily Collection
-  "WORK-002": "₹1099",
-  "WORK-003": "₹799",
-  "WORK-004": "₹999",
-  "WORK-006": "₹1199",
-  "WORK-007": "₹1299"
-};
-
-// ---------------------------------------------------------------------------
-// 01B. FESTIVE PROMOTIONAL PRICING REGISTRY
-// ---------------------------------------------------------------------------
-const FESTIVE_OFFER_CONFIG = {
-  active: true,
-  promoPrice: "₹599",
-  promoPriceDisplay: "₹599",
-  badgeText: "✦ FESTIVE OFFER · ₹599",
-
-  /**
-   * Identifies whether a SKU qualifies for the festive press-on promotional price.
-   * Matches backend pricingEngine: active promotion applies to eligible press-on sets where basePrice > 599.
-   */
-  isEligible(sku, productObj = null) {
-    if (!this.active || !sku) return false;
-    if (productObj && (productObj.is_promotional === false || productObj.is_festive_eligible === false)) {
-      return false;
-    }
-    const priceStr = PRODUCT_PRICES[sku] || (productObj && productObj.base_price ? `₹${productObj.base_price}` : null);
-    if (!priceStr) return false;
-    const baseNum = parseInt(String(priceStr).replace(/[^0-9]/g, ""), 10);
-    return !isNaN(baseNum) && baseNum > 599;
-  },
-
-  /**
-   * Returns the current active offer price for quotation and checkout.
-   */
-  getEffectivePrice(sku, productObj = null) {
-    if (this.isEligible(sku, productObj)) {
-      return this.promoPrice;
-    }
-    return (sku && PRODUCT_PRICES[sku]) || (productObj && productObj.base_price ? `₹${productObj.base_price}` : null);
+function renderCatalogPrice(element, price, emptyLabel = catalogPriceReadFailed ? "Couldn’t load the price" : "Enquire with Divya for pricing") {
+  if (!element) return;
+  const promo = price?.isPromoApplied && price.basePrice > price.effectivePrice;
+  element.classList.toggle("festive-pricing", Boolean(promo));
+  if (!price) {
+    element.textContent = emptyLabel;
+    return;
   }
-};
+
+  const effectivePrice = formatCatalogPrice(price.effectivePrice);
+  element.innerHTML = promo
+    ? `<span class="product-price-row">
+        <del class="product-price-original" aria-label="Original price ${formatCatalogPrice(price.basePrice)}">${formatCatalogPrice(price.basePrice)}</del>
+        <strong class="product-price-promo">${effectivePrice}</strong>
+        <span class="festive-offer-label">Offer price</span>
+      </span>`
+    : `<span class="product-price-row"><strong class="product-price-regular">${effectivePrice}</strong></span>`;
+}
+
+function validCatalogProduct(product) {
+  return typeof product?.sku === "string" && product.sku.length > 0 &&
+    (product.isAvailable === false ||
+      (Number.isFinite(product.basePrice) && product.basePrice >= 0 &&
+       Number.isFinite(product.effectivePrice) && product.effectivePrice >= 0 &&
+       typeof product.isPromoApplied === "boolean"));
+}
+
+function getCatalogDetail(sku) {
+  if (!catalogDetailRequests.has(sku)) {
+    const request = window.NailsApi.getProductBySku(sku).then(({ product }) => {
+      if (!validCatalogProduct(product) || product.sku !== sku) {
+        throw new TypeError("Invalid catalogue detail response");
+      }
+      return product;
+    }).finally(() => catalogDetailRequests.delete(sku));
+    catalogDetailRequests.set(sku, request);
+  }
+  return catalogDetailRequests.get(sku);
+}
+
+function getCatalogPrices() {
+  if (catalogPriceRequest) return catalogPriceRequest;
+
+  async function loadPage(offset) {
+    const read = async () => {
+      const result = await window.NailsApi.listProducts({ limit: 100, offset });
+      if (!Array.isArray(result?.products) || !result.products.every(validCatalogProduct) ||
+          new Set(result.products.map(({ sku }) => sku)).size !== result.products.length ||
+          (result.total != null && (!Number.isSafeInteger(result.total) || result.total < offset + result.products.length))) {
+        throw new TypeError("Invalid catalogue list response");
+      }
+      return result;
+    };
+    try {
+      return await read();
+    } catch (error) {
+      if (error.status && ![408, 429].includes(error.status) && error.status < 500) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      return read();
+    }
+  }
+
+  catalogPriceRequest = (async () => {
+    const response = await loadPage(0);
+    const products = [...response.products];
+    const listed = new Set(products.map(({ sku }) => sku));
+    while (products.length < response.total) {
+      const next = await loadPage(products.length);
+      if (!next.products.length || next.products.some(({ sku }) => listed.has(sku))) {
+        throw new TypeError("Catalogue pagination did not advance");
+      }
+      for (const product of next.products) {
+        listed.add(product.sku);
+        products.push(product);
+      }
+    }
+
+    const skus = new Set([...document.querySelectorAll(catalogCards)].map((card) => card.dataset.productSku));
+    const missing = [...skus].filter((sku) => !listed.has(sku));
+    const details = await Promise.allSettled(missing.map(getCatalogDetail));
+    catalogPriceReadFailed = details.some((result) => result.status === "rejected" && result.reason?.status !== 404);
+    for (const result of details) {
+      if (result.status === "fulfilled") products.push(result.value);
+    }
+    for (const product of products) {
+      if (product.isAvailable === false) catalogPrices.delete(product.sku);
+      else catalogPrices.set(product.sku, product);
+    }
+    if (catalogPriceReadFailed) catalogPriceRequest = null;
+  })().catch(() => {
+    catalogPriceReadFailed = true;
+    catalogPriceRequest = null;
+  });
+  return catalogPriceRequest;
+}
 
 // ---------------------------------------------------------------------------
 // 01B. CHECKOUT & COMMERCE CONFIGURATION (FUTURE-PROOF ABSTRACTION)
@@ -205,7 +251,7 @@ const CHECKOUT_CONFIG = {
       const skuStr = sku ? ` [SKU: ${sku}]` : "";
       const priceStr = price ? ` • Price: *${price}*` : "";
       const noteStr = customNote ? `\n• ${customNote}` : "";
-      const text = `Hi Divya! I would like to order the handmade press-on nail set: *${productName}*${skuStr} (${category})${priceStr}.${noteStr}\n\nPlease let me know how to share my nail measurements and confirm delivery across India.`;
+      const text = `Hi Divya! I would like help choosing the handmade press-on nail set: *${productName}*${skuStr} (${category})${priceStr}.${noteStr}\n\nPlease let me know how to share my nail measurements and confirm delivery across India.`;
       const encodedText = encodeURIComponent(text);
       return `https://wa.me/${this.whatsappNumber}?text=${encodedText}`;
     }
@@ -217,7 +263,7 @@ const CHECKOUT_CONFIG = {
    * Generates a service appointment consultation URL.
    */
   getServiceBookingUrl(serviceTitle, locationNote = "Delhi NCR") {
-    const text = `Hi Divya! I would like to inquire about *${serviceTitle}* (${locationNote}).\n\nPlease let me know your availability and how we can proceed.`;
+    const text = `Hi Divya! I would like to inquire about *${serviceTitle}* (${locationNote}).\n\nCould you share a quote and let me know what you need to estimate it?`;
     const encodedText = encodeURIComponent(text);
     return `https://wa.me/${this.whatsappNumber}?text=${encodedText}`;
   }
@@ -226,17 +272,22 @@ const CHECKOUT_CONFIG = {
 // ---------------------------------------------------------------------------
 // 02. DOM READY INITIALIZATION
 // ---------------------------------------------------------------------------
+// Start public pricing while the Firebase SDK is still downloading.
+initProductPrices();
+
 document.addEventListener("DOMContentLoaded", () => {
-  initProductPrices();
+  initStudioPhotography();
+  initCheckoutPhoneValidation();
   initHeaderScroll();
   initMobileNav();
-  initHeroShowcase();
   initLuxuryCarousels();
   initShopFilters();
   initModals();
+  if (document.querySelector("[data-studio-hours]")) getLiveServiceCatalog();
   initScrollAnimations();
   initTrustFaq();
   initMomentCarousel();
+  initProductPage();
   initDivvStylist();
   initDiwaliCards();
 });
@@ -272,50 +323,111 @@ function initDiwaliCards() {
   });
 }
 
-/**
- * Ensures all product cards and prices stay synchronized to our Single Source of Truth (`PRODUCT_PRICES`),
- * dynamically rendering the festive promotional pricing treatment when active.
- */
-function initProductPrices() {
-  document.querySelectorAll(".carousel-card[data-product-sku], article[data-product-sku]").forEach((card) => {
-    const sku = card.getAttribute("data-product-sku");
-    if (!sku || !PRODUCT_PRICES[sku]) return;
-
-    const originalPrice = PRODUCT_PRICES[sku];
-    let priceEl = card.querySelector(".product-price");
-    if (!priceEl) {
-      priceEl = document.createElement("div");
-      priceEl.className = "product-price";
-      const h4 = card.querySelector("h4");
-      if (h4 && h4.nextSibling) {
-        h4.parentNode.insertBefore(priceEl, h4.nextSibling);
-      } else if (h4) {
-        h4.parentNode.appendChild(priceEl);
-      }
+async function initProductPrices() {
+  const cards = document.querySelectorAll(catalogCards);
+  if (!cards.length) return;
+  if (window.NailsApi) await getCatalogPrices();
+  else catalogPriceReadFailed = true;
+  for (const card of cards) {
+    const priceNode = card.querySelector(".product-price");
+    const price = catalogPrices.get(card.dataset.productSku);
+    renderCatalogPrice(priceNode, price);
+    if (!price && catalogPriceReadFailed && priceNode) {
+      const retry = document.createElement("button");
+      retry.type = "button";
+      retry.className = "studio-price-retry studio-text-link";
+      retry.textContent = "Try again";
+      retry.addEventListener("click", (event) => {
+        event.stopPropagation();
+        retry.disabled = true;
+        initProductPrices();
+      });
+      priceNode.append(" ", retry);
     }
-
-    if (FESTIVE_OFFER_CONFIG.isEligible(sku)) {
-      priceEl.classList.add("festive-pricing");
-      priceEl.innerHTML = `
-        <div class="product-price-row">
-          <span class="product-price-promo">${FESTIVE_OFFER_CONFIG.promoPriceDisplay}</span>
-          <del class="product-price-original">${originalPrice}</del>
-        </div>
-        <span class="festive-offer-label">${FESTIVE_OFFER_CONFIG.badgeText}</span>
-      `;
+  }
+  const offer = document.getElementById("verified-presson-offer");
+  if (offer) {
+    const promoted = [...catalogPrices.values()].filter((product) =>
+      product.isPromoApplied && product.basePrice > product.effectivePrice);
+    offer.replaceChildren();
+    if (promoted.length) {
+      const heading = document.createElement("h3");
+      heading.textContent = promoted.every((product) => product.effectivePrice === promoted[0].effectivePrice)
+        ? `Hand-painted sets at ${formatCatalogPrice(promoted[0].effectivePrice)}`
+        : "Explore the current press-on offers";
+      const copy = document.createElement("p");
+      copy.textContent = "Current catalogue offers are shown on each eligible set, alongside its original price. Choose a design to see its price and sizing.";
+      const link = document.createElement("a");
+      link.className = "button primary-button";
+      link.href = "#shop";
+      link.textContent = "Shop eligible sets →";
+      offer.append(heading, copy, link);
     } else {
-      priceEl.classList.remove("festive-pricing");
-      priceEl.innerHTML = `
-        <div class="product-price-row">
-          <span class="product-price-regular" style="font-size: 1.15rem; font-weight: 700; color: var(--accent-strong);">${originalPrice}</span>
-        </div>
-      `;
+      offer.innerHTML = '<h3>Your next hand-painted set</h3><p>Explore the collection for current prices and available offers.</p><a class="button primary-button" href="#shop">Explore press-ons →</a>';
     }
+  }
+}
 
-    const orderBtn = card.querySelector("button[data-action='order']");
-    if (orderBtn && !orderBtn.getAttribute("data-product-sku")) {
-      orderBtn.setAttribute("data-product-sku", sku);
-    }
+function initStudioPhotography() {
+  const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+  if (!("IntersectionObserver" in window)) return;
+  document.querySelectorAll("[data-studio-rotation]").forEach((frame) => {
+    const slides = [...frame.querySelectorAll("img")];
+    const control = frame.querySelector(".studio-photo-control");
+    let current = 0;
+    let timer;
+    let paused = false;
+    let visible = false;
+    let advancing = false;
+    const failed = new Set();
+
+    const schedule = () => {
+      clearTimeout(timer);
+      const stopped = paused || reducedMotion.matches;
+      control.hidden = reducedMotion.matches;
+      control.dataset.paused = String(paused);
+      control.setAttribute("aria-label", paused ? "Resume photo transitions" : "Pause photo transitions");
+      if (!stopped && visible && !document.hidden) timer = setTimeout(advance, 8000);
+    };
+    const advance = async () => {
+      const next = slides.findIndex((_, index) => index > current && !failed.has(index));
+      const first = slides.findIndex((_, index) => !failed.has(index));
+      const target = next < 0 ? first : next;
+      if (advancing || target < 0 || target === current) return;
+      advancing = true;
+      try {
+        const image = slides[target];
+        if (image.dataset.src) {
+          image.src = image.dataset.src;
+          delete image.dataset.src;
+        }
+        await image.decode();
+        if (visible && !paused && !document.hidden && !reducedMotion.matches) {
+          slides[current].classList.remove("is-active");
+          slides[current].setAttribute("aria-hidden", "true");
+          image.classList.add("is-active");
+          image.removeAttribute("aria-hidden");
+          current = target;
+        }
+      } catch {
+        failed.add(target);
+      } finally {
+        advancing = false;
+        schedule();
+      }
+    };
+    control.addEventListener("click", () => {
+      paused = !paused;
+      schedule();
+    });
+    reducedMotion.addEventListener("change", schedule);
+    document.addEventListener("visibilitychange", schedule);
+    const observer = new IntersectionObserver(([entry]) => {
+      visible = entry.isIntersecting;
+      schedule();
+    });
+    observer.observe(frame);
+    schedule();
   });
 }
 
@@ -444,42 +556,6 @@ function initMobileNav() {
       toggleMenu(false);
     }
   }, { passive: true });
-}
-
-// ---------------------------------------------------------------------------
-// 04. HERO ROTATING SHOWCASE (POLISHED 5-SECOND ROTATION)
-// ---------------------------------------------------------------------------
-function initHeroShowcase() {
-  const showcase = document.getElementById("hero-showcase");
-  if (!showcase) return;
-
-  const slides = Array.from(showcase.querySelectorAll(".hero-slide"));
-  if (slides.length <= 1) return;
-
-  const dots = Array.from(document.querySelectorAll("#hero-showcase-indicators .showcase-dot"));
-
-  let currentIndex = 0;
-
-  function goToSlide(index) {
-    slides.forEach((s, i) => s.classList.toggle("is-active", i === index));
-    dots.forEach((d, i) => d.classList.toggle("is-active", i === index));
-    currentIndex = index;
-  }
-
-  dots.forEach((dot, idx) => {
-    dot.addEventListener("click", () => {
-      goToSlide(idx);
-    });
-  });
-
-  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    return;
-  }
-
-  setInterval(() => {
-    const nextIndex = (currentIndex + 1) % slides.length;
-    goToSlide(nextIndex);
-  }, 5000);
 }
 
 // ---------------------------------------------------------------------------
@@ -743,7 +819,7 @@ function initLuxuryCarousels() {
  * - Tapping collapse returns visitor smoothly to the beginning of the Press-On collection and collapses back to 3
  * - Ensures expand and collapse controls never appear simultaneously
  */
-function initMobileShopExpand() {
+function initShopCollection() {
   const grid = document.getElementById("product-grid");
   const expandWrap = document.getElementById("shop-mobile-expand-wrap");
   const expandBtn = document.getElementById("shop-mobile-expand-btn");
@@ -751,78 +827,37 @@ function initMobileShopExpand() {
   const collapseBtn = document.getElementById("shop-mobile-collapse-btn");
   if (!grid || !expandBtn) return;
 
-  function isMobile() {
-    return window.innerWidth <= 640;
-  }
-
-  function expand(scrollIntoView = true) {
-    if (!grid.classList.contains("is-collapsed-mobile")) return;
-    grid.classList.remove("is-collapsed-mobile");
-    if (expandWrap) {
-      expandWrap.style.display = "none";
-    }
-    if (collapseWrap && isMobile()) {
-      collapseWrap.style.display = "flex";
-    }
-    expandBtn.setAttribute("aria-expanded", "true");
-    if (scrollIntoView) {
-      const fourthCard = grid.querySelector(".product-card:nth-child(4)");
-      if (fourthCard) {
-        fourthCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
-      }
-    }
-  }
-
-  function collapse() {
-    grid.classList.add("is-collapsed-mobile");
-    if (collapseWrap) {
-      collapseWrap.style.display = "none";
-    }
-    if (expandWrap && isMobile()) {
-      expandWrap.style.display = "flex";
-    }
-    expandBtn.setAttribute("aria-expanded", "false");
-
-    // Smoothly return visitor to the beginning of the Press-On collection
-    const shopSection = document.getElementById("shop") || grid;
-    shopSection.scrollIntoView({ behavior: "smooth", block: "start" });
+  function setExpanded(expanded) {
+    grid.classList.toggle("is-collapsed-mobile", !expanded);
+    expandWrap.style.display = expanded ? "none" : "flex";
+    collapseWrap.style.display = expanded ? "flex" : "none";
+    expandBtn.setAttribute("aria-expanded", String(expanded));
   }
 
   expandBtn.addEventListener("click", () => {
-    expand(true);
+    const firstNewCard = grid.querySelector(matchMedia("(max-width: 800px)").matches
+      ? ".product-card:nth-child(5)"
+      : ".product-card:nth-child(7)");
+    setExpanded(true);
+    firstNewCard?.querySelector("[data-action='details']")?.focus({ preventScroll: true });
+    firstNewCard?.scrollIntoView({ block: "center" });
   });
 
-  if (collapseBtn) {
-    collapseBtn.addEventListener("click", () => {
-      collapse();
-    });
-  }
-
-  const shopTabs = document.querySelectorAll(".shop-category-nav .category-tab, [data-shop-filter]");
-  shopTabs.forEach((tab) => {
-    tab.addEventListener("click", () => {
-      expand(false);
-    });
+  collapseBtn.addEventListener("click", () => {
+    const allSets = document.querySelector(".shop-category-nav [data-filter='all']");
+    allSets?.click();
+    setExpanded(false);
+    expandBtn.focus({ preventScroll: true });
+    expandBtn.scrollIntoView({ block: "center" });
   });
 
-  window.addEventListener("resize", () => {
-    if (!isMobile()) {
-      if (expandWrap) expandWrap.style.display = "none";
-      if (collapseWrap) collapseWrap.style.display = "none";
-    } else {
-      if (grid.classList.contains("is-collapsed-mobile")) {
-        if (expandWrap) expandWrap.style.display = "flex";
-        if (collapseWrap) collapseWrap.style.display = "none";
-      } else {
-        if (expandWrap) expandWrap.style.display = "none";
-        if (collapseWrap) collapseWrap.style.display = "flex";
-      }
-    }
+  document.querySelectorAll(".shop-category-nav .category-tab").forEach((tab) => {
+    tab.addEventListener("click", () => setExpanded(true));
   });
 }
 
 function initShopFilters() {
-  initMobileShopExpand();
+  initShopCollection();
   // Shop Category Tabs
   const shopTabs = document.querySelectorAll(".shop-category-nav .category-tab, [data-shop-filter]");
   const productCards = document.querySelectorAll(".product-card, .carousel-card");
@@ -909,7 +944,33 @@ function initModals() {
   if (cartDrawerClose) cartDrawerClose.addEventListener("click", closeCartDrawer);
 
   window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closeAllModals();
+    if (e.key === "Escape") {
+      if (cartDrawerOverlay?.classList.contains("is-open")) closeCartDrawer();
+      else closeAllModals();
+    }
+  });
+
+  window.addEventListener("keydown", (event) => {
+    if (event.key !== "Tab" || event.defaultPrevented ||
+        document.querySelector(".divv-widget-modal.is-open, dialog[open]")) return;
+    const modal = [cartDrawerOverlay, checkoutModal, serviceModal, productModal]
+      .find((candidate) => candidate?.classList.contains("is-open"));
+    if (!modal) return;
+    const controls = [...modal.querySelectorAll("a[href], button, summary, input, select, textarea")]
+      .filter((element) => element.tabIndex >= 0 && !element.matches(":disabled") &&
+        element.getClientRects().length && getComputedStyle(element).visibility === "visible");
+    const first = controls[0];
+    const last = controls.at(-1);
+    if (!modal.contains(document.activeElement)) {
+      event.preventDefault();
+      (event.shiftKey ? last : first)?.focus();
+    } else if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last?.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first?.focus();
+    }
   });
 
   if (productModal) {
@@ -962,6 +1023,7 @@ function initModals() {
     const buyer = window.NailsApi?.getBuyerId?.() || null;
     if (buyer !== lastBuyer) {
       lastBuyer = buyer;
+      productFitDrafts.clear();
       if (pendingCheckout && pendingCheckout.buyer !== buyer) saveCheckout(null);
       closeAllModals();
       checkoutSubmitting = null;
@@ -980,6 +1042,7 @@ function initModals() {
   const cartEmptyShopBtn = document.getElementById("cart-empty-shop-btn");
   if (cartEmptyShopBtn) {
     cartEmptyShopBtn.addEventListener("click", (e) => {
+      if (productPageSku) return;
       e.preventDefault();
       closeCartDrawer();
       const shopSec = document.getElementById("shop");
@@ -1012,7 +1075,7 @@ function initModals() {
     }
   });
 
-  // Direct Order CTA Buttons inside Product Cards
+  // WhatsApp assistance for a specific product
   document.querySelectorAll("button[data-action='order']").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -1020,7 +1083,8 @@ function initModals() {
       const category = btn.getAttribute("data-product-category") || "Handmade Collection";
       const cardEl = btn.closest(".carousel-card, article");
       const sku = btn.getAttribute("data-product-sku") || (cardEl ? cardEl.getAttribute("data-product-sku") : null);
-      const effectivePrice = FESTIVE_OFFER_CONFIG.getEffectivePrice(sku);
+      const price = catalogPrices.get(sku);
+      const effectivePrice = price ? formatCatalogPrice(price.effectivePrice) : null;
       window.open(CHECKOUT_CONFIG.getCheckoutUrl(title, category, effectivePrice, sku), "_blank", "noopener,noreferrer");
     });
   });
@@ -1049,340 +1113,388 @@ function initModals() {
   });
 }
 
-function openProductModalFromCard(card) {
-  const titleElem = card.querySelector("h4");
+function productPageUrl(sku, fromDivv = false) {
+  return `./?set=${encodeURIComponent(sku)}${fromDivv ? "&from=divv" : ""}`;
+}
+
+function initProductPage() {
+  const params = new URLSearchParams(location.search);
+  if (!params.has("set")) return;
+  const sku = params.get("set").toUpperCase();
+  const card = [...document.querySelectorAll("#shop article[data-product-sku]")]
+    .find((item) => item.dataset.productSku === sku);
+  if (!card) {
+    location.replace("./#shop");
+    return;
+  }
+
+  const modal = document.getElementById("product-modal");
+  productPageSku = sku;
+  modal.classList.replace("modal-overlay", "studio-product-page");
+  modal.removeAttribute("role");
+  modal.removeAttribute("aria-modal");
+  const dialogTitle = modal.querySelector("#product-modal-title");
+  const pageTitle = document.createElement("h1");
+  pageTitle.id = dialogTitle.id;
+  pageTitle.className = dialogTitle.className;
+  pageTitle.tabIndex = -1;
+  dialogTitle.replaceWith(pageTitle);
+  document.getElementById("main-content").append(modal);
+  document.querySelectorAll('header a[href^="#"], footer a[href^="#"], #cart-empty-shop-btn').forEach((link) => {
+    if (link.hash !== "#divv") link.setAttribute("href", "./" + link.hash);
+  });
+  openProductModalFromCard(card, { fromDivv: params.get("from") === "divv" });
+}
+
+function openProductModalFromCard(card, { fromDivv = false } = {}) {
+  const titleElem = card.querySelector("h3, h4");
   const descElem = card.querySelector(".product-description");
   const imgElem = card.querySelector("img");
-  const badgeElem = card.querySelector(".product-badge");
-  const sku = card.getAttribute("data-product-sku");
+  const category = card.querySelector("[data-product-category]")?.dataset.productCategory;
+  const sku = card.dataset.productSku;
 
   if (!titleElem || !imgElem) return;
 
-  const imgSrc = imgElem.currentSrc || imgElem.src || imgElem.getAttribute("src") || imgElem.getAttribute("data-src") || "";
-
   openProductModal({
     title: titleElem.textContent.trim(),
-    category: badgeElem ? `${badgeElem.textContent.trim()} • Handmade Press-On` : "Handmade Press-On • Pan-India",
-    imageSrc: imgSrc,
+    category: category ? `${category} press-ons` : "Handmade press-ons",
+    imageSrc: imgElem.currentSrc || imgElem.src || imgElem.dataset.src,
     imageAlt: imgElem.alt || titleElem.textContent.trim(),
-    description: descElem ? descElem.textContent.trim() : "Individually hand-painted by Divya using salon-grade soft gel after your order is confirmed.",
-    sku: sku
+    description: descElem?.textContent.trim() || "",
+    designReference: card.dataset.designReference,
+    portrait: card.hasAttribute("data-photo-portrait"),
+    sku,
+    fromDivv,
   });
 }
 
-/**
- * Opens the Imagery-Led Product Modal (`#product-modal`).
- */
-function openProductModal({ title, category, imageSrc, imageAlt, description, sku }) {
+function initProductGallery(modal, { title, imageSrc, imageAlt, designReference, portrait }) {
+  const image = modal.querySelector("#product-modal-image");
+  const frame = image.parentElement;
+  frame.dataset.portrait = String(Boolean(portrait));
+  const controls = modal.querySelector("#product-detail-gallery");
+  const initial = { src: imageSrc, alt: imageAlt, label: "On-hand photo" };
+  let images;
+  let current = 0;
+  let touchStart;
+
+  function select(index) {
+    current = index;
+    const selected = images[index];
+    image.alt = selected.alt;
+    if (selected.src) image.src = selected.src;
+    else image.removeAttribute("src");
+    for (const [i, button] of [...controls.children].entries()) {
+      button.setAttribute("aria-pressed", String(i === current));
+    }
+  }
+
+  const render = (photos = []) => {
+    const sources = new Set();
+    images = photos.map((photo) => ({ src: photo.imageUrl, alt: photo.altText || title }))
+      .concat(initial)
+      .filter((photo) => {
+        if (!photo.src) return false;
+        const url = new URL(photo.src, location.href).href;
+        if (sources.has(url)) return false;
+        sources.add(url);
+        return true;
+      })
+      .map((photo, i, all) => ({
+        ...photo, label: all.length > 1 ? `Photo ${i + 1}` : initial.label
+      }));
+    if (!images.length) images.push(initial);
+    if (designReference) images.push({ src: designReference, alt: `${title} illustrated set reference`, label: "Design card" });
+    const previouslySelected = image.getAttribute("src");
+    const selected = images.findIndex((photo) => photo.src && previouslySelected &&
+      new URL(photo.src, location.href).href === new URL(previouslySelected, location.href).href);
+    controls.replaceChildren(...images.map((photo, i) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = photo.label;
+      button.addEventListener("click", () => select(i));
+      return button;
+    }));
+    controls.hidden = images.length < 2;
+    select(selected >= 0 ? selected : 0);
+  };
+
+  frame.ontouchstart = (event) => {
+    const touch = event.changedTouches[0];
+    touchStart = { x: touch.clientX, y: touch.clientY };
+  };
+  frame.ontouchend = (event) => {
+    if (!touchStart || images.length < 2) return;
+    const touch = event.changedTouches[0];
+    const dx = touch.clientX - touchStart.x;
+    const dy = touch.clientY - touchStart.y;
+    touchStart = null;
+    if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      select(Math.max(0, Math.min(images.length - 1, current + (dx < 0 ? 1 : -1))));
+    }
+  };
+  image.onerror = () => {
+    const fallback = initial.src && new URL(initial.src, location.href).href;
+    if (fallback && image.src !== fallback) {
+      const index = images.findIndex(({ src }) => new URL(src, location.href).href === fallback);
+      select(index);
+    } else {
+      image.removeAttribute("src");
+      image.alt = `Image unavailable for ${title}`;
+    }
+  };
+  image.removeAttribute("src");
+  render();
+  return render;
+}
+
+function shortProductDescription(description) {
+  return description.trim().split(/(?<=[.!?])\s+/)[0];
+}
+
+function openProductModal({ title, category, imageSrc, imageAlt, description, sku, designReference, portrait, fromDivv = false }) {
   const modal = document.getElementById("product-modal");
   if (!modal) return;
 
-  const titleEl = document.getElementById("product-modal-title");
-  const catEl = document.getElementById("product-modal-category");
-  const skuEl = document.getElementById("product-modal-sku");
-  const imgEl = document.getElementById("product-modal-image");
-  const descEl = document.getElementById("product-modal-desc");
-  const priceEl = document.getElementById("product-modal-price");
-  const addBagBtn = document.getElementById("product-modal-add-bag");
-  const addBagLabel = document.getElementById("product-modal-add-label");
-  const checkoutBtn = document.getElementById("product-modal-checkout-btn");
-  const actionBtn = document.getElementById("product-modal-action-btn");
-  const feedbackEl = document.getElementById("product-modal-feedback");
-  const sizingGuideText = document.getElementById("modal-sizing-guide-text");
-  const customBox = document.getElementById("modal-custom-measurements");
+  const titleEl = modal.querySelector("#product-modal-title");
+  const pageLink = modal.querySelector("#product-page-link");
+  const fitTitle = modal.querySelector("#product-fit-title");
+  const descEl = modal.querySelector("#product-modal-desc");
+  const priceEl = modal.querySelector("#product-modal-price");
+  const addBagBtn = modal.querySelector("#product-modal-add-bag");
+  const addBagLabel = modal.querySelector("#product-modal-add-label");
+  const checkoutBtn = modal.querySelector("#product-modal-checkout-btn");
+  const actionBtn = modal.querySelector("#product-modal-action-btn");
+  const feedbackEl = modal.querySelector("#product-modal-feedback");
+  const sizingGuideText = modal.querySelector("#modal-sizing-guide-text");
+  const customBox = modal.querySelector("#modal-custom-measurements");
+  const sizeChips = [...modal.querySelectorAll(".size-chip")];
+  const shapePills = [...modal.querySelectorAll("[data-shape]")];
+  const lengthPills = [...modal.querySelectorAll("[data-length]")];
+  const measurements = [...customBox.querySelectorAll("input")];
 
-  // Synchronously update all text fields so information never carries over from previously opened design
-  if (titleEl) titleEl.textContent = title || "Bespoke Artistry";
-  if (catEl) catEl.textContent = category || "Handmade Collection";
-  if (skuEl) {
-    if (sku) {
-      skuEl.textContent = `SKU: ${sku}`;
-      skuEl.style.display = "inline-block";
-    } else {
-      skuEl.textContent = "";
-      skuEl.style.display = "none";
-    }
-  }
-  if (descEl) descEl.textContent = description || "";
-  if (feedbackEl) { feedbackEl.textContent = ""; feedbackEl.style.display = "none"; }
+  const priceView = ++productPricingView;
+  const isPage = Boolean(productPageSku);
+  const draft = productFitDrafts.get(sku);
+  let activeShape = draft?.shape || "Almond";
+  let activeLength = draft?.length || "Medium";
+  let activeSize = draft?.size || "M";
+  let variants = [];
+  let effectivePrice;
+  let adding = false;
 
-  const placeholderSvg = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='600' viewBox='0 0 600 600'><rect width='100%' height='100%' fill='%23faf7f2'/><text x='50%' y='48%' font-family='sans-serif' font-size='16' fill='%239e8a78' text-anchor='middle'>Design Imagery</text><text x='50%' y='54%' font-family='sans-serif' font-size='12' fill='%23c2b2a3' text-anchor='middle'>Nails by Divya</text></svg>";
+  titleEl.textContent = title || "Bespoke nail art";
+  modal.querySelector("#product-modal-category").textContent = category || "Bespoke portfolio";
+  descEl.textContent = sku ? shortProductDescription(description || "") : description || "";
+  modal.querySelector("#product-return-divv").hidden = !fromDivv;
+  modal.querySelector(".product-collection-link").hidden = fromDivv;
+  pageLink.hidden = isPage || !sku;
+  if (sku) pageLink.href = productPageUrl(sku, fromDivv);
+  else pageLink.removeAttribute("href");
+  modal.querySelector("#product-kit").hidden = !sku;
+  modal.querySelector("#product-kit").open = false;
+  modal.querySelector("#product-measure-guide").open = false;
+  modal.querySelector("#product-fit-note").hidden = !sku;
+  modal.querySelector("#product-choose-fit").onclick = () => {
+    fitTitle.focus({ preventScroll: true });
+    fitTitle.scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
+  };
+  feedbackEl.hidden = true;
+  feedbackEl.textContent = "";
+  actionBtn.hidden = !sku;
+  checkoutBtn.firstElementChild.textContent = sku ? "Go to checkout" : "Book an appointment";
+  measurements.forEach((input, i) => { input.value = draft?.measurements[i] || ""; });
 
-  if (imgEl) {
-    imgEl.onerror = null;
-    imgEl.alt = imageAlt || title || "Nails by Divya Design";
-    imgEl.onerror = () => {
-      imgEl.onerror = null;
-      imgEl.src = placeholderSvg;
-    };
-    imgEl.src = (imageSrc && String(imageSrc).trim()) ? imageSrc : placeholderSvg;
-  }
+  const renderGallery = initProductGallery(modal, { title, imageSrc, imageAlt, designReference, portrait });
+  const sizingInfo = {
+    XS: [14, 11, 12, 10, 8],
+    S: [15, 12, 13, 11, 8],
+    M: [16, 12, 13, 11, 9],
+    L: [17, 13, 14, 12, 10],
+  };
 
-  const originalPrice = sku && PRODUCT_PRICES[sku] ? PRODUCT_PRICES[sku] : null;
-  const isEligible = sku ? FESTIVE_OFFER_CONFIG.isEligible(sku) : false;
-  const effectivePrice = sku ? (FESTIVE_OFFER_CONFIG.getEffectivePrice(sku) || (originalPrice || "₹999")) : null;
-
-  // Privacy-first product view analytics tracking
-  if (window.NBD_Analytics) {
-    window.NBD_Analytics.track("product_view", {
-      sku: sku || "LOOKBOOK",
-      title: title || "Press-On Set",
-      category: category || "Handmade Collection",
-      price: effectivePrice || "Custom Quotation",
+  function saveFit() {
+    if (sku && priceView === productPricingView) productFitDrafts.set(sku, {
+      shape: activeShape,
+      length: activeLength,
+      size: activeSize,
+      measurements: measurements.map((input) => input.value),
     });
   }
 
-  if (priceEl) {
-    if (originalPrice && isEligible) {
-      priceEl.classList.add("festive-pricing");
-      priceEl.innerHTML = `
-        <div class="product-price-row">
-          <span class="product-price-promo">${FESTIVE_OFFER_CONFIG.promoPriceDisplay}</span>
-          <del class="product-price-original">${originalPrice}</del>
-        </div>
-        <span class="festive-offer-label">${FESTIVE_OFFER_CONFIG.badgeText}</span>
-      `;
-      priceEl.style.display = "flex";
-    } else if (originalPrice) {
-      priceEl.classList.remove("festive-pricing");
-      priceEl.innerHTML = `
-        <div class="product-price-row">
-          <span class="product-price-regular" style="font-size: 1.25rem; font-weight: 700; color: var(--accent-strong);">${originalPrice}</span>
-        </div>
-      `;
-      priceEl.style.display = "block";
+  function syncFit() {
+    const availableShapes = variants.length ? variants.map((variant) => variant.shape) : shapePills.map((button) => button.dataset.shape);
+    if (!availableShapes.includes(activeShape)) activeShape = availableShapes[0];
+    const availableLengths = variants.length ? variants.filter(({ shape }) => shape === activeShape).map(({ length }) => length) : lengthPills.map((button) => button.dataset.length);
+    if (!availableLengths.includes(activeLength)) activeLength = availableLengths[0];
+    for (const button of shapePills) {
+      button.hidden = !availableShapes.includes(button.dataset.shape);
+      button.classList.toggle("is-active", button.dataset.shape === activeShape);
+      button.setAttribute("aria-pressed", String(button.dataset.shape === activeShape));
+    }
+    for (const button of lengthPills) {
+      button.hidden = !availableLengths.includes(button.dataset.length);
+      button.classList.toggle("is-active", button.dataset.length === activeLength);
+      button.setAttribute("aria-pressed", String(button.dataset.length === activeLength));
+    }
+    for (const button of sizeChips) {
+      button.classList.toggle("is-active", button.dataset.size === activeSize);
+      button.setAttribute("aria-pressed", String(button.dataset.size === activeSize));
+    }
+    customBox.hidden = activeSize !== "Custom";
+    if (activeSize === "Custom") {
+      sizingGuideText.textContent = "Use Custom when your measurements fall between presets.";
     } else {
-      priceEl.style.display = "none";
+      const chart = document.createElement("dl");
+      chart.className = "product-preset-chart";
+      chart.setAttribute("aria-label", `Size ${activeSize} in millimetres`);
+      for (const [i, width] of sizingInfo[activeSize].entries()) {
+        const finger = document.createElement("div");
+        const label = document.createElement("dt");
+        const value = document.createElement("dd");
+        label.textContent = measurements[i].labels[0].firstElementChild.textContent;
+        value.textContent = `${width} mm`;
+        finger.append(label, value);
+        chart.append(finger);
+      }
+      sizingGuideText.replaceChildren(chart);
     }
+    saveFit();
   }
 
-  if (addBagLabel) {
-    addBagLabel.textContent = sku ? `Add to Bag • ${effectivePrice}` : "Order Bespoke Set on WhatsApp →";
-  }
-  if (checkoutBtn) {
-    const checkoutSpan = checkoutBtn.querySelector("span");
-    if (checkoutSpan) {
-      checkoutSpan.textContent = sku ? "Direct Checkout →" : "Book Salon Service →";
-    }
-  }
-  if (actionBtn) {
-    actionBtn.style.display = sku ? "block" : "none";
+  shapePills.forEach((button) => { button.onclick = () => { activeShape = button.dataset.shape; syncFit(); }; });
+  lengthPills.forEach((button) => { button.onclick = () => { activeLength = button.dataset.length; syncFit(); }; });
+  sizeChips.forEach((button) => { button.onclick = () => { activeSize = button.dataset.size; syncFit(); }; });
+  measurements.forEach((input) => { input.oninput = saveFit; });
+  syncFit();
+
+  function updatePurchaseControls() {
+    addBagBtn.disabled = checkoutBtn.disabled = adding || Boolean(sku && !effectivePrice);
   }
 
-  // Active attributes
-  let activeShape = "Almond";
-  let activeLength = "Medium";
-  let activeSize = "M";
+  function applyPrice(product, fallback) {
+    const verified = validCatalogProduct(product) && product.isAvailable !== false;
+    effectivePrice = verified ? formatCatalogPrice(product.effectivePrice) : null;
+    priceEl.hidden = !sku;
+    renderCatalogPrice(priceEl, verified ? product : null, fallback);
+    addBagLabel.textContent = sku
+      ? (effectivePrice ? `Add to bag · ${effectivePrice}` : "Add to bag")
+      : "Ask about this design";
+    updatePurchaseControls();
+    window.DivvCurrentProductContext = `${title}${sku ? ` [SKU: ${sku}]` : ""}${effectivePrice ? ` (${effectivePrice})` : ""}`;
+    window.updateDivvProductBanner?.();
+  }
 
-  // Wire shape pills
-  const shapePills = modal.querySelectorAll("#modal-shape-pills .option-pill");
-  shapePills.forEach((pill) => {
-    const isAlmond = pill.getAttribute("data-shape") === "Almond";
-    pill.classList.toggle("is-active", isAlmond);
-    pill.onclick = () => {
-      shapePills.forEach((p) => p.classList.remove("is-active"));
-      pill.classList.add("is-active");
-      activeShape = pill.getAttribute("data-shape") || "Almond";
-      updateOrderAction();
-    };
+  const price = catalogPrices.get(sku);
+  applyPrice(price, sku && !price && window.NailsApi ? "Loading price…" : undefined);
+  if (sku && window.NailsApi) {
+    getCatalogDetail(sku).then((product) => {
+      if (priceView !== productPricingView) return;
+      applyPrice(product);
+      titleEl.textContent = product.name;
+      descEl.textContent = shortProductDescription(product.description || description || "");
+      if (isPage) document.title = `${product.name} | Nails by Divya`;
+      if (product.images?.length) renderGallery(product.images);
+      variants = (product.variants || []).filter(({ shape, length }) =>
+        shapePills.some((button) => button.dataset.shape === shape) &&
+        lengthPills.some((button) => button.dataset.length === length));
+      syncFit();
+    }).catch((error) => {
+      if (priceView !== productPricingView) return;
+      if (error.status === 404) applyPrice(null, "This set is currently unavailable");
+      else if (!effectivePrice) {
+        initProductPrices().then(() => {
+          if (priceView === productPricingView) applyPrice(catalogPrices.get(sku));
+        });
+      }
+    });
+  }
+
+  window.NBD_Analytics?.track("product_view", {
+    sku: sku || "LOOKBOOK", title, category, price: effectivePrice || (sku ? "Unavailable" : "Custom Quotation"),
   });
 
-  // Wire length pills
-  const lengthPills = modal.querySelectorAll("#modal-length-pills .option-pill");
-  lengthPills.forEach((pill) => {
-    const isMedium = pill.getAttribute("data-length") === "Medium";
-    pill.classList.toggle("is-active", isMedium);
-    pill.onclick = () => {
-      lengthPills.forEach((p) => p.classList.remove("is-active"));
-      pill.classList.add("is-active");
-      activeLength = pill.getAttribute("data-length") || "Medium";
-      updateOrderAction();
-    };
-  });
-
-  // Sizing chart details
-  const SIZING_INFO = {
-    "XS": "Thumb: 14mm, Index: 11mm, Middle: 12mm, Ring: 10mm, Pinky: 8mm",
-    "S": "Thumb: 15mm, Index: 12mm, Middle: 13mm, Ring: 11mm, Pinky: 8mm",
-    "M": "Thumb: 16mm, Index: 12mm, Middle: 13mm, Ring: 11mm, Pinky: 9mm",
-    "L": "Thumb: 17mm, Index: 13mm, Middle: 14mm, Ring: 12mm, Pinky: 10mm",
-    "Custom": "Tailored sizing — enter exact measurements below or share on WhatsApp",
+  actionBtn.onclick = () => {
+    const fit = `${activeSize === "Custom" ? "Custom sizing" : `Size ${activeSize}`} (${activeShape}, ${activeLength})`;
+    window.open(CHECKOUT_CONFIG.getCheckoutUrl(title, category, effectivePrice, sku, fit), "_blank", "noopener,noreferrer");
   };
 
-  const sizeChips = modal.querySelectorAll(".size-chip");
+  function showFeedback(message) {
+    if (priceView !== productPricingView) return;
+    feedbackEl.textContent = message;
+    feedbackEl.hidden = false;
+  }
 
-  function getCustomMeasurements() {
-    if (activeSize !== "Custom") return null;
-    const thumb = parseFloat(document.getElementById("modal-measure-thumb")?.value);
-    const index = parseFloat(document.getElementById("modal-measure-index")?.value);
-    const middle = parseFloat(document.getElementById("modal-measure-middle")?.value);
-    const ring = parseFloat(document.getElementById("modal-measure-ring")?.value);
-    const pinky = parseFloat(document.getElementById("modal-measure-pinky")?.value);
+  async function addProduct(continueToCheckout) {
+    if (adding || !effectivePrice || !window.NailsApi) return;
     const custom = {};
-    if (!isNaN(thumb)) custom.thumb = thumb;
-    if (!isNaN(index)) custom.index = index;
-    if (!isNaN(middle)) custom.middle = middle;
-    if (!isNaN(ring)) custom.ring = ring;
-    if (!isNaN(pinky)) custom.pinky = pinky;
-    return Object.keys(custom).length ? custom : null;
-  }
-
-  function renderSizingGuide() {
-    if (!sizingGuideText) return;
     if (activeSize === "Custom") {
-      sizingGuideText.innerHTML = `Selected: <strong>Custom Sizing</strong> &bull; Tailored to your natural nail beds. Enter your millimeter measurements below or share photos with measuring tape on WhatsApp before crafting. Divya verifies everything directly!`;
-      if (customBox) customBox.style.display = "block";
-    } else {
-      const detail = SIZING_INFO[activeSize] || "";
-      sizingGuideText.innerHTML = `Selected Size: <strong>${activeSize}</strong> &bull; ${detail}.<br><span style="color: var(--accent-strong); font-weight: 600;">✦ Sizing Verification:</span> Divya confirms your exact nail measurements directly on WhatsApp before hand-painting your set!`;
-      if (customBox) customBox.style.display = "none";
+      for (const input of measurements) {
+        if (!input.reportValidity()) return;
+        if (input.value) custom[input.id.replace("modal-measure-", "")] = input.valueAsNumber;
+      }
     }
-  }
-
-  function updateOrderAction() {
-    if (actionBtn) {
-      actionBtn.onclick = () => {
-        const sizeDetail = activeSize === "Custom"
-          ? `Custom Sizing (${activeShape}, ${activeLength})`
-          : `Size ${activeSize} (${activeShape}, ${activeLength})`;
-        window.open(CHECKOUT_CONFIG.getCheckoutUrl(title, category, effectivePrice, sku, sizeDetail), "_blank", "noopener,noreferrer");
-      };
-    }
-  }
-
-  sizeChips.forEach((chip) => {
-    const isM = chip.getAttribute("data-size") === "M";
-    chip.classList.toggle("is-active", isM);
-    chip.setAttribute("aria-checked", isM ? "true" : "false");
-
-    chip.onclick = (e) => {
-      e.preventDefault();
-      activeSize = chip.getAttribute("data-size") || "M";
-      sizeChips.forEach((c) => {
-        const isSelected = c.getAttribute("data-size") === activeSize;
-        c.classList.toggle("is-active", isSelected);
-        c.setAttribute("aria-checked", isSelected ? "true" : "false");
+    const custom_measurements = Object.keys(custom).length ? custom : null;
+    adding = true;
+    updatePurchaseControls();
+    feedbackEl.hidden = true;
+    try {
+      await window.NailsApi.addToCart({
+        sku, shape: activeShape, length: activeLength, sizing_preset: activeSize,
+        custom_measurements, quantity: 1,
       });
-      renderSizingGuide();
-      updateOrderAction();
-    };
-  });
-
-  // Add to Bag Button
-  if (addBagBtn) {
-    addBagBtn.onclick = async () => {
-      if (!sku) {
-        // Bespoke Lookbook / Portfolio design: order directly via WhatsApp concierge
-        const sizeDetail = activeSize === "Custom"
-          ? `Custom Sizing (${activeShape}, ${activeLength})`
-          : `Size ${activeSize} (${activeShape}, ${activeLength})`;
-        const waText = encodeURIComponent(`Hi Divya! I would like to order the bespoke Lookbook design: *${title || "Bespoke Nail Art"}* [${category || "Bespoke Portfolio"}] with ${sizeDetail}. Please let me know the pricing and turnaround time.`);
-        window.open(`https://wa.me/${CHECKOUT_CONFIG.whatsappNumber}?text=${waText}`, "_blank", "noopener,noreferrer");
-        return;
-      }
-      if (!window.NailsApi) return;
-      const targetSku = sku;
-      const custom_measurements = getCustomMeasurements();
-
-      try {
-        addBagBtn.disabled = true;
-        await window.NailsApi.addToCart({
-          sku: targetSku,
-          shape: activeShape,
-          length: activeLength,
-          sizing_preset: activeSize,
-          custom_measurements,
-          quantity: 1,
-        });
-
-        // Track add to cart event
-        if (window.NBD_Analytics) {
-          window.NBD_Analytics.track("add_to_cart", {
-            sku: targetSku,
-            title: title || "Press-On Set",
-            shape: activeShape,
-            length: activeLength,
-            size: activeSize,
-            hasCustomMeasurements: !!custom_measurements,
-            quantity: 1,
-          });
-        }
-
-        if (feedbackEl) {
-          feedbackEl.textContent = `✓ "${title}" added to your bag (${activeShape}, ${activeLength}, Size ${activeSize})`;
-          feedbackEl.style.display = "block";
-        }
-        openCartDrawer();
-      } catch (err) {
-        let msg = err.message || "We're having trouble connecting. Please try again or contact Divya on WhatsApp.";
-        if (msg.includes("<") || msg.toLowerCase().startsWith("cannot ")) {
-          msg = "We're having trouble connecting. Please try again or contact Divya on WhatsApp.";
-        }
-        alert(msg);
-      } finally {
-        addBagBtn.disabled = false;
-      }
-    };
-  }
-
-  // Direct Checkout Button
-  if (checkoutBtn) {
-    checkoutBtn.onclick = async () => {
-      if (checkoutBtn.disabled) return;
-      if (sku && currentCheckout()) {
+      if (priceView !== productPricingView) return;
+      if (continueToCheckout) {
         closeAllModals();
         await openCheckoutModal();
-        return;
-      }
-      if (!sku) {
-        // Lookbook design: transition directly to at-home salon appointment consultation
-        closeAllModals();
-        openServiceModal(title, description);
-        return;
-      }
-      if (!window.NailsApi) return;
-      const targetSku = sku;
-      const custom_measurements = getCustomMeasurements();
-
-      try {
-        checkoutBtn.disabled = true;
-        await window.NailsApi.addToCart({
-          sku: targetSku,
-          shape: activeShape,
-          length: activeLength,
-          sizing_preset: activeSize,
-          custom_measurements,
-          quantity: 1,
+      } else {
+        window.NBD_Analytics?.track("add_to_cart", {
+          sku, title, shape: activeShape, length: activeLength, size: activeSize,
+          hasCustomMeasurements: !!custom_measurements, quantity: 1,
         });
-        closeAllModals();
-        openCheckoutModal();
-      } catch (err) {
-        let msg = err.message || "We're having trouble connecting. Please try again or contact Divya on WhatsApp.";
-        if (msg.includes("<") || msg.toLowerCase().startsWith("cannot ")) {
-          msg = "We're having trouble connecting. Please try again or contact Divya on WhatsApp.";
-        }
-        if (err.code === "NETWORK_ERROR" || err.status >= 500) {
-          alert("Your bag update could not be confirmed. Check the quantity in your bag before continuing.");
-          closeAllModals();
-          await openCartDrawer();
-        } else {
-          alert(msg);
-        }
-      } finally {
-        checkoutBtn.disabled = false;
+        showFeedback(`${title} was added to your bag.`);
+        await openCartDrawer();
       }
-    };
+    } catch (error) {
+      if (priceView !== productPricingView) return;
+      if (error.code === "NETWORK_ERROR" || error.status >= 500) {
+        showFeedback("We couldn’t confirm the bag update. Check your bag before trying again.");
+        await openCartDrawer();
+      } else {
+        const message = error.message;
+        showFeedback(message && !message.includes("<") && !message.toLowerCase().startsWith("cannot ")
+          ? message : "We couldn’t update your bag. Try again or ask Divya on WhatsApp.");
+      }
+    } finally {
+      adding = false;
+      if (priceView === productPricingView) updatePurchaseControls();
+    }
   }
 
-  renderSizingGuide();
-  updateOrderAction();
-
-  window.DivvCurrentProductContext = `${title}${sku ? ` [SKU: ${sku}]` : ""}${effectivePrice ? ` (${effectivePrice})` : ""}`;
-  if (typeof window.updateDivvProductBanner === "function") window.updateDivvProductBanner();
+  addBagBtn.onclick = () => {
+    if (sku) return addProduct(false);
+    const fit = `${activeSize === "Custom" ? "Custom sizing" : `Size ${activeSize}`} (${activeShape}, ${activeLength})`;
+    window.open(CHECKOUT_CONFIG.getCheckoutUrl(title, category, null, null, fit), "_blank", "noopener,noreferrer");
+  };
+  checkoutBtn.onclick = async () => {
+    if (sku && currentCheckout()) {
+      closeAllModals();
+      await openCheckoutModal();
+      return;
+    }
+    if (sku) return addProduct(true);
+    closeAllModals();
+    openServiceModal(title, description);
+  };
 
   modal.setAttribute("aria-hidden", "false");
-  modal.classList.add("is-open");
-  document.body.style.overflow = "hidden";
+  if (!isPage) {
+    productOpener = document.activeElement;
+    modal.classList.add("is-open");
+    modal.querySelector(".product-detail").scrollTop = 0;
+    titleEl.focus({ preventScroll: true });
+    document.body.style.overflow = "hidden";
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1397,32 +1509,61 @@ const CANONICAL_SERVICES_MAP = {
   "power polish / shellac": { id: "power_polish", name: "Power Polish / Shellac", price: "From ₹499", isCustomQuote: false },
   "power polish": { id: "power_polish", name: "Power Polish / Shellac", price: "From ₹499", isCustomQuote: false },
   "signature manicure & power polish": { id: "power_polish", name: "Power Polish / Shellac", price: "From ₹499", isCustomQuote: false },
-  "3d & custom nail art": { id: "custom_3d_art", name: "3D & Custom Nail Art", price: "Custom Quotation", isCustomQuote: true },
-  "3d, chrome & custom artistry": { id: "custom_3d_art", name: "3D & Custom Nail Art", price: "Custom Quotation", isCustomQuote: true },
-  "french nails": { id: "gel_extensions", name: "French Nails (Design Add-On)", price: "Design Add-On", isCustomQuote: true },
-  "safe extension removal": { id: "extension_removal", name: "Safe Extension Removal", price: "Price on Enquiry", isCustomQuote: true },
-  "extension removal": { id: "extension_removal", name: "Safe Extension Removal", price: "Price on Enquiry", isCustomQuote: true },
-  "nail extension removal": { id: "extension_removal", name: "Safe Extension Removal", price: "Price on Enquiry", isCustomQuote: true },
+  "3d & custom nail art": { id: "custom_3d_art", name: "3D & Custom Nail Art", price: "Custom Quote", isCustomQuote: true },
+  "3d, chrome & custom artistry": { id: "custom_3d_art", name: "3D & Custom Nail Art", price: "Custom Quote", isCustomQuote: true },
+  "french nails": { id: "gel_extensions", name: "French Nails (Design Add-On)", price: "Add-on · custom quote", isCustomQuote: true },
+  "safe extension removal": { id: "extension_removal", name: "Safe Extension Removal", price: "Custom Quote", isCustomQuote: true },
+  "extension removal": { id: "extension_removal", name: "Safe Extension Removal", price: "Custom Quote", isCustomQuote: true },
+  "nail extension removal": { id: "extension_removal", name: "Safe Extension Removal", price: "Custom Quote", isCustomQuote: true },
 };
 
 let cachedServiceCatalog = null;
+let pendingServiceCatalog = null;
+let serviceBookingView = 0;
+
+function renderStudioSchedule(schedule) {
+  const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const days = schedule.openWeekdays.map((day) => weekdays[day]);
+  const displayClock = (value) => {
+    const [hours, minutes] = value.split(":");
+    return (Number(hours) % 12 || 12) + ":" + minutes + (Number(hours) >= 12 ? " PM" : " AM");
+  };
+  const label = days[0] + "–" + days.at(-1) + ", " +
+    displayClock(schedule.opensAt) + "–" + displayClock(schedule.closesAt) + " IST";
+  document.querySelectorAll("[data-studio-hours]").forEach((node) => { node.textContent = label; });
+  document.querySelectorAll("[data-studio-notice]").forEach((node) => {
+    node.textContent = "at least " + schedule.minNoticeDays + " calendar days";
+  });
+  const schemaNode = document.getElementById("studio-structured-data");
+  if (schemaNode) {
+    const schema = JSON.parse(schemaNode.textContent);
+    const business = schema["@graph"].find((entity) => entity.openingHoursSpecification);
+    if (!business) return;
+    business.openingHoursSpecification = [{
+      "@type": "OpeningHoursSpecification", dayOfWeek: days, opens: schedule.opensAt, closes: schedule.closesAt,
+    }];
+    schemaNode.textContent = JSON.stringify(schema);
+  }
+}
 
 async function getLiveServiceCatalog() {
-  if (Array.isArray(cachedServiceCatalog) && cachedServiceCatalog.length > 0) {
-    return cachedServiceCatalog;
+  if (cachedServiceCatalog) {
+    const { schedule } = cachedServiceCatalog;
+    const today = new Intl.DateTimeFormat("sv-SE", { timeZone: schedule.timeZone }).format(new Date());
+    if (today === schedule.today) return cachedServiceCatalog;
   }
-  if (window.NailsApi && typeof window.NailsApi.listServices === "function") {
-    try {
-      const res = await window.NailsApi.listServices();
-      if (res && Array.isArray(res.services)) {
-        cachedServiceCatalog = res.services;
-        return cachedServiceCatalog;
-      }
-    } catch (err) {
-      console.warn("[Booking] Could not load live service catalog:", err.message);
-    }
+  if (!pendingServiceCatalog && window.NailsApi?.listServices) {
+    pendingServiceCatalog = window.NailsApi.listServices().then((res) => {
+      const schedule = res?.schedule;
+      if (!Array.isArray(res?.services) || !schedule?.timeZone ||
+          !schedule.earliestDate || !schedule.latestDate || !schedule.openWeekdays?.length ||
+          !schedule.requestWindows?.length) return null;
+      renderStudioSchedule(schedule);
+      cachedServiceCatalog = res;
+      return res;
+    }).catch(() => null).finally(() => { pendingServiceCatalog = null; });
   }
-  return null;
+  return pendingServiceCatalog;
 }
 
 function escapeBookingHtml(str) {
@@ -1440,11 +1581,17 @@ function escapeBookingHtml(str) {
 async function openServiceModal(title, description) {
   const modal = document.getElementById("service-modal");
   if (!modal) return;
+  if (!modal.classList.contains("is-open")) modalOpeners.set(modal, document.activeElement);
 
+  const view = ++serviceBookingView;
+  const isCurrent = () => view === serviceBookingView && modal.getAttribute("aria-hidden") === "false";
   const titleEl = document.getElementById("service-modal-title");
   const descEl = document.getElementById("service-modal-desc");
   const priceValEl = document.getElementById("service-price-value");
   const formEl = document.getElementById("service-booking-form");
+  const quoteIntro = document.getElementById("service-quote-intro");
+  const quoteLink = document.getElementById("service-quote-whatsapp");
+  const quoteContinue = document.getElementById("service-quote-continue");
   const confirmationView = document.getElementById("service-confirmation-view");
   const errorEl = document.getElementById("service-booking-error");
   const dateInput = document.getElementById("service-requested-date");
@@ -1453,7 +1600,12 @@ async function openServiceModal(title, description) {
 
   if (titleEl) titleEl.textContent = title;
   if (descEl) descEl.textContent = description;
-  if (formEl) { formEl.style.display = "flex"; formEl.reset(); }
+  formEl.reset();
+  const submitBtn = document.getElementById("service-submit-btn");
+  const submitLabel = submitBtn.querySelector("span");
+  const defaultLabel = submitBtn.dataset.defaultLabel ||= submitLabel.textContent;
+  submitBtn.disabled = true;
+  submitLabel.textContent = defaultLabel;
   if (confirmationView) confirmationView.style.display = "none";
   if (errorEl) { errorEl.textContent = ""; errorEl.style.display = "none"; }
 
@@ -1468,14 +1620,23 @@ async function openServiceModal(title, description) {
 
   if (priceValEl) priceValEl.textContent = matchedService.price;
 
-  // Set min date to tomorrow and max date to +60 days (matching backend validation window)
-  if (dateInput) {
-    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    const maxDate = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
-    dateInput.min = tomorrow.toISOString().split("T")[0];
-    dateInput.max = maxDate.toISOString().split("T")[0];
-    dateInput.value = tomorrow.toISOString().split("T")[0];
-  }
+  quoteIntro.hidden = !matchedService.isCustomQuote;
+  quoteLink.href = CHECKOUT_CONFIG.getServiceBookingUrl(title);
+  formEl.style.display = matchedService.isCustomQuote ? "none" : "flex";
+  quoteContinue.onclick = () => {
+    quoteIntro.hidden = true;
+    formEl.style.display = "flex";
+    document.getElementById("service-customer-name").focus();
+  };
+
+  const scheduleNote = document.getElementById("service-schedule-note");
+  const slotsContainer = document.getElementById("service-slot-pills");
+  dateInput.value = "";
+  dateInput.disabled = true;
+  dateInput.oninput = null;
+  dateInput.setCustomValidity("");
+  slotsContainer.replaceChildren();
+  scheduleNote.textContent = "Loading Delhi appointment windows…";
 
   // Clear addons immediately while live database add-ons load
   if (addonsWrapper && addonsContainer) {
@@ -1483,25 +1644,13 @@ async function openServiceModal(title, description) {
     addonsContainer.innerHTML = "";
   }
 
-  // Active time slot handling
-  let activeSlot = "10:00 AM - 12:00 PM";
-  const slotPills = modal.querySelectorAll(".slot-pill");
-  slotPills.forEach((pill) => {
-    pill.classList.toggle("is-active", pill.getAttribute("data-slot") === "10:00 AM - 12:00 PM");
-    pill.onclick = () => {
-      slotPills.forEach((p) => p.classList.remove("is-active"));
-      pill.classList.add("is-active");
-      activeSlot = pill.getAttribute("data-slot") || "10:00 AM - 12:00 PM";
-    };
-  });
+  let activeSlot = "";
 
   // Handle appointment submission
   if (formEl) {
     formEl.onsubmit = async (e) => {
       e.preventDefault();
-      if (!window.NailsApi) return;
-
-      const submitBtn = document.getElementById("service-submit-btn");
+      if (!window.NailsApi || !isCurrent() || formEl.style.display === "none" || submitBtn.disabled || !activeSlot || !dateInput.reportValidity()) return;
       const name = document.getElementById("service-customer-name")?.value.trim();
       const rawPhone = document.getElementById("service-customer-phone")?.value.trim();
       const email = document.getElementById("service-customer-email")?.value.trim();
@@ -1555,12 +1704,9 @@ async function openServiceModal(title, description) {
         return;
       }
 
-      const origBtnHtml = submitBtn ? submitBtn.innerHTML : "";
       try {
-        if (submitBtn) {
-          submitBtn.disabled = true;
-          submitBtn.innerHTML = "<span>Submitting Request...</span>";
-        }
+        submitBtn.disabled = true;
+        submitLabel.textContent = "Sending request…";
         if (errorEl) errorEl.style.display = "none";
 
         const bookingPayload = {
@@ -1596,6 +1742,7 @@ async function openServiceModal(title, description) {
         };
 
         const result = await window.NailsApi.createBooking(bookingPayload);
+        if (!isCurrent()) return;
         const bookingNum = result.booking?.bookingNumber || "NBD-BKG-REQUESTED";
 
         // Privacy-first booking submission analytics (strictly zero customer PII)
@@ -1626,15 +1773,16 @@ async function openServiceModal(title, description) {
           if (closeBtn) closeBtn.onclick = closeAllModals;
         }
       } catch (err) {
+        if (!isCurrent()) return;
         let msg = err.message || "We're having trouble connecting. Please try again or contact Divya on WhatsApp.";
         if (msg.includes("<") || msg.toLowerCase().startsWith("cannot ")) {
           msg = "We're having trouble connecting. Please try again or contact Divya on WhatsApp.";
         }
         showBookingError(msg);
       } finally {
-        if (submitBtn) {
+        if (view === serviceBookingView) {
           submitBtn.disabled = false;
-          submitBtn.innerHTML = origBtnHtml;
+          submitLabel.textContent = defaultLabel;
         }
       }
     };
@@ -1644,10 +1792,50 @@ async function openServiceModal(title, description) {
   modal.setAttribute("aria-hidden", "false");
   modal.classList.add("is-open");
   document.body.style.overflow = "hidden";
+  modal.querySelector(".modal-card").scrollTop = 0;
+  focusModalClose(modal);
 
   // Populate live service add-ons from backend catalog so UUIDs always match production DB
-  getLiveServiceCatalog().then((services) => {
-    if (!services || !addonsWrapper || !addonsContainer) return;
+  getLiveServiceCatalog().then((catalog) => {
+    if (!isCurrent()) return;
+    if (!catalog) {
+      scheduleNote.textContent = "Appointment windows could not be loaded. Reopen to try again or contact Divya on WhatsApp.";
+      return;
+    }
+    const { schedule, services } = catalog;
+    const openOn = (value) => schedule.openWeekdays.includes(new Date(value + "T00:00:00Z").getUTCDay());
+    const firstOpen = new Date(schedule.earliestDate + "T00:00:00Z");
+    while (!schedule.openWeekdays.includes(firstOpen.getUTCDay())) firstOpen.setUTCDate(firstOpen.getUTCDate() + 1);
+    dateInput.min = schedule.earliestDate;
+    dateInput.max = schedule.latestDate;
+    dateInput.value = firstOpen.toISOString().slice(0, 10);
+    dateInput.disabled = false;
+    dateInput.oninput = () => {
+      dateInput.setCustomValidity(dateInput.value && !openOn(dateInput.value)
+        ? "The studio is closed on Mondays. Please choose Tuesday through Sunday." : "");
+      if (dateInput.validity.customError) dateInput.reportValidity();
+    };
+    scheduleNote.textContent = "Choose a preferred window. Divya will confirm the exact appointment time.";
+    const buttons = schedule.requestWindows.map((slot) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "slot-pill";
+      button.dataset.slot = slot;
+      button.textContent = slot.replace(" - ", "–");
+      button.onclick = () => {
+        activeSlot = slot;
+        buttons.forEach((item) => {
+          const selected = item === button;
+          item.classList.toggle("is-active", selected);
+          item.setAttribute("aria-pressed", String(selected));
+        });
+      };
+      return button;
+    });
+    slotsContainer.replaceChildren(...buttons);
+    buttons[0].click();
+    submitBtn.disabled = false;
+
     const liveSvc = services.find((s) => s.id === matchedService.id);
     if (liveSvc && priceValEl && liveSvc.pricingDisplay && !matchedService.isCustomQuote) {
       priceValEl.textContent = liveSvc.pricingDisplay;
@@ -1679,7 +1867,7 @@ async function openServiceModal(title, description) {
     (async () => {
       try {
         const userRes = await window.NailsApi.getCurrentUser().catch(() => null);
-        if (userRes && userRes.user) {
+        if (isCurrent() && userRes && userRes.user) {
           const u = userRes.user;
           const nameInput = document.getElementById("service-customer-name");
           const phoneInput = document.getElementById("service-customer-phone");
@@ -1693,7 +1881,7 @@ async function openServiceModal(title, description) {
           if (emailInput && !emailInput.value) emailInput.value = u.email || "";
 
           const addrRes = await window.NailsApi.getCustomerAddresses().catch(() => null);
-          if (addrRes && addrRes.addresses && addrRes.addresses.length) {
+          if (isCurrent() && addrRes && addrRes.addresses && addrRes.addresses.length) {
             const srvAddr = addrRes.addresses.find((a) => a.isDefaultService || a.is_default_service) || addrRes.addresses[0];
             if (srvAddr) {
               const l1 = document.getElementById("service-addr-line1");
@@ -1726,13 +1914,17 @@ function lockCartCardControls(cardEl, locked) {
   });
 }
 
+let cartOpener;
+
 async function openCartDrawer() {
   const overlay = document.getElementById("cart-drawer-overlay");
   if (!overlay) return;
 
+  if (!overlay.classList.contains("is-open")) cartOpener = document.activeElement;
   overlay.setAttribute("aria-hidden", "false");
   overlay.classList.add("is-open");
   document.body.style.overflow = "hidden";
+  focusModalClose(overlay);
 
   const receiptButton = document.getElementById("cart-check-receipt");
   if (receiptButton) receiptButton.style.display = currentCheckout() ? "inline-flex" : "none";
@@ -1741,11 +1933,13 @@ async function openCartDrawer() {
 
 function closeCartDrawer() {
   const overlay = document.getElementById("cart-drawer-overlay");
-  if (overlay) {
+  if (overlay?.classList.contains("is-open")) {
     overlay.classList.remove("is-open");
     overlay.setAttribute("aria-hidden", "true");
+    if (cartOpener?.getClientRects().length && !cartOpener.disabled) cartOpener.focus({ preventScroll: true });
+    cartOpener = null;
   }
-  document.body.style.overflow = "";
+  document.body.style.overflow = document.querySelector(".modal-overlay.is-open, .divv-widget-modal.is-open") ? "hidden" : "";
 }
 
 async function refreshCartBadge() {
@@ -1817,7 +2011,7 @@ async function refreshCartView() {
               <span class="cart-item-spec">${escapeHtml(specParts.join(" • "))}</span>
               <div class="cart-item-price-row">
                 <span class="cart-item-price">₹${it.unitPrice}</span>
-                ${it.isPromoApplied ? `<span class="cart-item-original">₹${it.basePrice}</span><span class="cart-item-promo-tag">Festive ₹599</span>` : ""}
+                ${it.isPromoApplied ? `<span class="cart-item-original">₹${it.basePrice}</span><span class="cart-item-promo-tag">${escapeHtml(it.promoName || "Offer")}</span>` : ""}
               </div>
             </div>
             <div class="cart-item-controls">
@@ -1831,6 +2025,7 @@ async function refreshCartView() {
           </div>
         `;
       }).join("");
+      if (emptyState) itemsContainer.appendChild(emptyState);
 
       // Wire controls with rapid-click lock per item ID to prevent duplicate 404 requests
       itemsContainer.querySelectorAll('button[data-action="qty-minus"]').forEach((btn) => {
@@ -1911,6 +2106,25 @@ async function refreshCartView() {
 // 08D. CHECKOUT MODAL & ORDER CREATION
 // ---------------------------------------------------------------------------
 
+const CHECKOUT_PHONE_MESSAGE = "Enter a valid 10-digit Indian mobile number, with or without +91.";
+const CHECKOUT_MOBILE_PATTERN = /^(?:(?:\+91|0091|91|0)[ \u00a0\u202f-]?)?[6-9](?:[ \u00a0\u202f-]?\d){9}$/;
+
+function updateCheckoutPhoneValidity(input) {
+  const invalid = Boolean(input.value && !CHECKOUT_MOBILE_PATTERN.test(input.value.trim()));
+  input.setCustomValidity(invalid ? CHECKOUT_PHONE_MESSAGE : "");
+  input.setAttribute("aria-invalid", String(invalid));
+  const error = document.getElementById("checkout-phone-error");
+  if (error) error.hidden = !invalid;
+  return !invalid;
+}
+
+function initCheckoutPhoneValidation() {
+  const input = document.getElementById("checkout-phone");
+  if (!input) return;
+  input.addEventListener("input", () => updateCheckoutPhoneValidity(input));
+  input.addEventListener("change", () => updateCheckoutPhoneValidity(input));
+}
+
 const CHECKOUT_STORAGE_KEY = "nbd_pending_checkout";
 let pendingCheckout;
 try { pendingCheckout = JSON.parse(sessionStorage.getItem(CHECKOUT_STORAGE_KEY)); } catch {}
@@ -1954,6 +2168,7 @@ async function openCheckoutModal() {
   closeCartDrawer();
   const modal = document.getElementById("checkout-modal");
   if (!modal) return;
+  if (!modal.classList.contains("is-open")) modalOpeners.set(modal, document.activeElement);
 
   const formView = document.getElementById("checkout-form-view");
   const confirmationView = document.getElementById("checkout-confirmation-view");
@@ -1976,6 +2191,7 @@ async function openCheckoutModal() {
     modal.setAttribute("aria-hidden", "false");
     modal.classList.add("is-open");
     document.body.style.overflow = "hidden";
+    focusModalClose(modal);
   };
   let attempt = currentCheckout();
   if (attempt) {
@@ -2022,8 +2238,8 @@ async function openCheckoutModal() {
   if (window.NBD_Analytics) {
     window.NBD_Analytics.track("checkout_start", {
       itemCount: items.length,
-      subtotalAmount: totals.subtotalAmount || 599,
-      totalAmount: totals.totalAmount || 599,
+      subtotalAmount: totals.subtotal || 0,
+      totalAmount: totals.totalAmount || 0,
     });
   }
 
@@ -2091,12 +2307,14 @@ async function openCheckoutModal() {
   // Handle order submission
   const checkoutForm = document.getElementById("checkout-order-form");
   if (checkoutForm) {
+    const phoneInput = document.getElementById("checkout-phone");
+    updateCheckoutPhoneValidity(phoneInput);
     checkoutForm.onsubmit = async (e) => {
       e.preventDefault();
       if (!isCurrent() || confirmed || checkoutSubmitting) return;
       const placeBtn = document.getElementById("checkout-place-order-btn");
       const name = document.getElementById("checkout-name")?.value.trim();
-      const phone = document.getElementById("checkout-phone")?.value.trim();
+      const phone = phoneInput.value.trim();
       const email = document.getElementById("checkout-email")?.value.trim();
       const line1 = document.getElementById("checkout-addr-line1")?.value.trim();
       const line2 = document.getElementById("checkout-addr-line2")?.value.trim();
@@ -2110,6 +2328,11 @@ async function openCheckoutModal() {
           errorEl.textContent = "Please fill in all required customer and delivery address fields.";
           errorEl.style.display = "block";
         }
+        return;
+      }
+
+      if (!updateCheckoutPhoneValidity(phoneInput)) {
+        phoneInput.reportValidity();
         return;
       }
 
@@ -2169,7 +2392,7 @@ async function openCheckoutModal() {
       } catch (err) {
         if (!isCurrent()) return;
         if (errorEl) {
-          let msg = err.message || "Failed to place order. Please try again.";
+          let msg = err.message || "Could not send the order request. Please try again.";
           if (msg.includes("<") || msg.toLowerCase().startsWith("cannot ")) {
             msg = "We're having trouble connecting. Please try again or contact Divya on WhatsApp.";
           }
@@ -2188,7 +2411,21 @@ async function openCheckoutModal() {
   showModal();
 }
 
+function focusModalClose(modal) {
+  const focus = () => {
+    if (modal.classList.contains("is-open") && !modal.contains(document.activeElement)) {
+      modal.querySelector(".modal-close, .cart-drawer-close")?.focus({ preventScroll: true });
+    }
+  };
+  requestAnimationFrame(() => requestAnimationFrame(focus));
+  // Visibility can still be transitioning after the first paint.
+  setTimeout(focus, 300);
+}
+
 function closeAllModals() {
+  const productWasOpen = document.getElementById("product-modal")?.classList.contains("is-open");
+  const openDialog = document.querySelector("#checkout-modal.is-open, #service-modal.is-open");
+  const opener = productWasOpen ? productOpener : modalOpeners.get(openDialog);
   checkoutView++;
   document.querySelectorAll(".modal-overlay").forEach((modal) => {
     modal.classList.remove("is-open");
@@ -2196,6 +2433,7 @@ function closeAllModals() {
   });
   closeCartDrawer();
   document.body.style.overflow = "";
+  if (opener?.getClientRects().length) opener.focus({ preventScroll: true });
 }
 
 function escapeHtml(str) {
@@ -2212,7 +2450,7 @@ function escapeHtml(str) {
 // 09. VIEWPORT REVEAL ANIMATIONS (`IntersectionObserver`)
 // ---------------------------------------------------------------------------
 function initScrollAnimations() {
-  const elements = document.querySelectorAll(".fade-up");
+  const elements = document.querySelectorAll(".fade-up, .studio-home .studio-section-intro, .studio-home .studio-care-layout, .studio-home .studio-custom-layout, .studio-home .studio-offer-layout");
   if (!elements.length) return;
 
   if ("IntersectionObserver" in window) {
@@ -2221,6 +2459,10 @@ function initScrollAnimations() {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             entry.target.classList.add("is-visible");
+            if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
+              entry.target.animate([{ opacity: .7, transform: "translateY(16px)" }, { opacity: 1, transform: "none" }],
+                { duration: 650, easing: "cubic-bezier(.16,1,.3,1)" });
+            }
             observer.unobserve(entry.target);
           }
         });
@@ -2431,7 +2673,6 @@ function initMomentCarousel() {
 // ---------------------------------------------------------------------------
 function initDivvStylist() {
   const triggerBtn = document.getElementById("divv-floating-trigger");
-  const navBtn = document.getElementById("nav-divv-btn");
   const modal = document.getElementById("divv-widget-modal");
   const overlay = document.getElementById("divv-widget-overlay");
   const closeBtn = document.getElementById("divv-close-btn");
@@ -2439,7 +2680,14 @@ function initDivvStylist() {
   const bodyEl = document.getElementById("divv-widget-body");
   const formEl = document.getElementById("divv-input-form");
   const inputEl = document.getElementById("divv-input-field");
-  const unreadBadge = document.getElementById("divv-unread-badge");
+  const triggers = [triggerBtn, document.getElementById("mobile-divv-trigger")].filter(Boolean);
+  const unreadBadges = [document.getElementById("divv-unread-badge"), document.getElementById("mobile-divv-unread-badge")].filter(Boolean);
+  const updateUnread = () => unreadBadges.forEach((badge) => {
+    badge.textContent = unreadCount;
+    badge.style.display = unreadCount ? "grid" : "none";
+  });
+  const sendBtn = document.getElementById("divv-send-btn");
+  const liveStatus = document.getElementById("divv-live-status");
   const bannerEl = document.getElementById("divv-product-banner");
   const bannerText = document.getElementById("divv-banner-text");
   const bannerClear = document.getElementById("divv-banner-clear");
@@ -2447,14 +2695,17 @@ function initDivvStylist() {
   if (!triggerBtn || !modal || !bodyEl || !formEl) return;
 
   let isOpen = false;
-  let isTyping = false;
+  let activeRequest = null;
+  let returnFocus = null;
   let unreadCount = 0;
   let sessionHistory = [];
+  let shoppingTranscript;
 
   // Load session from storage if present
   try {
     const saved = sessionStorage.getItem("DIVV_SESSION_HISTORY");
-    if (saved) sessionHistory = JSON.parse(saved);
+    const history = saved ? JSON.parse(saved) : [];
+    if (Array.isArray(history)) sessionHistory = history.filter((turn) => turn && typeof turn.content === "string");
   } catch (e) {
     console.warn("Could not load Divv session history:", e);
   }
@@ -2518,7 +2769,7 @@ function initDivvStylist() {
 
   const updateProductBanner = () => {
     if (window.DivvCurrentProductContext && bannerEl && bannerText) {
-      bannerText.textContent = `Current Context: ${window.DivvCurrentProductContext}`;
+      bannerText.textContent = `Discussing ${window.DivvCurrentProductContext.replace(/ \[SKU:[^\]]+\]/, "")}`;
       bannerEl.style.display = "flex";
     } else if (bannerEl) {
       bannerEl.style.display = "none";
@@ -2533,105 +2784,318 @@ function initDivvStylist() {
     });
   }
 
-  const openDivv = () => {
+  const fitMobileViewport = () => {
+    const viewport = window.visualViewport;
+    if (!isOpen || !viewport || Math.abs(viewport.scale - 1) > .01 ||
+        viewport.height >= document.documentElement.clientHeight - 1 ||
+        !matchMedia("(max-width: 560px)").matches) {
+      modal.style.removeProperty("--divv-viewport-height");
+      modal.style.removeProperty("--divv-viewport-top");
+      return;
+    }
+    modal.style.setProperty("--divv-viewport-height", `${viewport.height}px`);
+    modal.style.setProperty("--divv-viewport-top", `${Math.max(0, viewport.offsetTop)}px`);
+  };
+
+  const openDivv = (event) => {
+    if (isOpen) return;
+    const source = event?.currentTarget;
+    const productModal = document.getElementById("product-modal");
+    const fromProduct = productModal?.contains(source);
+    returnFocus = source?.closest("#nav-links") ? document.querySelector(".nav-toggle") : source || triggers.find((button) => button.getClientRects().length) || triggerBtn;
+    if (!fromProduct) closeAllModals();
+
     isOpen = true;
     modal.classList.add("is-open");
     overlay.classList.add("is-open");
     modal.setAttribute("aria-hidden", "false");
-    overlay.setAttribute("aria-hidden", "false");
-
-    // Close other modals if active
-    if (typeof closeAllModals === "function") {
-      document.querySelectorAll(".modal-overlay").forEach((m) => {
-        m.classList.remove("is-open");
-        m.setAttribute("aria-hidden", "true");
-      });
-      document.body.style.overflow = "hidden";
-    }
+    triggers.forEach((button) => button.setAttribute("aria-expanded", "true"));
+    document.body.style.overflow = "hidden";
+    fitMobileViewport();
 
     unreadCount = 0;
-    if (unreadBadge) unreadBadge.style.display = "none";
-
+    updateUnread();
     updateProductBanner();
-
     if (sessionHistory.length === 0) {
       renderWelcomeScreen();
     } else {
       renderMessages();
+      if (activeRequest) showTyping();
+      if (shoppingTranscript?.turns === sessionHistory.length) bodyEl.scrollTop = shoppingTranscript.scrollTop;
+      shoppingTranscript = null;
     }
-
-    setTimeout(() => {
-      if (inputEl) inputEl.focus();
-    }, 320);
+    closeBtn.focus({ preventScroll: true });
   };
 
   const closeDivv = () => {
     isOpen = false;
+    if (returnFocus?.getClientRects().length) returnFocus.focus({ preventScroll: true });
     modal.classList.remove("is-open");
     overlay.classList.remove("is-open");
     modal.setAttribute("aria-hidden", "true");
-    overlay.setAttribute("aria-hidden", "true");
-    document.body.style.overflow = "";
+    triggers.forEach((button) => button.setAttribute("aria-expanded", "false"));
+    if (!document.querySelector(".modal-overlay.is-open")) document.body.style.overflow = "";
+    fitMobileViewport();
   };
 
-  triggerBtn.addEventListener("click", openDivv);
-  if (navBtn) {
-    navBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      openDivv();
+  triggers.forEach((button) => button.addEventListener("click", openDivv));
+  document.getElementById("product-return-divv")?.addEventListener("click", () => {
+    closeAllModals();
+    openDivv();
+  });
+  document.getElementById("shop-divv-help")?.addEventListener("click", openDivv);
+  document.querySelectorAll('a[href="#divv"]').forEach((link) => {
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      openDivv(event);
     });
-  }
-  if (closeBtn) closeBtn.addEventListener("click", closeDivv);
-  if (overlay) overlay.addEventListener("click", closeDivv);
+  });
+  closeBtn.addEventListener("click", () => closeDivv());
+  overlay?.addEventListener("click", () => closeDivv());
+  window.visualViewport?.addEventListener("resize", fitMobileViewport);
+  window.visualViewport?.addEventListener("scroll", fitMobileViewport);
+  window.addEventListener("resize", fitMobileViewport);
 
-  window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && isOpen) closeDivv();
+  modal.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.stopPropagation();
+      closeDivv();
+    }
+    if (event.key !== "Tab") return;
+    const controls = [...modal.querySelectorAll("a[href], button:not(:disabled), input")].filter((element) => element.getClientRects().length);
+    const first = controls[0];
+    const last = controls.at(-1);
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   });
 
-  if (resetBtn) {
-    resetBtn.addEventListener("click", () => {
-      sessionHistory = [];
-      sessionStorage.removeItem("DIVV_SESSION_HISTORY");
-      window.DivvCurrentProductContext = null;
-      updateProductBanner();
-      renderWelcomeScreen();
-    });
-  }
+  resetBtn?.addEventListener("click", () => {
+    activeRequest?.abort();
+    activeRequest = null;
+    sendBtn.disabled = false;
+    sessionHistory = [];
+    saveSession();
+    window.DivvCurrentProductContext = null;
+    updateProductBanner();
+    renderWelcomeScreen();
+    liveStatus.textContent = "New consultation started.";
+  });
+
+  const nailMoods = [
+    { id: "minimal", label: "Minimal", terms: /\b(?:minimal(?:ist)?|understated)\b/i, matches: (product) => ["office", "work"].includes(product.category) },
+    { id: "bridal", label: "Bridal", terms: /\b(?:bridal|wedding)\b/i, matches: (product) => product.category === "wedding" },
+    { id: "soft-glam", label: "Soft glam", terms: /\bsoft glam\b/i, matches: (product) => /soft blush|champagne|pearl shimmer/i.test(product.description) },
+    { id: "bold", label: "Bold", terms: /\b(?:bold|statement)\b/i, matches: (product) => product.category === "party" || /\b(?:bold|statement)\b/i.test(product.description) }
+  ];
+  const moodSwatch = (id) => `<span class="divv-swatch" data-mood="${id}" aria-hidden="true"></span>`;
+  const preferenceFor = (turn) => {
+    if (!turn || turn.role !== "user") return null;
+    if (turn.mood) return nailMoods.find((mood) => mood.id === turn.mood);
+    if (/\b(?:no|not|avoid|without|instead)\b/i.test(turn.content)) return null;
+    const moods = nailMoods.filter((mood) => mood.terms.test(turn.content));
+    return moods.length === 1 ? moods[0] : null;
+  };
 
   const renderWelcomeScreen = () => {
     bodyEl.innerHTML = `
       <div class="divv-welcome-screen">
-        <span class="divv-welcome-badge">✦ Studio AI Consultation</span>
-        <h4 class="divv-welcome-title">Welcome to Nails by Divya</h4>
-        <p class="divv-welcome-text">Hi! I'm Divv — Your Nail Stylist. I'm here to help you discover the perfect press-on set, explain customisations, or guide you through our at-home services.</p>
-        <div class="divv-chips-grid">
-          <button type="button" class="divv-chip" data-chip="How do I choose my perfect press-on nails?">Find My Perfect Nails</button>
-          <button type="button" class="divv-chip" data-chip="What press-on nail sets do you offer?">Browse Press-On Nails</button>
-          <button type="button" class="divv-chip" data-chip="Can I customize lengths, shapes, or chrome art?">Custom Designs</button>
-          <button type="button" class="divv-chip" data-chip="How does delivery and the 10-minute prep kit work?">Delivery &amp; Application</button>
-          <button type="button" class="divv-chip" data-chip="How do at-home nail appointments work across Delhi NCR?">Book At-Home Appointment</button>
+        <div class="divv-welcome-plate">
+          <div class="divv-welcome-copy">
+            <h3 class="divv-welcome-title">What feels like you?</h3>
+            <p class="divv-welcome-text">I’m Divv. Tell me what you’re getting dressed for, or let’s start with shape, colour or fit.</p>
+          </div>
+          <img src="assets/studio/consultation-480.webp" width="480" height="860" alt="Lavender and pearl nail art from Divya’s lookbook">
+        </div>
+        <p class="divv-prompts-title">Start with a question</p>
+        <div class="divv-prompt-list">
+          <button type="button" class="divv-chip" data-chip="Help me choose a nail shape. Ask me one question about my routine to get started.">Help me choose a shape</button>
+          <button type="button" class="divv-chip" data-chip="Help me find a design for my outfit. Ask what I’m wearing before suggesting a set.">Find a design for my outfit</button>
+          <button type="button" class="divv-chip" data-chip="Walk me through measuring for press-on nails and choosing a size.">Help me find my press-on size</button>
+        </div>
+        <div class="divv-mood-picker">
+          <h3>Pick a nail mood</h3>
+          <div class="divv-mood-options">
+            ${nailMoods.map(({ id, label }) => `
+              <button type="button" class="divv-mood-option" data-divv-mood="${id}">
+                ${moodSwatch(id)}${label}
+              </button>`).join("")}
+          </div>
+        </div>
+        <div class="divv-welcome-links">
+          <a class="studio-text-link" href="#sizing-guide">Sizing guide</a>
+          <a class="studio-text-link" href="#services">At-home menu</a>
         </div>
       </div>
     `;
-    bodyEl.querySelectorAll(".divv-chip").forEach((chip) => {
-      chip.addEventListener("click", () => {
-        const text = chip.getAttribute("data-chip");
-        if (text) sendUserMessage(text);
+    bodyEl.scrollTop = 0;
+  };
+
+  const products = [...document.querySelectorAll(".product-card[data-product-sku]")].map((card) => ({
+    card,
+    sku: card.dataset.productSku,
+    title: card.querySelector("h3, h4").textContent.trim(),
+    image: card.querySelector("img").getAttribute("src"),
+    category: card.dataset.category,
+    description: card.querySelector(".product-description")?.textContent.trim() || ""
+  }));
+
+  const getProductDetails = (product) => {
+    const catalog = catalogPrices.get(product.sku);
+    return {
+      title: catalog?.name || product.title,
+      description: catalog?.description?.trim() || product.description,
+      category: catalog?.categoryId || product.category
+    };
+  };
+
+  const serviceButtons = [...document.querySelectorAll(".service-card [data-action='service-book']")];
+  const serviceNames = [
+    ["Nail Extensions", /\b(?:bespoke gel extensions|nail extensions|soft gel extensions)\b/i],
+    ["Natural Nail Overlay", /\b(?:natural nail overlay|structured gel overlay)\b/i],
+    ["Power Polish / Shellac", /\b(?:power polish|shellac)\b/i],
+    ["3D & Custom Nail Art", /\b(?:3D (?:chrome and |custom )?nail art|custom nail art)\b/i],
+    ["Safe Extension Removal", /\b(?:extension removal|professional soak-off)\b/i]
+  ];
+  const linkArrow = '<svg class="studio-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 12h17m-6-6 6 6-6 6"/></svg>';
+
+  const plainDivvText = (content) => content.replace(/\*\*|__|\x60/g, "");
+
+  const matchingProducts = (content) => {
+    const text = plainDivvText(content).toLowerCase();
+    return products.map((product) => {
+      const name = getProductDetails(product).title.toLowerCase();
+      const position = text.indexOf(name);
+      return { ...product, position: position < 0 ? text.indexOf(product.title.toLowerCase()) : position };
+    }).filter((product) => product.position >= 0)
+      .sort((first, second) => first.position - second.position)
+      .slice(0, 4);
+  };
+
+  const catalogPriceText = (sku) => {
+    const product = catalogPrices.get(sku);
+    return product ? formatCatalogPrice(product.effectivePrice) : "Price unavailable";
+  };
+
+  const refreshRecommendationPrices = () => {
+    const prices = bodyEl.querySelectorAll("[data-divv-price]");
+    if (!prices.length) return;
+    getCatalogPrices().then(() => {
+      prices.forEach((price) => {
+        renderCatalogPrice(price, catalogPrices.get(price.dataset.divvPrice));
       });
     });
   };
 
-  const renderMessages = () => {
-    bodyEl.innerHTML = sessionHistory.map((turn) => {
+  const renderDesignCard = (product, mood) => {
+    const { sku, image } = product;
+    const details = getProductDetails(product);
+    const shortDescription = shortProductDescription(details.description);
+    const matchesMood = mood?.matches(details);
+    const price = catalogPrices.has(sku) ? catalogPriceText(sku) : "Checking price…";
+    const name = escapeHtml(details.title);
+
+    return `<a class="divv-design-link" href="${productPageUrl(sku, true)}" data-divv-product="${escapeHtml(sku)}" aria-label="View set &amp; sizes for ${name}">
+      <img src="${escapeHtml(image)}" alt="" loading="lazy">
+      <div class="divv-design-copy">
+        ${matchesMood ? `<span class="divv-design-match">${moodSwatch(mood.id)}${mood.label} match</span>` : ""}
+        <h4 class="divv-design-name">${name}</h4>
+        <span class="divv-design-price" data-divv-price="${escapeHtml(sku)}">${price}</span>
+        ${shortDescription ? `<p class="divv-design-description">${escapeHtml(shortDescription)}</p>` : ""}
+        <span class="divv-design-action">View set &amp; sizes ${linkArrow}</span>
+      </div>
+    </a>`;
+  };
+
+  const renderRecommendations = (content, matches, mood) => {
+    const services = serviceNames.filter(([, pattern]) => pattern.test(content)).slice(0, 2);
+    if (!matches.length && !services.length) return "";
+    return `<div class="divv-recommendations">
+      ${matches.length ? `<h3 class="divv-recommendation-title">Divv’s picks</h3>
+        <div class="divv-design-grid">${matches.map((product) => renderDesignCard(product, mood)).join("")}</div>` : ""}
+      ${services.map(([title]) => `<a class="studio-text-link divv-service-link" href="#services" data-divv-service="${escapeHtml(title)}">View ${escapeHtml(title)} ${linkArrow}</a>`).join("")}
+    </div>`;
+  };
+
+  const compactRecommendation = (content, matches) => {
+    if (!matches.length || (content.length < 200 && !/₹\s*\d/.test(content))) return null;
+    const prose = plainDivvText(content);
+    const opening = prose.slice(0, matches[0].position).match(/^[^\n.!?]{12,150}[.!?](?=\s|$)/)?.[0].trim() || "";
+    const question = prose.match(/(?:^|[.!\n])\s*([^.!?\n]{12,150}\?)\s*$/)?.[1] || "";
+    return {
+      opening: /₹|\b(?:prices?|shipping|delivery)\b/i.test(opening) ? "" : opening,
+      question
+    };
+  };
+
+  const openLinkedProduct = (sku, fromDivv = false) => {
+    const match = products.find((product) => product.sku === sku);
+    if (!match) return;
+    if (productPageSku && productPageSku !== sku) {
+      location.assign(productPageUrl(sku, fromDivv));
+      return;
+    }
+    openProductModalFromCard(match.card, { fromDivv });
+  };
+
+  bodyEl.addEventListener("click", (event) => {
+    const retry = event.target.closest("[data-divv-retry]");
+    if (retry && !activeRequest) {
+      const turn = sessionHistory[sessionHistory.length - 2];
+      closeBtn.focus({ preventScroll: true });
+      sendUserMessage(turn.content, turn.mood, true);
+      return;
+    }
+    const chip = event.target.closest("[data-chip], [data-divv-mood]");
+    const link = event.target.closest("a[data-divv-product], a[href^='#']");
+    if (chip) {
+      const mood = nailMoods.find(({ id }) => id === chip.dataset.divvMood);
+      const message = mood ? `Help me find a few ${mood.label.toLowerCase()} press-on sets.` : chip.dataset.chip;
+      sendUserMessage(message, mood?.id);
+      if (matchMedia("(max-width: 560px)").matches) closeBtn.focus({ preventScroll: true });
+      else inputEl.focus({ preventScroll: true });
+    }
+    if (!link || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    if (link.dataset.divvProduct) {
+      event.preventDefault();
+      shoppingTranscript = { scrollTop: bodyEl.scrollTop, turns: sessionHistory.length };
+      closeDivv();
+      closeAllModals();
+      openLinkedProduct(link.dataset.divvProduct, true);
+    } else if (link.dataset.divvService) {
+      const button = serviceButtons.find((candidate) => candidate.dataset.serviceTitle === link.dataset.divvService);
+      if (!button) {
+        closeDivv();
+        return;
+      }
+      event.preventDefault();
+      closeDivv();
+      closeAllModals();
+      button.click();
+    } else {
+      closeDivv();
+    }
+  });
+
+  const renderMessages = (revealReply = false) => {
+    bodyEl.innerHTML = sessionHistory.map((turn, index) => {
       const isUser = turn.role === "user";
-      const formattedContent = formatDivvMarkdown(turn.content);
+      const matches = isUser || turn.failed ? [] : matchingProducts(turn.content);
+      const mood = preferenceFor(isUser ? turn : sessionHistory[index - 1]);
+      const compact = compactRecommendation(turn.content, matches);
+      const formattedContent = formatDivvMarkdown(compact ? compact.opening : turn.content);
       const handoffKeywordRegex = /(chat directly with divya|please chat directly|chat with the artist|personal guidance|divya will personally assist)/i;
-      const showHandoff = !isUser && (turn.hasHandoff || handoffKeywordRegex.test(turn.content));
+      const mentionsArtistContact = /\bDivya\b/i.test(turn.content) && /\bWhatsApp\b/i.test(turn.content);
+      const showHandoff = !isUser && (turn.hasHandoff || mentionsArtistContact || handoffKeywordRegex.test(turn.content));
 
       let handoffMarkup = "";
       if (showHandoff) {
         handoffMarkup = `
-          <a href="https://wa.me/${CHECKOUT_CONFIG.whatsappNumber}?text=Hi%20Divya!%20I%20was%20chatting%20with%20Divv%20and%20I'd%20love%20some%20help%20with%20my%20nails." target="_blank" rel="noopener noreferrer" class="divv-handoff-btn">
+          <a href="https://wa.me/${CHECKOUT_CONFIG.whatsappNumber}?text=Hi%20Divya!%20I%20was%20chatting%20with%20Divv%20and%20I'd%20love%20some%20help%20with%20my%20nails." target="_blank" rel="noopener noreferrer" class="studio-text-link divv-handoff-btn">
             <span>Consult Divya on WhatsApp &rarr;</span>
           </a>
         `;
@@ -2639,16 +3103,31 @@ function initDivvStylist() {
 
       return `
         <div class="divv-message ${isUser ? "is-user" : "is-ai"}">
-          <div class="divv-bubble">
+          <span class="divv-message-byline">${isUser ? (mood ? `${moodSwatch(mood.id)}You` : "You") : '<span class="divv-mark" aria-hidden="true">d</span>Divv'}</span>
+          ${formattedContent || handoffMarkup ? `<div class="divv-bubble">
             <div>${formattedContent}</div>
+            ${turn.failed && index === sessionHistory.length - 1 && sessionHistory[index - 1]?.role === "user" && location.protocol !== "file:"
+              ? '<button type="button" class="studio-text-link divv-retry" data-divv-retry>Try again</button>' : ""}
             ${handoffMarkup}
-          </div>
-          <span class="divv-timestamp">${turn.timestamp || ""}</span>
+          </div>` : ""}
+          ${isUser ? "" : renderRecommendations(turn.content, matches, mood)}
+          ${compact?.question ? `<p class="divv-follow-up">${escapeHtml(compact.question)}</p>` : ""}
+          ${compact ? `<details class="divv-full-reply">
+            <summary>Read Divv’s full reply</summary>
+            <div>${formatDivvMarkdown(turn.content)}</div>
+          </details>` : ""}
         </div>
       `;
     }).join("");
+    refreshRecommendationPrices();
 
-    bodyEl.scrollTo({ top: bodyEl.scrollHeight, behavior: "smooth" });
+    if (revealReply) {
+      const reply = bodyEl.lastElementChild.getBoundingClientRect();
+      const transcript = bodyEl.getBoundingClientRect();
+      bodyEl.scrollTop += reply.top - transcript.top - 12;
+    } else {
+      bodyEl.scrollTop = bodyEl.scrollHeight;
+    }
   };
 
   const showTyping = () => {
@@ -2656,86 +3135,94 @@ function initDivvStylist() {
     const typingDiv = document.createElement("div");
     typingDiv.id = "divv-typing-indicator";
     typingDiv.className = "divv-typing";
-    typingDiv.innerHTML = `<span></span><span></span><span></span>`;
+    typingDiv.textContent = "Divv is thinking…";
     bodyEl.appendChild(typingDiv);
-    bodyEl.scrollTo({ top: bodyEl.scrollHeight, behavior: "smooth" });
+    bodyEl.scrollTop = bodyEl.scrollHeight;
   };
 
-  const hideTyping = () => {
-    const el = document.getElementById("divv-typing-indicator");
-    if (el) el.remove();
+  const moodRequest = (text, moodId) => {
+    const mood = nailMoods.find(({ id }) => id === moodId);
+    if (!mood) return text;
+    const candidates = products.filter((product) => !catalogPrices.size || catalogPrices.has(product.sku))
+      .map(getProductDetails)
+      .filter(mood.matches)
+      .map(({ title }) => title);
+    if (!candidates.length) return text;
+    return `${text} Suggest up to three of these exact catalogue sets and ask one short follow-up question: ${candidates.join(", ")}. Leave the prices and descriptions to the product cards.`;
   };
 
-  const sendUserMessage = async (text) => {
-    if (!text || isTyping) return;
+  const sendUserMessage = async (text, mood, retry = false) => {
+    if (!text || activeRequest) return;
 
-    if (sessionHistory.length === 0) {
-      bodyEl.innerHTML = "";
+    const history = (retry ? sessionHistory.slice(0, -2) : sessionHistory)
+      .filter((turn) => !turn.failed)
+      .slice(-8)
+      .map(({ role, content }) => ({ role, content }));
+    const productContext = retry
+      ? sessionHistory[sessionHistory.length - 2].productContext ?? null
+      : window.DivvCurrentProductContext || null;
+    if (retry) {
+      sessionHistory.pop();
+    } else {
+      sessionHistory.push({ role: "user", content: text, timestamp: getTimestamp(), mood, productContext });
     }
-
-    const userTurn = { role: "user", content: text, timestamp: getTimestamp() };
-    sessionHistory.push(userTurn);
     saveSession();
     renderMessages();
-
-    if (inputEl) inputEl.value = "";
-    isTyping = true;
+    if (!retry) inputEl.value = "";
+    sendBtn.disabled = true;
     showTyping();
+    liveStatus.textContent = "Divv is thinking.";
 
+    const request = new AbortController();
+    activeRequest = request;
+    const timeoutId = setTimeout(() => request.abort(), 45000);
+    let assistantTurn;
     try {
-      const apiUrl = `${window.NailsApi.getBaseUrl()}/chat`;
-      const payload = {
-        message: text,
-        productContext: window.DivvCurrentProductContext || null,
-        history: sessionHistory.slice(0, -1)
-      };
-
-      // 45-second timeout — generous enough for cold-start Render + Gemini response latency
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 45000);
-
-      const res = await fetch(apiUrl, {
+      if (location.protocol === "file:") throw new Error("Divv requires the hosted storefront");
+      const response = await fetch(`${window.NailsApi.getBaseUrl()}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        signal: controller.signal
+        body: JSON.stringify({
+          message: moodRequest(text, mood),
+          productContext,
+          history
+        }),
+        signal: request.signal
       });
-      clearTimeout(timeoutId);
-
-      if (!res.ok) {
-        throw new Error(`[Divv API HTTP ${res.status}] Service temporarily unavailable.`);
-      }
-
-      const data = await res.json();
-      hideTyping();
-      isTyping = false;
-
-      const replyText = data.reply || "I couldn't find that exact detail. I'd love to help with that—since this needs personal guidance, please chat directly with Divya.";
-      const aiTurn = { role: "assistant", content: replyText, timestamp: getTimestamp() };
-      sessionHistory.push(aiTurn);
-      saveSession();
-      renderMessages();
-
-      if (!isOpen) {
-        unreadCount++;
-        if (unreadBadge) {
-          unreadBadge.textContent = unreadCount;
-          unreadBadge.style.display = "inline-block";
-        }
-      }
-    } catch (err) {
-      console.error("Divv API error:", err);
-      hideTyping();
-      isTyping = false;
-      const errorTurn = {
+      if (!response.ok) throw new Error(`Divv returned HTTP ${response.status}`);
+      const data = await response.json();
+      if (typeof data.reply !== "string" || !data.reply.trim()) throw new Error("Divv returned an empty reply");
+      assistantTurn = {
         role: "assistant",
-        content: "I'm having trouble connecting right now. Please click the button below to chat directly with Divya via WhatsApp!",
+        content: data.reply.trim(),
+        timestamp: getTimestamp()
+      };
+    } catch {
+      if (activeRequest !== request) return;
+      assistantTurn = {
+        role: "assistant",
+        content: location.protocol === "file:"
+          ? "Open the hosted storefront to chat with Divv. You can also reach Divya on WhatsApp."
+          : "I couldn’t get a reply just now. I’ve kept your message so you can try again.",
         timestamp: getTimestamp(),
+        failed: true,
         hasHandoff: true
       };
-      sessionHistory.push(errorTurn);
-      saveSession();
-      renderMessages();
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
+    if (activeRequest !== request) return;
+    activeRequest = null;
+    sendBtn.disabled = false;
+    sessionHistory.push(assistantTurn);
+    saveSession();
+    renderMessages(isOpen);
+    if (isOpen) {
+      liveStatus.textContent = assistantTurn.content;
+    } else {
+      unreadCount += 1;
+      updateUnread();
     }
   };
 
@@ -2744,6 +3231,14 @@ function initDivvStylist() {
     const text = inputEl ? inputEl.value.trim() : "";
     if (text) sendUserMessage(text);
   });
+
+  const openFromHash = () => {
+    const hash = window.location.hash;
+    if (hash === "#divv") openDivv();
+    if (hash.startsWith("#set-")) openLinkedProduct(hash.slice(5));
+  };
+  window.addEventListener("hashchange", openFromHash);
+  openFromHash();
 }
 
 // ---------------------------------------------------------------------------
@@ -2891,28 +3386,22 @@ function initReviewsEngine() {
       const data = await res.json();
       const reviews = data.reviews || [];
 
-      if (reviews.length === 0) {
-        reviewsContainer.innerHTML = `
-          <div class="review-empty-state" style="grid-column: 1 / -1; text-align: center; padding: 2.5rem 1.5rem; background: rgba(250, 247, 242, 0.6); border: 1px dashed rgba(212, 175, 55, 0.4); border-radius: 12px; max-width: 680px; margin: 0 auto;">
-            <p style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 1.35rem; color: #2C2623; margin: 0 0 0.5rem 0;">Curated Client Voices</p>
-            <p style="font-size: 0.95rem; color: var(--text-muted); line-height: 1.6; margin: 0;">Our verified client reviews are published exclusively from genuine appointments and press-on deliveries. We never fabricate ratings or publish unverified testimonials.</p>
-          </div>
-        `;
-        return;
-      }
-
+      if (!reviews.length) return;
+      const title = document.getElementById("reviews-title");
+      if (title) title.hidden = false;
       reviewsContainer.innerHTML = reviews.map((r) => {
-        const stars = "★".repeat(Math.min(Math.max(r.rating || 5, 1), 5));
-        const author = r.customer_name ? r.customer_name.replace(/(\w+)\s+(.)\w*/, "$1 $2.") : "Client";
-        const metaTag = r.service_or_product_tag || "Studio Service";
-        const cleanText = (r.review_text || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const rating = Number(r.rating);
+        const stars = Number.isInteger(rating) && rating >= 1 && rating <= 5 ? "★".repeat(rating) : "";
+        const author = escapeHtml(r.customer_name ? r.customer_name.replace(/(\w+)\s+(.)\w*/, "$1 $2.") : "Client");
+        const metaTag = escapeHtml(r.service_or_product_tag || "Studio Service");
+        const cleanText = escapeHtml(r.review_text);
         const verifiedTag = r.is_verified_purchase
           ? '<span style="display:inline-block; margin-left: 6px; font-size: 0.72rem; color: #D4AF37; font-weight: 600; letter-spacing: 0.04em;">✓ Verified Purchase</span>'
           : "";
 
         return `
           <div class="review-card">
-            <div class="review-stars">${stars}</div>
+            ${stars ? `<div class="review-stars" aria-label="${rating} out of 5 stars">${stars}</div>` : ""}
             <p class="review-quote">&ldquo;${cleanText}&rdquo;</p>
             <div class="review-author">
               <span class="author-client">${author}${verifiedTag}</span>
@@ -3044,8 +3533,12 @@ function initLookbookEngine() {
 
   // Bind initial static fallback cards first
   bindCardFilters();
+  document.querySelectorAll("[data-look]").forEach((button) => {
+    button.addEventListener("click", () => document.getElementById(button.dataset.look)?.click());
+  });
   // Initialize mobile lookbook carousel & auto-sliding engine
   initMobileLookbookCarousel();
+  grid.closest("details")?.addEventListener("toggle", () => window.__updateLookbookPagination?.());
   // Fetch live lookbook designs from backend
   loadPortfolioDesigns();
 }

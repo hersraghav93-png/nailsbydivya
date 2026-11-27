@@ -20,8 +20,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=24">
+  <link rel="stylesheet" href="style.css?v=studio-release1">
   <link rel="stylesheet" href="auth.css?v=17">
+  <link rel="stylesheet" href="studio.css?v=11">
   <script type="application/ld+json">
   {
     "@context":"https://schema.org",
@@ -66,7 +67,7 @@
           <span class="nav-cart-label">Bag</span>
           <span class="nav-cart-badge" id="nav-cart-count" style="display: none;">0</span>
         </a>
-        <a href="index.html#contact" class="nav-cta-link" id="nav-book-btn">Book Now</a>
+        <a href="index.html#services" class="nav-cta-link" id="nav-book-btn">Book Now</a>
       </div>
 
       <!-- Mobile Quick Actions & Hamburger Toggle -->
@@ -121,7 +122,7 @@
       <a href="index.html#shop" class="button secondary-button mobile-cart-action" id="mobile-drawer-cart-btn" style="width: 100%; justify-content: center; text-decoration: none;">
         <span>Shopping Bag</span>
       </a>
-      <a href="index.html#contact" class="button primary-button mobile-book-action" id="mobile-drawer-book-btn">
+      <a href="index.html#services" class="button primary-button mobile-book-action" id="mobile-drawer-book-btn">
         <span>Book Now &rarr;</span>
       </a>
       <button type="button" class="button secondary-button nav-auth-btn mobile-auth-action" id="mobile-drawer-auth-btn" style="width: 100%; justify-content: center;">
@@ -136,15 +137,17 @@
 
   <main id="main-content">
     <section class="seo-hero section">
-      <div class="container">
-        <div class="seo-breadcrumb"><a href="index.html">Nails by Divya</a><span>/</span><span>Nail Art</span></div>
-        <span class="editorial-label">CUSTOM NAIL ART &bull; BESPOKE DESIGNS</span>
-        <h1>Custom Nail Art &amp; Nail Designs</h1>
-        <p class="seo-hero-lead">From clean micro-French tips to molten liquid chrome, delicate floral linework, 3D sculpted pearls and outfit-matched nail art, create a look designed around your personal aesthetic, wedding lehenga, or event inspiration. At-home nail art appointments across Delhi NCR.</p>
-        <div class="seo-hero-actions">
-          <a class="button primary-button whatsapp-button" href="https://wa.me/918447391310?text=Hi%20Divya!%20I%27d%20like%20to%20discuss%20a%20custom%20nail%20design.">Discuss a Design</a>
-          <a class="button secondary-button" href="index.html#portfolio">See Recent Work</a>
+      <div class="container studio-route-hero">
+        <div class="studio-route-copy">
+          <div class="seo-breadcrumb"><a href="index.html">Nails by Divya</a><span>/</span><span>Nail Art</span></div>
+          <h1>Custom Nail Art</h1>
+          <p class="seo-hero-lead">Hand-painted florals, chrome and sculpted details inspired by your outfit or an idea you bring. At-home nail art appointments are available across Delhi NCR.</p>
+          <div class="seo-hero-actions">
+            <a class="button primary-button whatsapp-button" href="https://wa.me/918447391310?text=Hi%20Divya!%20I%27d%20like%20to%20discuss%20a%20custom%20nail%20design.">Discuss a Design</a>
+            <a class="studio-text-link" href="index.html#portfolio">See Recent Work</a>
+          </div>
         </div>
+        <img class="studio-route-photo" src="assets/studio/midnight-740.webp" alt="Midnight Petal Blossom nail art by Divya" fetchpriority="high">
       </div>
     </section>
 
@@ -285,8 +288,7 @@
             Selected residential areas across South Delhi, Gurgaon / Gurugram, Noida, Aerocity &amp; Central Delhi.
           </p>
           <p class="footer-info-meta">
-            <strong>Operating Hours:</strong> 12:00 PM – 6:00 PM<br>
-            Tuesday through Sunday (Advance notice required)
+            <strong>Operating Hours:</strong> <span data-studio-hours>Tuesday–Sunday, 12:00 PM–6:00 PM IST</span>
           </p>
           <p class="footer-info-meta">
             <strong>Pan-India Shipping:</strong> Handmade press-on sets delivered across India via tracked couriers once crafted.
@@ -311,9 +313,9 @@
 
   <!-- Client-side Config & Authentication Layer -->
   <script src="firebase-config.js?v=4"></script>
-  <script src="account-api.js?v=4"></script>
+  <script src="account-api.js?v=studio-release1"></script>
   <script src="auth.js?v=8"></script>
   <script src="auth-modal.js?v=6"></script>
-  <script src="script.js?v=26"></script>
+  <script src="script.js?v=studio-release1"></script>
 </body>
 </html>
